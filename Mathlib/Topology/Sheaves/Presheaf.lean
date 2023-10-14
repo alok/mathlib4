@@ -78,13 +78,13 @@ attribute [sheaf_restrict] bot_le le_top le_refl inf_le_left inf_le_right
 /-- `restrict_tac` solves relations among subsets (copied from `aesop cat`) -/
 macro (name := restrict_tac) "restrict_tac" c:Aesop.tactic_clause* : tactic =>
 `(tactic|
-  aesop $c* (options := { introsTransparency? := some .default, terminal := true })
+  aesop $c* (options := { terminal := true })
   (rule_sets [$(Lean.mkIdent `Restrict):ident]))
 
 /-- `restrict_tac?` passes along `Try this` from `aesop` -/
 macro (name := restrict_tac?) "restrict_tac?" c:Aesop.tactic_clause* : tactic =>
 `(tactic|
-  aesop? $c* (options := { introsTransparency? := some .default, terminal := true })
+  aesop? $c* (options := { terminal := true })
   (rule_sets [$(Lean.mkIdent `Restrict):ident]))
 
 example {X : TopCat} {v w x y z : Opens X} (h₀ : v ≤ x) (h₁ : x ≤ z ⊓ w) (h₂ : x ≤ y ⊓ z) : v ≤ y :=
