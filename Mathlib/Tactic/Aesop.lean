@@ -7,6 +7,16 @@ import Aesop
 import Mathlib.Tactic.Relation.Rfl
 import Std.Tactic.Ext
 
+/-!
+# Configuration of `aesop` for Mathlib.
+
+We add `ext` and `intro` as unsafe rules (so they can be backtracked if they don't work out).
+Adding `intro` has the effect of allowing looking inside default transparency definitions for
+lambdas.
+
+We add Mathlib's version of `rfl`.
+-/
+
 namespace Std.Tactic.Ext
 open Lean Elab Tactic
 
