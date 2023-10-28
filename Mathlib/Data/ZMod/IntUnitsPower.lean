@@ -20,8 +20,6 @@ See also the related `negOnePow`.
   `npow`, and `zpow`.
 -/
 
-local macro_rules | `($x ^ $y) => `(HPow.hPow $x $y) -- Porting note: See issue lean4#2220
-
 /-- There is a canonical power operation by `ℤˣ` on `ZMod 2`.
 
 In lemma names, this operations is called `z₂pow` to match `zpow`. -/

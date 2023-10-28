@@ -319,9 +319,6 @@ theorem convexBodyLt_convex : Convex ℝ (convexBodyLt K f) :=
 
 open Classical Fintype MeasureTheory MeasureTheory.Measure BigOperators
 
--- See: https://github.com/leanprover/lean4/issues/2220
-local macro_rules | `($x ^ $y) => `(HPow.hPow $x $y)
-
 variable [NumberField K]
 
 /-- The fudge factor that appears in the formula for the volume of `convexBodyLt`. -/
