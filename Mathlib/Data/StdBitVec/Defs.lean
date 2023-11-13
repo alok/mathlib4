@@ -25,6 +25,7 @@ comment them out for now.
 
 ### Structural
 * `Std.BitVec.zeroExtendLE`: Zero extend a bitvector to a statically known larger size
+* `Std.BitVec.ofBool`: Turn a Boolean into a bitvector of length 1
 
 ### Comparisons
 * `Std.BitVec.sgt`: Signed greater-than comparison of bitvectors
@@ -93,6 +94,11 @@ namespace Std.BitVec
 -/
 def zeroExtendLE {w v : ℕ} (h : w ≤ v) (x : BitVec w) : BitVec v :=
   ⟨x.toFin.castLE <| pow_le_pow (by decide) h⟩
+
+/-- Turn a `Bool` into a bitvector of length `1` -/
+def ofBool : Bool → BitVec 1
+  | true  => 1
+  | false => 0
 
 /-!
 ## Comparisons
