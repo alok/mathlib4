@@ -1,7 +1,26 @@
-
+/-
+Copyright (c) 2023 Rémy Degenne. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Rémy Degenne
+-/
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Mathlib.Probability.Notation
 import Mathlib.Probability.ConditionalProbability
+
+/-!
+# Entropy and conditional entropy
+
+## Main definitions
+
+* `measureEntropy`: entropy of a measure
+* `entropy`: entropy of a random variable, defined as `measureEntropy (volume.map X)`
+* `condEntropy`: conditional entropy of a random variable `X` w.r.t. another one `Y`
+
+## Main statements
+
+* `chain_rule`: `entropy (fun ω ↦ (X ω, Y ω)) = entropy Y + condEntropy X Y`
+
+-/
 
 open Real MeasureTheory
 
@@ -136,6 +155,7 @@ end aux_lemmas
 
 section negIdMulLog
 
+/-- The function `x ↦ - x * log x` from `ℝ` to `ℝ`. -/
 noncomputable
 def negIdMulLog (x : ℝ) : ℝ := - x * log x
 
