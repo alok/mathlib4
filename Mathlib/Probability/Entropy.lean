@@ -20,6 +20,13 @@ import Mathlib.Probability.ConditionalProbability
 
 * `chain_rule`: `entropy (fun ω ↦ (X ω, Y ω)) = entropy Y + condEntropy X Y`
 
+## Notations
+
+* `Hm[μ] = measureEntropy μ`
+* `H[X] = entropy X`
+* `H[X | Y ← y] = Hm[(ℙ[| Y ⁻¹' {y}]).map X]`
+* `H[X | Y] = condEntropy X Y`, such that `H[X | Y] = (volume.map Y)[fun y ↦ H[X | Y ← y]]`
+
 -/
 
 open Real MeasureTheory
@@ -212,19 +219,21 @@ a call to `simp` will simplify `(μ Set.univ)⁻¹ • μ` to `μ`. -/
 noncomputable
 def measureEntropy (μ : Measure S) : ℝ := ∑ s, negIdMulLog (((μ Set.univ)⁻¹ • μ) {s}).toReal
 
+notation:100 "Hm[" μ "]" => measureEntropy μ
+
 @[simp]
-lemma measureEntropy_zero : measureEntropy (0 : Measure S) = 0 := by
+lemma measureEntropy_zero : Hm[(0 : Measure S)] = 0 := by
   simp [measureEntropy]
 
 lemma measureEntropy_of_not_isFiniteMeasure (h : ¬ IsFiniteMeasure μ) :
-    measureEntropy μ = 0 := by
+    Hm[μ] = 0 := by
   simp [measureEntropy, not_isFiniteMeasure_iff.mp h]
 
 lemma measureEntropy_of_isProbabilityMeasure (μ : Measure S) [IsProbabilityMeasure μ] :
-    measureEntropy μ = ∑ s, negIdMulLog (μ {s}).toReal := by
+    Hm[μ] = ∑ s, negIdMulLog (μ {s}).toReal := by
   simp [measureEntropy]
 
-lemma measureEntropy_univ_smul : measureEntropy ((μ Set.univ)⁻¹ • μ) = measureEntropy μ := by
+lemma measureEntropy_univ_smul : Hm[(μ Set.univ)⁻¹ • μ] = Hm[μ] := by
   by_cases hμ_fin : IsFiniteMeasure μ
   swap
   · rw [measureEntropy_of_not_isFiniteMeasure hμ_fin]
@@ -242,7 +251,7 @@ lemma measureEntropy_univ_smul : measureEntropy ((μ Set.univ)⁻¹ • μ) = me
     · simp [hμ.out]
     · exact measure_ne_top _ _
 
-lemma measureEntropy_nonneg (μ : Measure S) : 0 ≤ measureEntropy μ := by
+lemma measureEntropy_nonneg (μ : Measure S) : 0 ≤ Hm[μ] := by
   by_cases hμ_fin : IsFiniteMeasure μ
   swap; · rw [measureEntropy_of_not_isFiniteMeasure hμ_fin]
   refine Finset.sum_nonneg (fun s _ ↦ negIdMulLog_nonneg ENNReal.toReal_nonneg ?_)
@@ -253,7 +262,7 @@ lemma measureEntropy_nonneg (μ : Measure S) : 0 ≤ measureEntropy μ := by
   | inr hμ => exact prob_le_one
 
 lemma measureEntropy_le_card_aux (μ : Measure S) [IsProbabilityMeasure μ] :
-    measureEntropy μ ≤ log (Fintype.card S) := by
+    Hm[μ] ≤ log (Fintype.card S) := by
   cases isEmpty_or_nonempty S with
   | inl h =>
     have : μ = 0 := Subsingleton.elim _ _
@@ -265,8 +274,7 @@ lemma measureEntropy_le_card_aux (μ : Measure S) [IsProbabilityMeasure μ] :
     simp only [measure_univ, inv_one, one_smul]
     sorry -- use h_jensen, see pfr repo
 
-lemma measureEntropy_le_log_card (μ : Measure S) :
-    measureEntropy μ ≤ log (Fintype.card S) := by
+lemma measureEntropy_le_log_card (μ : Measure S) : Hm[μ] ≤ log (Fintype.card S) := by
   have h_log_card_nonneg : 0 ≤ log (Fintype.card S) := by
     cases isEmpty_or_nonempty S with
     | inl h =>
@@ -296,11 +304,16 @@ variable {X : Ω → S}
 
 /-- Entropy of a random variable with values in a finite measurable space. -/
 noncomputable
-def entropy (X : Ω → S) : ℝ := measureEntropy (volume.map X)
+def entropy (X : Ω → S) : ℝ := Hm[volume.map X]
 
-lemma entropy_nonneg (X : Ω → S) : 0 ≤ entropy X := measureEntropy_nonneg _
+notation:100 "H[" X "]" => entropy X
 
-lemma entropy_le_log_card (X : Ω → S) : entropy X ≤ log (Fintype.card S) :=
+notation:100 "H[" X "|" Y "←" y "]" =>
+  measureEntropy (Measure.map X (ProbabilityTheory.cond volume (Y ⁻¹' {y})))
+
+lemma entropy_nonneg (X : Ω → S) : 0 ≤ H[X] := measureEntropy_nonneg _
+
+lemma entropy_le_log_card (X : Ω → S) : H[X] ≤ log (Fintype.card S) :=
   measureEntropy_le_log_card _
 
 end entropy
@@ -314,14 +327,16 @@ This is the expectation under the law of `Y` of the entropy of the law of `X` co
 event `Y = y`. -/
 noncomputable
 def condEntropy (X : Ω → S) (Y : Ω → T) : ℝ :=
-  (volume.map Y)[fun y ↦ measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X)]
+  (volume.map Y)[fun y ↦ H[X | Y ← y]]
 
-lemma condEntropy_nonneg (X : Ω → S) (Y : Ω → T) : 0 ≤ condEntropy X Y :=
+notation:100 "H[" X "|" Y "]" => condEntropy X Y
+
+lemma condEntropy_nonneg (X : Ω → S) (Y : Ω → T) : 0 ≤ H[X | Y] :=
   integral_nonneg (fun _ ↦ measureEntropy_nonneg _)
 
 lemma condEntropy_le_log_card (X : Ω → S) (Y : Ω → T) (hY : Measurable Y) :
-    condEntropy X Y ≤ log (Fintype.card S) := by
-  have : ∀ y, measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X) ≤ log (Fintype.card S) :=
+    H[X | Y] ≤ log (Fintype.card S) := by
+  have : ∀ y, H[X | Y ← y] ≤ log (Fintype.card S) :=
     fun y ↦ measureEntropy_le_log_card _
   refine (integral_mono_of_nonneg ?_ (integrable_const (log (Fintype.card S))) ?_).trans ?_
   · exact ae_of_all _ (fun _ ↦ measureEntropy_nonneg _)
@@ -330,8 +345,7 @@ lemma condEntropy_le_log_card (X : Ω → S) (Y : Ω → T) (hY : Measurable Y) 
     simp
 
 lemma measureEntropy_cond_map (hX : Measurable X) (y : T) :
-    measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X)
-      = ∑ x, negIdMulLog ((ℙ[|Y ⁻¹' {y}]).map X {x}).toReal := by
+    H[X | Y ← y] = ∑ x, negIdMulLog ((ℙ[|Y ⁻¹' {y}]).map X {x}).toReal := by
   by_cases hy : ℙ (Y ⁻¹' {y}) = 0
   · rw [cond_eq_zero_of_measure_zero hy]
     simp
@@ -342,13 +356,12 @@ lemma measureEntropy_cond_map (hX : Measurable X) (y : T) :
     simp
 
 lemma condEntropy_eq_sum [MeasurableSingletonClass T] (X : Ω → S) (Y : Ω → T) :
-    condEntropy X Y
-      = ∑ y, (volume.map Y {y}).toReal * measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X) := by
+    H[X | Y] = ∑ y, (volume.map Y {y}).toReal * H[X | Y ← y] := by
   rw [condEntropy, integral_eq_sum]
   simp_rw [smul_eq_mul]
 
 lemma condEntropy_eq_sum_sum [MeasurableSingletonClass T] (hX : Measurable X) (Y : Ω → T) :
-    condEntropy X Y
+    H[X | Y]
       = ∑ y, ∑ x, (volume.map Y {y}).toReal * negIdMulLog ((ℙ[|Y ⁻¹' {y}]).map X {x}).toReal := by
   rw [condEntropy_eq_sum]
   congr with y
@@ -356,7 +369,7 @@ lemma condEntropy_eq_sum_sum [MeasurableSingletonClass T] (hX : Measurable X) (Y
   simp_rw [mul_comm (volume.map Y {y}).toReal]
 
 lemma condEntropy_eq_sum_prod [MeasurableSingletonClass T] (hX : Measurable X) (Y : Ω → T) :
-    condEntropy X Y = ∑ p : S × T,
+    H[X | Y] = ∑ p : S × T,
       (volume.map Y {p.2}).toReal * negIdMulLog ((ℙ[|Y ⁻¹' {p.2}]).map X {p.1}).toReal := by
   rw [condEntropy_eq_sum_sum hX Y]
   have h_prod : (Finset.univ : Finset (S × T)) = (Finset.univ : Finset S) ×ˢ Finset.univ := rfl
@@ -411,7 +424,7 @@ lemma negIdMulLog_measure_prod_singleton [MeasurableSingletonClass S] [Measurabl
 
 lemma chain_rule [MeasurableSingletonClass S] [MeasurableSingletonClass T]
     (hX : Measurable X) (hY : Measurable Y) :
-    entropy (fun ω ↦ (X ω, Y ω)) = entropy Y + condEntropy X Y := by
+    H[fun ω ↦ (X ω, Y ω)] = H[Y] + H[X | Y] := by
   have : IsProbabilityMeasure (volume.map Y) := isProbabilityMeasure_map hY.aemeasurable
   have : IsProbabilityMeasure (volume.map (fun ω ↦ (X ω, Y ω))) :=
     isProbabilityMeasure_map (hX.prod_mk hY).aemeasurable
@@ -438,5 +451,29 @@ lemma chain_rule [MeasurableSingletonClass S] [MeasurableSingletonClass T]
     ring
 
 end pair
+
+section mutualInformation
+
+variable {X : Ω → S} {Y : Ω → T}
+
+/-- Mutual information (TODO docstring). -/
+noncomputable
+def mutualInformation (X : Ω → S) (Y : Ω → T) : ℝ := H[X] + H[Y] - H[fun ω ↦ (X ω, Y ω)]
+
+notation:100 "I[" X ":" Y "]" => mutualInformation X Y
+
+lemma mutualInformation_eq_entropy_sub_condEntropy [MeasurableSingletonClass S]
+    [MeasurableSingletonClass T] (hX : Measurable X) (hY : Measurable Y) :
+    I[X : Y] = H[X] - H[X | Y] := by
+  rw [mutualInformation, chain_rule hX hY]
+  abel
+
+variable {U : Type*} [Fintype U] [MeasurableSpace U]
+
+noncomputable
+def condMutualInformation (X : Ω → S) (Y : Ω → T) (Z : Ω → U) : ℝ :=
+  (volume.map Z)[fun z ↦ H[X | Z ← z] + H[Y | Z ← z] - H[fun ω ↦ (X ω, Y ω) | Z ← z]]
+
+end mutualInformation
 
 end ProbabilityTheory
