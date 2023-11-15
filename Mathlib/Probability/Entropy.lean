@@ -314,7 +314,6 @@ This is the expectation under the law of `Y` of the entropy of the law of `X` co
 event `Y = y`. -/
 noncomputable
 def condEntropy (X : Ω → S) (Y : Ω → T) : ℝ :=
-  --∑ y, (volume.map Y {y}).toReal * measureEntropy ((volume[|Y ⁻¹' {y}]).map X)
   (volume.map Y)[fun y ↦ measureEntropy ((volume[|Y ⁻¹' {y}]).map X)]
 
 lemma condEntropy_nonneg (X : Ω → S) (Y : Ω → T) : 0 ≤ condEntropy X Y :=
@@ -427,7 +426,7 @@ lemma chain_rule [MeasurableSingletonClass S] [MeasurableSingletonClass T]
     by_cases hy : ℙ (Y ⁻¹' {y}) = 0
     · simp [cond_eq_zero_of_measure_zero hy, Measure.map_apply hY, hy]
     have : IsProbabilityMeasure (volume[|Y ⁻¹' {y}]) := cond_isProbabilityMeasure _ hy
-    suffices ∑ x : S, (Measure.map X (ℙ[|Y ⁻¹' {y}]) {x}).toReal = 1 by
+    suffices ∑ x : S, ((ℙ[|Y ⁻¹' {y}]).map X {x}).toReal = 1 by
       rw [this, one_mul, ← neg_mul, negIdMulLog]
     rw [← ENNReal.toReal_sum (fun _ _ ↦ measure_ne_top _ _), ENNReal.toReal_eq_one_iff]
     simp_rw [Measure.map_apply hX (measurableSet_singleton _)]
