@@ -314,14 +314,14 @@ This is the expectation under the law of `Y` of the entropy of the law of `X` co
 event `Y = y`. -/
 noncomputable
 def condEntropy (X : Ω → S) (Y : Ω → T) : ℝ :=
-  (volume.map Y)[fun y ↦ measureEntropy ((volume[|Y ⁻¹' {y}]).map X)]
+  (volume.map Y)[fun y ↦ measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X)]
 
 lemma condEntropy_nonneg (X : Ω → S) (Y : Ω → T) : 0 ≤ condEntropy X Y :=
   integral_nonneg (fun _ ↦ measureEntropy_nonneg _)
 
 lemma condEntropy_le_log_card (X : Ω → S) (Y : Ω → T) (hY : Measurable Y) :
     condEntropy X Y ≤ log (Fintype.card S) := by
-  have : ∀ y, measureEntropy ((volume[|Y ⁻¹' {y}]).map X) ≤ log (Fintype.card S) :=
+  have : ∀ y, measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X) ≤ log (Fintype.card S) :=
     fun y ↦ measureEntropy_le_log_card _
   refine (integral_mono_of_nonneg ?_ (integrable_const (log (Fintype.card S))) ?_).trans ?_
   · exact ae_of_all _ (fun _ ↦ measureEntropy_nonneg _)
@@ -330,20 +330,20 @@ lemma condEntropy_le_log_card (X : Ω → S) (Y : Ω → T) (hY : Measurable Y) 
     simp
 
 lemma measureEntropy_cond_map (hX : Measurable X) (y : T) :
-    measureEntropy ((volume[|Y ⁻¹' {y}]).map X)
+    measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X)
       = ∑ x, negIdMulLog ((ℙ[|Y ⁻¹' {y}]).map X {x}).toReal := by
   by_cases hy : ℙ (Y ⁻¹' {y}) = 0
   · rw [cond_eq_zero_of_measure_zero hy]
     simp
-  · have : IsProbabilityMeasure (volume[|Y ⁻¹' {y}]) := cond_isProbabilityMeasure _ hy
-    have : IsProbabilityMeasure ((volume[|Y ⁻¹' {y}]).map X) :=
+  · have : IsProbabilityMeasure (ℙ[|Y ⁻¹' {y}]) := cond_isProbabilityMeasure _ hy
+    have : IsProbabilityMeasure ((ℙ[|Y ⁻¹' {y}]).map X) :=
       isProbabilityMeasure_map hX.aemeasurable
     rw [measureEntropy]
     simp
 
 lemma condEntropy_eq_sum [MeasurableSingletonClass T] (X : Ω → S) (Y : Ω → T) :
     condEntropy X Y
-      = ∑ y, (volume.map Y {y}).toReal * measureEntropy ((volume[|Y ⁻¹' {y}]).map X) := by
+      = ∑ y, (volume.map Y {y}).toReal * measureEntropy ((ℙ[|Y ⁻¹' {y}]).map X) := by
   rw [condEntropy, integral_eq_sum]
   simp_rw [smul_eq_mul]
 
@@ -371,7 +371,7 @@ variable {X : Ω → S} {Y : Ω → T}
 lemma measure_prod_singleton_eq_mul [MeasurableSingletonClass S] [MeasurableSingletonClass T]
     (hX : Measurable X) (hY : Measurable Y) {p : S × T} :
     (volume.map (fun ω ↦ (X ω, Y ω)) {p}).toReal
-      = (volume.map Y {p.2}).toReal * ((volume[|Y ⁻¹' {p.2}]).map X {p.1}).toReal := by
+      = (volume.map Y {p.2}).toReal * ((ℙ[|Y ⁻¹' {p.2}]).map X {p.1}).toReal := by
   have hp_prod : {p} = {p.1} ×ˢ {p.2} := by simp
   rw [Measure.map_apply (hX.prod_mk hY) (measurableSet_singleton p)]
   by_cases hpY : ℙ (Y ⁻¹' {p.2}) = 0
@@ -393,13 +393,13 @@ lemma negIdMulLog_measure_prod_singleton [MeasurableSingletonClass S] [Measurabl
     negIdMulLog (volume.map (fun ω ↦ (X ω, Y ω)) {p}).toReal
       = - ((volume[|Y ⁻¹' {p.2}]).map X {p.1}).toReal
           * (volume.map Y {p.2}).toReal* log (volume.map Y {p.2}).toReal
-        - (volume.map Y {p.2}).toReal * ((volume[|Y ⁻¹' {p.2}]).map X {p.1}).toReal
-          * log ((volume[|Y ⁻¹' {p.2}]).map X {p.1}).toReal := by
+        - (volume.map Y {p.2}).toReal * ((ℙ[|Y ⁻¹' {p.2}]).map X {p.1}).toReal
+          * log ((ℙ[|Y ⁻¹' {p.2}]).map X {p.1}).toReal := by
   rw [measure_prod_singleton_eq_mul hX hY]
   by_cases hpY : ℙ (Y ⁻¹' {p.2}) = 0
   · rw [cond_eq_zero_of_measure_zero hpY]
     simp
-  by_cases hpX : (volume[|Y ⁻¹' {p.2}]).map X {p.1} = 0
+  by_cases hpX : (ℙ[|Y ⁻¹' {p.2}]).map X {p.1} = 0
   · simp [hpX]
   rw [negIdMulLog, log_mul]
   · ring
@@ -425,7 +425,7 @@ lemma chain_rule [MeasurableSingletonClass S] [MeasurableSingletonClass T]
     rw [← Finset.sum_mul, ← Finset.sum_mul]
     by_cases hy : ℙ (Y ⁻¹' {y}) = 0
     · simp [cond_eq_zero_of_measure_zero hy, Measure.map_apply hY, hy]
-    have : IsProbabilityMeasure (volume[|Y ⁻¹' {y}]) := cond_isProbabilityMeasure _ hy
+    have : IsProbabilityMeasure (ℙ[|Y ⁻¹' {y}]) := cond_isProbabilityMeasure _ hy
     suffices ∑ x : S, ((ℙ[|Y ⁻¹' {y}]).map X {x}).toReal = 1 by
       rw [this, one_mul, ← neg_mul, negIdMulLog]
     rw [← ENNReal.toReal_sum (fun _ _ ↦ measure_ne_top _ _), ENNReal.toReal_eq_one_iff]
