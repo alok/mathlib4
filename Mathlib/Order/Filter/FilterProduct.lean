@@ -118,6 +118,11 @@ instance instStrictOrderedCommRing [StrictOrderedCommRing β] : StrictOrderedCom
   __ := instStrictOrderedRing
   __ := instOrderedCommRing
 
+noncomputable instance instLinearOrderedSemiring [LinearOrderedSemiring β] :
+    LinearOrderedSemiring β* where
+  __ := instStrictOrderedSemiring
+  __ := instLinearOrder
+
 noncomputable instance instLinearOrderedRing [LinearOrderedRing β] : LinearOrderedRing β* where
   __ := instStrictOrderedRing
   __ := instLinearOrder
