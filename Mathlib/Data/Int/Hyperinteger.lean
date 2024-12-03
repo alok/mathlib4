@@ -66,6 +66,7 @@ def prod_equiv : α* × β* ≃ l.Germ (α × β) where
     rintro ⟨f⟩
     convert rfl
 
+/-- Equivalence between the product of germs and the germ of the product along a filter `l`. -/
 local notation "⋈" => (prod_equiv l : α* × β* → l.Germ (α × β))
 
 @[simp]
@@ -164,7 +165,8 @@ lemma lift_pred_exists_prop_iff_and_lift_pred [l.NeBot] (p q : α → Prop) (x :
 local notation "α**" => ul.Germ α
 /-- Germs on an ultrafilter `ul` for a type `β` -/
 local notation "β**" => ul.Germ β
-local notation "⋈" => (prod_equiv (ul : Ultrafilter ι) : α* × β* → ul.Germ (α × β))
+/-- Equivalence between the product of germs and the germ of the product along an ultrafilter -/
+local notation "⋈*" => (prod_equiv (ul : Ultrafilter ι) : α** × β** → ul.Germ (α × β))
 
 /-! ## Transfer lemmas -/
 
@@ -204,16 +206,16 @@ lemma lift_pred_forall_iff_forall_lift_rel (r : α → β → Prop) (x : α**) :
   rw [← not_iff_not, ← lift_pred_not_iff_not_lift_pred]
   push_neg
   simp_rw [← lift_rel_not_iff_not_lift_rel]
-  exact lift_pred_exists_iff_exists_lift_rel (l:=ul) r x
+  exact lift_pred_exists_iff_exists_lift_rel ul r x
 
 lemma lift_pred_forall_iff_forall_lift_pred (r : α → β → Prop) (x : α**) :
-  LiftPred (fun x => ∀ (y : β), r x y) x ↔ ∀ (y : β**), LiftPred (Function.uncurry r) (⋈ (x, y)) := by
+  LiftPred (fun x => ∀ (y : β), r x y) x ↔ ∀ (y : β**), LiftPred (Function.uncurry r) (⋈* (x, y)) := by
   convert lift_pred_forall_iff_forall_lift_rel ul r x
   ext
   exact forall_congr fun y => by rw [← lift_rel_iff_lift_pred_uncurry]
 
 lemma lift_pred_forall_iff_forall_lift_pred' (r : α → β → Prop) (x : α**) :
-  LiftPred (fun x => ∀ (y : β), r x y) x ↔ ∀ (y : β**), LiftPred (Function.uncurry r) (⋈ (x, y)) :=
+  LiftPred (fun x => ∀ (y : β), r x y) x ↔ ∀ (y : β**), LiftPred (Function.uncurry r) (⋈* (x, y)) :=
   lift_pred_forall_iff_forall_lift_pred ul r x
 
 /-! ### Or rules -/
