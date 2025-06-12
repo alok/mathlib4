@@ -90,31 +90,59 @@ def forallRule (l α : Expr) : TacticM Unit := do
 
 /-- Apply the exists lifting rule for the LHS -/
 def existsRule (l α : Expr) : TacticM Unit := do
+  trace[transfer] "existsRule called with l={l}, α={α}"
   -- Check that l has type Filter ι
   let lType ← inferType l
+  trace[transfer] "l has type: {lType}"
   guard (lType.isAppOfArity ``Filter 1)
   -- Get the predicate from the LHS
   let tgt ← getMainTarget
   let tgt ← instantiateMVars tgt
   guard (tgt.isAppOfArity ``Iff 2)
   let lhs := tgt.getArg! 0
+  let lhs ← whnf lhs  -- Reduce to weak head normal form
+  trace[transfer] "existsRule: LHS = {lhs}"
+  trace[transfer] "LHS is app? {lhs.isApp}"
+  if lhs.isApp then
+    trace[transfer] "LHS fn: {lhs.getAppFn}"
+    trace[transfer] "LHS args: {lhs.getAppArgs}"
   -- Extract the predicate p from (∃ x, p x)
   let p ← match lhs with
-    | .app (.const ``Exists _) (.lam _ _ body _) => 
+    | .app (.app (.const ``Exists _) _) (.lam _ _ body _) => 
       -- Create a lambda from the body
       withLocalDecl `x .default α fun x => do
         let bodyWithVar := body.instantiate #[x]
         mkLambdaFVars #[x] bodyWithVar
-    | _ => throwError "LHS is not an exists"
+    | _ => throwError "LHS is not an exists: {lhs}"
   -- Synthesize NeBot instance
   let neBotType ← mkAppM ``Filter.NeBot #[l]
   let inst ← synthInstance neBotType
   -- Apply the theorem with the correct arguments
   -- The theorem signature is: exists_iff_exists_liftPred {ι α : Type*} {l : Filter ι} [l.NeBot] (p : α → Prop)
-  let thm ← mkAppM ``Filter.Germ.exists_iff_exists_liftPred #[l, inst, p]
+  let thm ← mkAppOptM ``Filter.Germ.exists_iff_exists_liftPred #[none, none, some l, some inst, some p]
   let goal ← getMainGoal
-  let newGoals ← goal.rewrite (← getMainTarget) thm
-  replaceMainGoal newGoals.mvarIds
+  trace[transfer] "Applying theorem: {thm}"
+  trace[transfer] "Theorem type: {← inferType thm}"
+  trace[transfer] "Current target: {← getMainTarget}"
+  -- Check if the theorem exactly matches the goal
+  let thmType ← inferType thm
+  let target ← getMainTarget
+  trace[transfer] "Checking if theorem matches goal exactly"
+  if ← isDefEq thmType target then
+    -- The theorem exactly proves our goal
+    trace[transfer] "Theorem exactly matches goal, closing with theorem"
+    closeMainGoal `existsRule thm
+    return ()
+  else
+    -- Try rewriting
+    try
+      let newGoals ← goal.rewrite target thm
+      trace[transfer] "After applying exists rule, new goals: {newGoals.mvarIds}"
+      trace[transfer] "Number of new goals: {newGoals.mvarIds.length}"
+      replaceMainGoal newGoals.mvarIds
+    catch e =>
+      trace[transfer] "Rewrite failed with error: {e.toMessageData}"
+      throwError "Failed to apply exists rule: {e.toMessageData}\nThm type: {← inferType thm}"
 
 /-- Check if an expression is a coercion `↑a` -/
 def isCoeConst (e : Expr) : MetaM (Option Expr) := do
@@ -354,7 +382,150 @@ partial def transferLiftLhs : TacticM Unit := do
       throwError "Nested quantifier in RHS not handled by congruence"
     else
       throwError "RHS body is neither LiftPred nor a supported relation: {body}"
-  | _ => throwError "RHS is not a forall: {rhs}"
+  | .app (.app (.const ``Exists _) ty) (.lam _ _ body _) =>
+    -- Handle exists case similar to forall
+    trace[transfer] "RHS is exists with type: {ty}"
+    
+    -- Check if body is LiftPred
+    let bodyFn := body.getAppFn
+    if let some name := bodyFn.constName? then
+      if name == ``Germ.LiftPred || name == ``Filter.Germ.LiftPred || name == ``LiftPred then
+        -- Handle LiftPred case for exists
+        let args := body.getAppArgs  
+        if args.size >= 2 && args[args.size - 1]! == .bvar 0 then
+          let p := args[args.size - 2]!
+          
+          -- Get the filter from context
+          let ctx ← getLCtx
+          let mut filterVar : Option Expr := none
+          
+          for decl in ctx do
+            if !decl.isImplementationDetail then
+              let declType ← instantiateMVars decl.type
+              if declType.isAppOfArity ``Ultrafilter 1 then
+                filterVar := some (mkFVar decl.fvarId)
+                break
+          
+          match filterVar with
+          | some l =>
+            -- Extract α from the predicate p
+            let pType ← inferType p
+            match pType with
+            | .forallE _ α _ _ =>
+              let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+              trace[transfer] "Calling existsRule with l={filterL}, α={α}"
+              try
+                existsRule filterL α
+              catch e =>
+                trace[transfer] "existsRule failed: {e.toMessageData}"
+                throw e
+            | _ => throwError "Could not extract type from predicate: {pType}"
+          | none => throwError "Could not find ultrafilter in context"
+        else
+          throwError "RHS body does not match pattern: LiftPred <?> (.bvar 0)"
+        return
+    
+    -- If not LiftPred, check if it's a relation with constant (similar to forall case)
+    trace[transfer] "Exists body is not LiftPred, checking for relation pattern"
+    trace[transfer] "Body: {body}"
+    
+    -- Check if body is a binary relation
+    if body.isAppOfArity ``LE.le 4 || body.isAppOfArity ``Eq 3 then
+      let args := body.getAppArgs
+      let arg1 := args[args.size - 2]!
+      let arg2 := args[args.size - 1]!
+      
+      trace[transfer] "Found relation, arg1: {arg1}, arg2: {arg2}"
+      
+      -- Check if one argument is .bvar 0 and the other is a constant
+      let (constArg, isConstFirst) ← 
+        if arg2 == .bvar 0 then
+          pure (arg1, true)
+        else if arg1 == .bvar 0 then
+          pure (arg2, false)
+        else
+          throwError "Neither argument is bound variable 0"
+      
+      -- Check if constArg is a coercion
+      trace[transfer] "Checking if {constArg} is a constant coercion"
+      let constArg' ← whnf constArg
+      trace[transfer] "After whnf, constArg' = {constArg'}"
+      match ← isCoeConst constArg with
+      | some a =>
+        trace[transfer] "Found constant coercion: {a}"
+        
+        -- Get the relation name
+        let relName := bodyFn.constName?.get!
+        
+        -- Get the filter from context
+        let ctx ← getLCtx
+        let mut filterVar : Option Expr := none
+        
+        for decl in ctx do
+          if !decl.isImplementationDetail then
+            let declType ← instantiateMVars decl.type
+            if declType.isAppOfArity ``Ultrafilter 1 then
+              filterVar := some (mkFVar decl.fvarId)
+              break
+        
+        match filterVar with
+        | some l =>
+          -- Extract the filter from the germ type in the RHS
+          trace[transfer] "Found ultrafilter variable: {l}"
+          trace[transfer] "Type of exists variable (ty): {ty}"
+          
+          let filterExpr ← 
+            if ty.isApp && ty.getAppFn.isConstOf ``Filter.Germ then
+              let args := ty.getAppArgs
+              if args.size == 3 then
+                pure args[1]!
+              else
+                throwError "Germ has unexpected number of arguments: {args.size}"
+            else
+              throwError "Cannot extract filter from type: {ty}"
+          
+          trace[transfer] "Extracted filter: {filterExpr}"
+          
+          -- Apply the appropriate combined theorem directly
+          let thm ← 
+            if relName == ``LE.le then
+              if isConstFirst then
+                mkAppOptM ``Filter.Germ.exists_le_const_iff_exists_germ_le #[none, none, some filterExpr, none, none, some a]
+              else
+                mkAppOptM ``Filter.Germ.exists_const_le_iff_exists_germ_le #[none, none, some filterExpr, none, none, some a]
+            else if relName == ``Eq then
+              if isConstFirst then
+                mkAppOptM ``Filter.Germ.exists_eq_const_iff_exists_germ_eq #[none, none, some filterExpr, none, some a]
+              else
+                mkAppOptM ``Filter.Germ.exists_const_eq_iff_exists_germ_eq #[none, none, some filterExpr, none, some a]
+            else
+              throwError "Unknown relation: {relName}"
+          
+          -- Check if the theorem exactly matches the goal
+          let thmType ← inferType thm
+          let target ← getMainTarget
+          trace[transfer] "Applying exists relation theorem"
+          trace[transfer] "Theorem type: {thmType}"
+          trace[transfer] "Target: {target}"
+          
+          if ← isDefEq thmType target then
+            trace[transfer] "Theorem exactly matches goal, closing with theorem"
+            closeMainGoal `existsRelationRule thm
+            return ()
+          else
+            -- Try rewriting
+            let goal ← getMainGoal
+            let newGoals ← goal.rewrite target thm
+            trace[transfer] "After applying exists relation rule, new goals: {newGoals.mvarIds}"
+            replaceMainGoal newGoals.mvarIds
+        | none => 
+          throwError "Could not find ultrafilter in context"
+      | none =>
+        throwError "Relation does not involve a constant: {constArg}"
+    else
+      throwError "Exists body is neither LiftPred nor a supported relation: {body}"
+    
+  | _ => throwError "RHS is not a forall or exists: {rhs}"
 
 /-- Apply congruence rules to decompose the goal -/
 partial def transferCongr : TacticM Unit := withMainContext do
@@ -381,7 +552,7 @@ partial def transferCongr : TacticM Unit := withMainContext do
       -- It's a proper forall
       evalTactic (← `(tactic| refine forall_congr' ?_; intro))
   
-  | .app (.app (.app (.const ``Exists _) _) _) _ => do
+  | .app (.app (.const ``Exists _) _) _ => do
     evalTactic (← `(tactic| refine exists_congr ?_; intro))
   
   | .app (.app (.const ``And _) _) _ => do

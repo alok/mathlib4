@@ -202,4 +202,25 @@ lemma forall_const_eq_iff_forall_germ_eq [l.NeBot] (a : α) :
 
 -- Skip ne rules for now
 
+-- Exists relation theorems for direct transfer without LiftPred
+lemma exists_le_const_iff_exists_germ_le [Preorder α] [l.NeBot] (a : α) :
+  (∃ x, a ≤ x) ↔ (∃ x : l.Germ α, ↑a ≤ x) := by
+  simp only [const_le_iff_liftPred]
+  exact exists_iff_exists_liftPred l (a ≤ ·)
+
+lemma exists_const_le_iff_exists_germ_le [Preorder α] [l.NeBot] (a : α) :
+  (∃ x, x ≤ a) ↔ (∃ x : l.Germ α, x ≤ ↑a) := by
+  simp only [le_const_iff_liftPred]
+  exact exists_iff_exists_liftPred l (· ≤ a)
+
+lemma exists_eq_const_iff_exists_germ_eq [l.NeBot] (a : α) :
+  (∃ x, a = x) ↔ (∃ x : l.Germ α, ↑a = x) := by
+  simp only [const_eq_iff_liftPred]
+  exact exists_iff_exists_liftPred l (a = ·)
+
+lemma exists_const_eq_iff_exists_germ_eq [l.NeBot] (a : α) :
+  (∃ x, x = a) ↔ (∃ x : l.Germ α, x = ↑a) := by
+  simp only [eq_const_iff_liftPred]
+  exact exists_iff_exists_liftPred l (· = a)
+
 end Filter.Germ
