@@ -161,8 +161,11 @@ def isCoeConst (e : Expr) : MetaM (Option Expr) := do
   trace[transfer] "No pattern matched"
   return none
 
+-- Forward declare transferCongr
+mutual
+
 /-- Lift quantifiers from the LHS to the RHS -/
-def transferLiftLhs : TacticM Unit := do
+partial def transferLiftLhs : TacticM Unit := do
   let tgt ← getMainTarget
   let tgt ← instantiateMVars tgt
   
@@ -342,18 +345,29 @@ def transferLiftLhs : TacticM Unit := do
           throwError "Could not find ultrafilter in context"
       | none =>
         throwError "Relation does not involve a constant: {constArg}"
+    else if body.isForall then
+      -- Nested quantifier case: body is another ∀
+      trace[transfer] "Found nested quantifier in RHS, body: {body}"
+      -- This means we have ∀ x : Germ, ∀ y : Germ, ...
+      -- The outer loop should have handled this with transferCongr
+      -- If we're here, it means transferCongr didn't match properly
+      throwError "Nested quantifier in RHS not handled by congruence"
     else
       throwError "RHS body is neither LiftPred nor a supported relation: {body}"
   | _ => throwError "RHS is not a forall: {rhs}"
 
 /-- Apply congruence rules to decompose the goal -/
-def transferCongr : TacticM Unit := withMainContext do
+partial def transferCongr : TacticM Unit := withMainContext do
   let tgt ← getMainTarget
   let tgt ← instantiateMVars tgt
+  trace[transfer] "transferCongr called with target: {tgt}"
   -- Match (_ ↔ _)
-  guard (tgt.isAppOfArity ``Iff 2)
+  if !tgt.isAppOfArity ``Iff 2 then
+    trace[transfer] "transferCongr: target is not an iff"
+    throwError "transferCongr: target is not an iff"
   let lhs := tgt.getArg! 0
   let rhs := tgt.getArg! 1
+  trace[transfer] "transferCongr: lhs = {lhs}, rhs = {rhs}"
   
   -- Match patterns in LHS
   match lhs with
@@ -365,7 +379,7 @@ def transferCongr : TacticM Unit := withMainContext do
       evalTactic (← `(tactic| refine imp_congr ?_ ?_))
     else
       -- It's a proper forall
-      evalTactic (← `(tactic| refine forall_congr ?_; intro))
+      evalTactic (← `(tactic| refine forall_congr' ?_; intro))
   
   | .app (.app (.app (.const ``Exists _) _) _) _ => do
     evalTactic (← `(tactic| refine exists_congr ?_; intro))
@@ -383,6 +397,8 @@ def transferCongr : TacticM Unit := withMainContext do
     evalTactic (← `(tactic| refine iff_of_eq (congrArg₂ (· = ·) ?_ ?_)))
   
   | _ => throwError "No known pattern applicable (step 2)"
+
+end -- mutual
 
 /-- Push liftPred inside logical operations -/
 def transferPushLift : TacticM Unit := withMainContext do
