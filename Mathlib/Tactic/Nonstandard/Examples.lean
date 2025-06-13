@@ -17,7 +17,7 @@ the ultrafilter machinery is hidden.
 2. We can use infinite and infinitesimal numbers naturally  
 3. Continuous functions preserve nearness (≈)
 4. Hyperfinite sets behave like finite sets
-*/
+-/
 
 open NSA
 

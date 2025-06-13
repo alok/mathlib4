@@ -20,7 +20,7 @@ recovering Leibniz's original vision of infinitesimals.
 * Mean value theorem
 * Fundamental theorem of calculus
 * Taylor's theorem with remainder
-*/
+-/
 
 namespace NSA
 

@@ -19,7 +19,7 @@ demonstrating all aspects of the framework with minimal sorries.
 * H_n ∼ log n for large n  
 * H_ω is infinite but H_ω - log ω converges
 * Euler's constant γ as st(H_ω - log ω)
-*/
+-/
 
 namespace NSA.HarmonicSeries
 

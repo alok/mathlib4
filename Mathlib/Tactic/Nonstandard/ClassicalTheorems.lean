@@ -21,7 +21,7 @@ how intuitive and powerful the nonstandard approach can be.
 * Heine-Borel theorem
 * Bolzano-Weierstrass theorem
 * Uniform continuity theorem
-*/
+-/
 
 open NSA Filter Topology
 

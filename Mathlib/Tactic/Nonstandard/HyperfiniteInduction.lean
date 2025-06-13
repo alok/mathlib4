@@ -18,7 +18,7 @@ This file establishes the principle of hyperfinite induction for nonstandard ana
 * `hyperfiniteInduction` : Induction principle for standard hypernaturals
 * `internalInduction` : Induction works internally up to any hyperfinite bound
 * `overspill` : If a property holds for all standard naturals, it holds for some infinite hypernatural
-*/
+-/
 
 open Filter Germ
 

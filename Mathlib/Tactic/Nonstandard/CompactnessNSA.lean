@@ -19,7 +19,7 @@ the nonstandard characterization makes many proofs trivial.
 * `heine_borel_nsa` - [a,b] is compact (trivial proof!)
 * `compact_implies_closed_nsa` - Compact subsets of Hausdorff spaces are closed
 * `extreme_value_nsa` - Extreme value theorem with 5-line proof
-*/
+-/
 
 namespace NSA
 

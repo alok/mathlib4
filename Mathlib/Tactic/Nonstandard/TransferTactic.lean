@@ -2,7 +2,7 @@
 Copyright (c) 2025 [Authors]. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: [Authors]
-*/
+-/
 import Mathlib.Tactic.Nonstandard.Complements.FilterProduct
 import Mathlib.Tactic.Nonstandard.Complements.Germ
 import Mathlib.Data.Real.Hyperreal

@@ -10,7 +10,7 @@ import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
 This file gives a complete proof that e^x is continuous using
 nonstandard analysis, demonstrating how clean NSA proofs can be.
-*/
+-/
 
 namespace NSA
 
