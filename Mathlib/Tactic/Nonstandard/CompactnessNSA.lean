@@ -44,16 +44,32 @@ theorem mem_star_iff {S : Set ℝ} {x : ℝ} : ↑x ∈ *S ↔ x ∈ S := by
   simp [Set.star]
   constructor
   · intro ⟨f, hf, hmem⟩
-    have : ↑x = ⟦f⟧ := hf
+    -- If ↑x = ⟦f⟧ and f n ∈ S eventually, then x ∈ S
     have : ∀ᶠ n in hyperfilter ℕ, f n = x := by
-      rw [← Germ.const_eq_iff_eq]
-      exact this
-    exact (this.and hmem).frequently.mem_of_closed isClosed_univ
+      rw [← Quotient.eq] at hf
+      convert hf
+      simp
+    have : {n | f n = x} ∈ hyperfilter ℕ := this
+    have : {n | f n = x} ∩ {n | f n ∈ S} ∈ hyperfilter ℕ := 
+      Filter.inter_mem this hmem
+    have : {n | f n = x ∧ f n ∈ S} ∈ hyperfilter ℕ := by
+      convert this; ext; simp
+    have : {n | x ∈ S} ∈ hyperfilter ℕ := by
+      apply Filter.mem_of_superset this
+      intro n ⟨hn1, hn2⟩
+      rwa [hn1] at hn2
+    -- Since this is constant, x ∈ S
+    have : x ∈ S ∨ x ∉ S := em (x ∈ S)
+    cases this with
+    | inl h => exact h
+    | inr h => 
+      exfalso
+      have : {n | x ∈ S} = ∅ := by simp [h]
+      rw [this] at *
+      exact Filter.empty_not_mem (hyperfilter ℕ) ‹_›
   · intro hx
     use fun _ => x
-    constructor
-    · rfl
-    · simp [hx]
+    simp [hx]
 
 /-! ## Robinson's Characterization of Compactness -/
 
@@ -63,14 +79,25 @@ def monad (a : ℝ) : Set Hyperreal := {x : Hyperreal | x ≈ ↑a}
 /-- Compactness iff every point in *K has a standard part in K -/
 theorem compact_iff_nsa {K : Set ℝ} :
     IsCompact K ↔ 
-    (∀ x ∈ *K, x.IsFinite ∧ st x (by assumption) ∈ K) := by
+    (∀ x ∈ *K, x.IsFinite ∧ st x x.IsFinite ∈ K) := by
   constructor
   · intro hK x hx
-    sorry -- Forward direction uses sequential compactness
+    -- K is compact, so bounded
+    have hbdd : ∃ M, ∀ y ∈ K, |y| ≤ M := by
+      sorry -- Compact implies bounded in metric spaces
+    obtain ⟨M, hM⟩ := hbdd
+    constructor
+    · -- x is finite
+      use M
+      sorry -- x ∈ *K and K bounded by M implies |x| ≤ *M = M
+    · -- st x ∈ K
+      sorry -- Use sequential characterization of compactness
   · intro h
-    -- Reverse: if not compact, find sequence with no convergent subsequence
-    -- Its nonstandard extension at ω gives contradiction
-    sorry
+    -- If K is not compact, there's a sequence with no convergent subsequence
+    -- Extend it to hypernaturals: at ω it's in *K but has no standard part in K
+    rw [isCompact_iff_finite_subcover]
+    intro ι U hUo hKU
+    sorry -- Use contrapositive with ultrafilter
 
 /-- Alternative: K is compact iff *K ⊆ ⋃(a ∈ K) monad(a) -/
 theorem compact_iff_monad {K : Set ℝ} :
@@ -80,15 +107,28 @@ theorem compact_iff_monad {K : Set ℝ} :
   · intro h x hx
     obtain ⟨hfin, hst⟩ := h x hx
     use st x hfin, hst
-    exact Hyperreal.finite_iff_has_standard_part.mp hfin |>.some_spec.2
+    -- x is infinitely close to its standard part
+    obtain ⟨r, hr, _⟩ := Hyperreal.finite_iff_has_standard_part.mp hfin
+    have : r = st x hfin := by
+      sorry -- Uniqueness of standard part
+    rw [← this]
+    exact hr
   · intro h x hx
     have : x ∈ ⋃ a ∈ K, monad a := h hx
-    simp at this
+    simp only [Set.mem_iUnion] at this
     obtain ⟨a, ha, hxa⟩ := this
+    have hfin : x.IsFinite := by
+      -- x ≈ a means x - a is infinitesimal, so x is finite
+      obtain ⟨_, _, huniq⟩ := Hyperreal.finite_iff_has_standard_part.mpr ⟨a, hxa, by
+        intro b hb
+        sorry -- Uniqueness from infinitesimal arithmetic⟩
+      exact Hyperreal.finite_iff_has_standard_part.mp ⟨a, hxa, huniq⟩
     constructor
-    · exact Hyperreal.finite_iff_has_standard_part.mpr ⟨a, rfl, hxa⟩
-    · convert ha
-      sorry -- st x = a because x ≈ ↑a
+    · exact hfin
+    · convert ha using 1
+      -- st x = a because x ≈ ↑a and standard part is unique
+      symmetry
+      sorry -- Apply uniqueness of standard part
 
 /-! ## Easy Proofs Using NSA Characterization -/
 

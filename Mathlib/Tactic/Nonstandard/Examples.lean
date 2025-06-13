@@ -33,17 +33,56 @@ namespace NSAExamples
 /-- Infinitesimals exist! -/
 example : ε > 0 ∧ ∀ r : ℝ, r > 0 → ε < *r := by
   constructor
-  · -- ε > 0
-    sorry
+  · -- ε = 1/ω > 0 since ω > 0
+    unfold ε
+    apply div_pos
+    · exact one_pos
+    · -- ω > 0
+      have : (0 : ℕ*) < ω := omega_infinite 0
+      simp at this
+      exact this
   · -- ε is smaller than every positive real
     intro r hr
-    sorry
+    unfold ε
+    rw [div_lt_iff]
+    · simp
+      -- Need to show *r * ω > 1
+      -- Since ω > 1/r (as ω is infinite), we get *r * ω > *r * (1/r) = 1
+      have : ω > *(Nat.ceil (1/r)) := omega_infinite _
+      have : *r * ω > *r * *(Nat.ceil (1/r)) := by
+        apply mul_lt_mul_of_pos_left this
+        simp; exact hr
+      sorry -- Complete the arithmetic
+    · -- ω > 0 was shown above
+      have : (0 : ℕ*) < ω := omega_infinite 0
+      simp at this
+      exact this
 
 /-- The hyperreals properly extend the reals -/
 example : ∃ x : ℝ*, ∀ r : ℝ, x ≠ *r := by
   use ε
   intro r
-  sorry
+  -- If ε = *r, then ε would be standard
+  -- But ε is infinitesimal, so smaller than any positive standard real
+  by_cases hr : r ≤ 0
+  · -- If r ≤ 0, then ε > 0 > r so ε ≠ *r
+    intro h
+    have : ε > 0 := by
+      unfold ε
+      apply div_pos one_pos
+      have : (0 : ℕ*) < ω := omega_infinite 0
+      simp at this; exact this
+    rw [h] at this
+    simp at this
+    linarith
+  · -- If r > 0, then ε < *r so ε ≠ *r
+    push_neg at hr
+    intro h
+    have : ε < *r := by
+      unfold ε
+      sorry -- Use that ε is infinitesimal
+    rw [h] at this
+    exact lt_irrefl _ this
 
 /-! ## Continuity via infinitesimals -/
 
@@ -57,8 +96,11 @@ example : Continuous (fun x : ℝ => x^2) := by
   intro a
   rw [continuous_iff_preserves_nearness]
   intro x hx
-  -- If x ≈ a, then x² ≈ a²
-  sorry
+  -- If x ≈ *a, then x² ≈ (*a)² = *(a²)
+  -- x = *a + ε for some infinitesimal ε
+  -- x² = (*a)² + 2*a*ε + ε²
+  -- Both 2*a*ε and ε² are infinitesimal
+  sorry -- This requires showing that products preserve infinitesimals
 
 /-! ## Differentiation via infinitesimals -/
 
@@ -98,7 +140,14 @@ example : Filter.Tendsto (fun n : ℕ => (1 : ℝ) / n) Filter.atTop (nhds 0) :=
   rw [converges_iff_infinite_close]
   intro n hn
   -- For infinite n, we have 1/n ≈ 0
-  sorry
+  -- i.e., 1/n is infinitesimal
+  unfold InfinitelyClose Infinitesimal
+  simp
+  intro r hr
+  -- Need to show |1/n| < *r
+  -- Since n is infinite, n > *(ceil(1/r))
+  -- So 1/n < 1/(*(ceil(1/r))) ≤ *r
+  sorry -- Complete using properties of infinite hypernaturals
 
 /-! ## Compactness via hyperfinite covers -/
 

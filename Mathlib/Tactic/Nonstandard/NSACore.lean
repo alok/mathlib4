@@ -79,24 +79,53 @@ theorem Hypernat.standard_or_infinite (x : Hypernat) : x.IsStandard ∨ x.IsInfi
   by_cases h : ∃ n : ℕ, ↑n ≥ x
   · left
     obtain ⟨n, hn⟩ := h
-    -- Use bounded_implies_standard from HyperfiniteInduction.lean
-    sorry
+    -- x is bounded by n, so it represents a bounded sequence
+    obtain ⟨f, rfl⟩ := Quotient.exists_rep x
+    have : ∀ᶠ i in hyperfilter ℕ, f i ≤ n := hn
+    -- A function bounded by n can only take finitely many values
+    -- By pigeonhole + ultrafilter, it's eventually constant
+    have : ∃ k ≤ n, ∀ᶠ i in hyperfilter ℕ, f i = k := by
+      -- The set {0, 1, ..., n} is finite
+      -- f⁻¹(0) ∪ f⁻¹(1) ∪ ... ∪ f⁻¹(n) ⊇ {i : f i ≤ n}
+      -- One of these must be in the ultrafilter
+      sorry -- Pigeonhole principle on ultrafilters
+    obtain ⟨k, hk, heq⟩ := this
+    use k
+    apply Quotient.sound
+    exact heq
   · right
     push_neg at h
     exact h
 
 /-- Standard part of a finite hyperreal -/
-noncomputable def Hyperreal.standardPart (x : Hyperreal) (h : x.IsFinite) : ℝ := by
-  -- The standard part exists and is unique for finite hyperreals
-  -- This uses completeness of ℝ and properties of ultrafilters
-  sorry
+noncomputable def Hyperreal.standardPart (x : Hyperreal) (h : x.IsFinite) : ℝ :=
+  Classical.choose (Hyperreal.finite_iff_has_standard_part.mp h)
 
 notation "st" => Hyperreal.standardPart
 
 /-- Standard part theorem: every finite hyperreal is infinitely close to a unique standard real -/
 theorem Hyperreal.finite_iff_has_standard_part (x : Hyperreal) :
     x.IsFinite ↔ ∃! r : ℝ, x ≈ ↑r := by
-  sorry
+  constructor
+  · intro ⟨M, hM⟩
+    -- x is bounded, so we can extract its standard part
+    -- Use that ℝ is complete and ultrafilters preserve limits
+    obtain ⟨f, rfl⟩ := Quotient.exists_rep x
+    -- f is bounded by M eventually
+    have hf : ∀ᶠ n in hyperfilter ℕ, |f n| ≤ M := hM
+    -- The key is that bounded sequences have cluster points
+    -- For ultrafilters, there's a unique cluster point
+    sorry -- This requires completeness of ℝ and ultrafilter properties
+  · intro ⟨r, hr, huniq⟩
+    -- If x ≈ r, then x - r is infinitesimal, so x is bounded by |r| + 1
+    use |r| + 1
+    have : |x - ↑r| < 1 := by
+      have := hr 1 one_pos
+      simpa using this
+    calc |x| = |x - ↑r + ↑r| := by ring_nf
+    _ ≤ |x - ↑r| + |↑r| := abs_add _ _
+    _ < 1 + |↑r| := add_lt_add_right this _
+    _ = |↑r| + 1 := by ring
 
 /-- Transfer principle for predicates -/
 theorem transfer_predicate {P : ℕ → Prop} :
@@ -126,9 +155,14 @@ theorem internal_induction {P : Hypernat → Prop} [Internal P]
     (zero : P 0)
     (succ : ∀ n, P n → P (n + 1)) :
     ∀ n, P n := by
-  -- This requires showing that inductively defined predicates
-  -- can be represented internally in the ultrapower
-  sorry
+  -- For internal predicates, we can use transfer
+  -- Every hypernatural is represented by some sequence f : ℕ → ℕ
+  intro n
+  obtain ⟨f, rfl⟩ := Quotient.exists_rep n
+  -- The key insight: for internal P, there exists Q : (ℕ → ℕ) → Prop
+  -- such that P ⟦f⟧ ↔ Q f, and Q respects the ultrafilter equivalence
+  -- Then we can apply coordinate-wise induction
+  sorry -- This requires the full internal predicate machinery
 
 /-- Overspill principle -/
 theorem overspill {P : Hypernat → Prop} [Internal P]
@@ -137,8 +171,12 @@ theorem overspill {P : Hypernat → Prop} [Internal P]
   use omega
   constructor
   · exact omega_infinite
-  · -- This requires the internal characterization of P
-    sorry
+  · -- Since P holds for all standard naturals and is internal,
+    -- it must hold for some infinite hypernatural by transfer
+    -- Key: if P fails for all infinite hypernaturals,
+    -- then "x is finite" would be definable internally,
+    -- contradicting that ω exists
+    sorry -- Requires internal set theory axioms
 
 /-- Hyperfinite sets -/
 structure Hyperfinite (α : Type*) where
@@ -146,8 +184,11 @@ structure Hyperfinite (α : Type*) where
   enum : Fin size.toNat → α  -- This is a simplification
 
 /-- Standard part for continuous functions -/
-theorem continuous_standard_part {f : ℝ → ℝ} {a : ℝ} (hf : ContinuousAt f a) :
-    ∀ x : Hyperreal, x ≈ ↑a → ↑(f a) ≈ sorry := by -- Should be: ≈ (*f)(x)
-  sorry
+theorem continuous_standard_part {f : ℝ → ℝ} {a : ℝ} (hf : ContinuousAt f a) 
+    {x : Hyperreal} (hx : x ≈ ↑a) : 
+    Function.star f x ≈ ↑(f a) := by
+  -- This is the key connection between continuity and infinitesimals
+  -- If x ≈ a, then f(x) ≈ f(a) by continuity
+  sorry -- Requires lifting continuity to the nonstandard extension
 
 end NSA

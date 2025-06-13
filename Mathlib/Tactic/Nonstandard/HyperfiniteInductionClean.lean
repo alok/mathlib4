@@ -26,8 +26,18 @@ namespace Hypernat
 theorem bounded_implies_standard (n : ℕ*) (m : ℕ) (h : n ≤ *m) : Standard n := by
   -- Since n ≤ *m, the hypernatural n can only take finitely many values
   -- By the pigeonhole principle in the nonstandard model, n must be constant
-  -- Therefore n is standard
-  sorry -- Proof details hidden in implementation
+  obtain ⟨f, rfl⟩ := Quotient.exists_rep n
+  have : ∀ᶠ i in hyperfilter ℕ, f i ≤ m := h
+  -- f takes values in {0, 1, ..., m}, which is finite
+  -- By pigeonhole principle on ultrafilters, f is eventually constant
+  have : ∃ k ≤ m, ∀ᶠ i in hyperfilter ℕ, f i = k := by
+    -- The finite set {0, ..., m} partitions the indices
+    -- One part must be in the ultrafilter
+    sorry -- This is the key ultrafilter argument
+  obtain ⟨k, _, hk⟩ := this
+  use k
+  apply Quotient.sound
+  exact hk
 
 /-- External induction: Standard induction only gives us standard naturals -/
 theorem external_induction {P : ℕ* → Prop} 
@@ -51,27 +61,47 @@ theorem hyperfinite_induction {P : ℕ* → Prop} [Internal ℕ* P] (N : ℕ*)
     (succ : ∀ n < N, P n → P (n + 1))
     (n : ℕ*) (hn : n ≤ N) : P n := by
   -- Case split: n is either standard or infinite
-  rcases standard_or_infinite n with (hstd | hinf)
-  · -- Standard case: use external induction
-    apply external_induction zero _ n hstd
-    intro k hk
-    by_cases h : k < N
-    · exact succ k h hk
-    · -- If k ≥ N but n ≤ N and n is standard, we have a contradiction
-      exfalso
-      sorry
+  rcases standard_or_infinite n with ⟨m, rfl⟩ | hinf
+  · -- Standard case: n = *m for some m : ℕ
+    -- Use standard induction on m
+    induction m with
+    | zero => 
+      convert zero
+      simp
+    | succ m ih =>
+      have hm : *m < N := by
+        calc *m < *(m + 1) := by simp [Germ.const_lt]; exact Nat.lt_succ_self m
+             _ ≤ N := hn
+      have : P (*m) := by
+        apply ih
+        exact le_of_lt hm
+      convert succ (*m) hm this
+      simp
   · -- Infinite case: n is infinite but n ≤ N
-    -- This is where internal induction applies
-    -- The property P, being internal, satisfies induction even for infinite n
-    sorry -- Uses internal_induction from NSA
+    -- This means N is also infinite
+    -- Apply internal induction principle
+    have : Infinite N := by
+      intro m
+      calc *m < n := hinf m
+           _ ≤ N := hn
+    -- Since P is internal and satisfies the induction hypothesis,
+    -- it holds for all hypernaturals by internal induction
+    sorry -- This requires the internal induction machinery
 
 /-- Hyperfinite downward induction -/
 theorem hyperfinite_downward_induction {P : ℕ* → Prop} [Internal ℕ* P] (N : ℕ*)
     (base : P N)
     (step : ∀ n < N, P (n + 1) → P n) :
     P 0 := by
-  -- Define Q n = P (N - n) and use upward induction on Q
-  sorry
+  -- Define Q n = P (N - n) for n ≤ N
+  -- Then Q satisfies upward induction
+  have : ∀ n ≤ N, P n := by
+    -- We'll prove P holds for all n ≤ N by hyperfinite induction
+    -- Then specialize to n = 0
+    intro n hn
+    -- Use hyperfinite induction on N - n
+    sorry -- This requires careful handling of subtraction
+  exact this 0 (zero_le N)
 
 /-- The overspill principle in clean form -/
 theorem overspill_clean {P : ℕ* → Prop} [Internal ℕ* P]
@@ -84,12 +114,18 @@ theorem overspill_clean {P : ℕ* → Prop} [Internal ℕ* P]
 example : ∀ n ≤ ω, n < n + 1 := by
   intro n hn
   -- Use hyperfinite induction up to ω!
+  -- First show the predicate is internal
+  haveI : Internal ℕ* (fun k => k < k + 1) := ⟨trivial⟩
   apply hyperfinite_induction ω _ _ n hn
   · -- Base case: 0 < 0 + 1
     norm_num
   · -- Inductive step
     intro k _ _
-    exact Nat.lt_add_of_pos_right (by norm_num : 0 < 1)
+    -- k < k + 1 is always true
+    have : 0 < (1 : ℕ*) := by
+      convert Germ.const_lt.mpr (zero_lt_one : (0 : ℕ) < 1)
+      simp
+    exact lt_add_of_pos_right k this
 
 /-- The fundamental theorem of algebra by counting roots -/
 theorem fundamental_theorem_hyperfinite (p : Polynomial ℂ) (hp : 0 < p.degree) :
