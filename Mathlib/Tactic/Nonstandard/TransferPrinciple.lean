@@ -6,7 +6,7 @@ import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Order.Filter.Ultrafilter.Basic
 import Mathlib.ModelTheory.Ultraproducts
 
-/*
+/-!
 # The Transfer Principle for NSA
 
 This file provides the implementation of the transfer principle,
@@ -19,7 +19,7 @@ nonstandard models.
 * `transfer_exists` - Existential statements transfer  
 * `transfer_iff` - Logical equivalences transfer
 * `internal_char` - Characterization of internal predicates
-*/
+-/
 
 namespace NSA
 

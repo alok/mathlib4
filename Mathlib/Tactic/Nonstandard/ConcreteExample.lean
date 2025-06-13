@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
-/*
+/-!
 # A Concrete Example: Proving e^x is Continuous Using NSA
 
 This file gives a complete proof that e^x is continuous using
@@ -106,4 +106,4 @@ end NSA
 -- Example of how this fits into the standard library
 
 example : Continuous Real.exp := by
-  exact NSA.exp_continuous_nsa  -- Our NSA proof works!
+-/

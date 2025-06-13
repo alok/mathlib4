@@ -7,7 +7,7 @@ import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
 
-/*
+/-!
 # Calculus via Nonstandard Analysis
 
 This file shows how NSA makes calculus proofs natural and intuitive,
@@ -26,7 +26,7 @@ namespace NSA
 
 open Real Set
 
-/* ## Derivatives via Infinitesimals */
+-- ## Derivatives via Infinitesimals
 
 /-- The derivative of f at x using infinitesimals -/
 noncomputable def deriv_nsa (f : ℝ → ℝ) (x : ℝ) : ℝ :=
@@ -60,7 +60,7 @@ theorem product_rule_nsa {f g : ℝ → ℝ} {x : ℝ}
   -- The ε² term is infinitesimal, so we get f'(x)g(x) + f(x)g'(x)
   sorry
 
-/* ## Integration via Hyperfinite Sums */
+-- ## Integration via Hyperfinite Sums
 
 /-- Hyperfinite Riemann sum -/
 noncomputable def riemann_sum_nsa (f : ℝ → ℝ) (a b : ℝ) : Hyperreal :=
@@ -80,7 +80,7 @@ theorem ftc_nsa {f : ℝ → ℝ} {a b : ℝ} (hf : Continuous f) :
   -- by mean value theorem for integrals
   sorry
 
-/* ## Mean Value Theorem */
+-- ## Mean Value Theorem
 
 /-- Mean value theorem via infinitesimals -/
 theorem mvt_nsa {f : ℝ → ℝ} {a b : ℝ} (hab : a < b)
@@ -100,7 +100,7 @@ theorem rolle_nsa {f : ℝ → ℝ} {a b : ℝ} (hab : a < b)
   simp [hfa, sub_self, zero_div] at this
   exact this
 
-/* ## Taylor's Theorem */
+-- ## Taylor's Theorem
 
 /-- Taylor polynomial of degree n -/
 def taylor_poly (f : ℝ → ℝ) (x₀ : ℝ) (n : ℕ) : ℝ → ℝ :=
@@ -117,7 +117,7 @@ theorem taylor_nsa {f : ℝ → ℝ} {x₀ : ℝ} {n : ℕ}
   -- Apply finite differences ω times to get the remainder
   sorry
 
-/* ## Examples */
+-- ## Examples
 
 /-- sin'(x) = cos(x) via infinitesimals -/
 example (x : ℝ) : deriv sin x = cos x := by
@@ -154,5 +154,3 @@ theorem gradient_theorem_nsa {f : ℝ × ℝ → ℝ} {γ : ℝ → ℝ × ℝ} 
   -- Sum of f(γ(tᵢ₊₁)) - f(γ(tᵢ)) telescopes to f(γ(b)) - f(γ(a))
   -- Each term ≈ ∇f(γ(tᵢ)) · (γ(tᵢ₊₁) - γ(tᵢ))
   sorry
-
-end NSA

@@ -8,12 +8,12 @@ import Mathlib.Data.Real.Hyperreal
 import Lean
 import Mathlib.Logic.Basic
 
-/*
+/-!
 # Transfer tactic for nonstandard analysis (simplified version)
 
 This file implements a simplified transfer tactic for working with filter germs and hyperreals.
 The tactic converts statements about germs to equivalent statements about the underlying types.
-*/
+-/
 
 open Lean Meta Elab Tactic
 open Filter

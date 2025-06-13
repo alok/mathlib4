@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib.Data.Real.Hyperreal
 import Mathlib.Order.Filter.Germ.Basic
 
-/*
+/-!
 # Nonstandard Analysis (NSA) Foundation
 
 This file provides a high-level interface for nonstandard analysis that
@@ -24,7 +24,7 @@ and nonstandard objects without thinking about germs or ultrafilters.
 * `transfer` - Transfer principle: a statement is true in ℕ iff true for standard hypernaturals
 * `internal_induction` - Internal induction principle
 * `overspill` - Overspill principle
-*/
+-/
 
 open Filter
 

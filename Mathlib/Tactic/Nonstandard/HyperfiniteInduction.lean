@@ -8,7 +8,7 @@ import Mathlib.Topology.ContinuousOn
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 -- import Canonical
 
-/*
+/-!
 # Hyperfinite Induction
 
 This file establishes the principle of hyperfinite induction for nonstandard analysis.
@@ -582,7 +582,7 @@ theorem bolzano_weierstrass_hyperfinite {s : ℕ → ℝ} (hs : Bornology.IsBoun
 
 end Hypernat
 
-/* ## Comparison with Ordinal Induction */
+-- ## Comparison with Ordinal Induction
 
 /-- Hyperfinite induction is analogous to ordinal induction but for internal sets.
 

@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 import Mathlib.Tactic.Nonstandard.NSA
 
-/*
+/-!
 # Hyperfinite Induction in Nonstandard Analysis
 
 This file develops the principle of hyperfinite induction using the clean NSA interface,
@@ -16,7 +16,7 @@ without explicit reference to ultrafilters or germs.
 * `hyperfinite_induction` : Induction works up to any hypernatural bound  
 * `overspill` : If P holds for all standard naturals, it holds for some infinite one
 * `hyperfinite_downward_induction` : We can count down from any hypernatural
-*/
+-/
 
 open NSA
 

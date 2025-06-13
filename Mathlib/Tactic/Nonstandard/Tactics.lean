@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 import Mathlib.Tactic.Nonstandard.NSA
 
-/*
+/-!
 # Tactics for Nonstandard Analysis
 
 This file provides tactics that make working with NSA feel natural,
@@ -17,7 +17,7 @@ hiding all the ultrafilter machinery.
 * `overspill` - Apply overspill when applicable  
 * `hyperfinite_induction` - Set up hyperfinite induction
 * `internal` - Prove that a predicate is internal
-*/
+-/
 
 namespace Mathlib.Tactic.NSA
 

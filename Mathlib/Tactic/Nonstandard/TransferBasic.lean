@@ -7,12 +7,12 @@ import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Data.Real.Hyperreal
 import Lean
 
-/*
+/-!
 # Basic transfer tactic for nonstandard analysis
 
 This file implements a basic transfer tactic for working with filter germs.
 This is a simplified version that handles the most common cases.
-*/
+-/
 
 open Lean Meta Elab Tactic
 open Filter

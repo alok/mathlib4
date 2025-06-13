@@ -6,13 +6,13 @@ import Mathlib.Data.Real.Hyperreal
 import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Order.Filter.Ultrafilter.Basic
 
-/*
+/-!
 # Core Implementation of NSA
 
 This file provides the actual implementation of the NSA interface,
 proving the basic theorems using the ultrapower construction.
 Users should import NSA.lean, not this file.
-*/
+-/
 
 open Filter
 

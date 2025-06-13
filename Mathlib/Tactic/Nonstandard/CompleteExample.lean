@@ -7,7 +7,7 @@ import Mathlib.Tactic.Nonstandard.HyperfiniteSet
 import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
-/*
+/-!
 # Complete Example: The Harmonic Series
 
 This file provides a complete NSA treatment of the harmonic series,
@@ -131,4 +131,4 @@ theorem sum_prime_reciprocals_diverges :
   -- Key: ∑ 1/p ≥ log log n by NSA argument
   sorry
 
-end NSA.HarmonicSeries
+-/

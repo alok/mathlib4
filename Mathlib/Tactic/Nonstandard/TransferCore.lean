@@ -6,11 +6,11 @@ import Mathlib.Tactic.Nonstandard.Complements.FilterProduct
 import Mathlib.Data.Real.Hyperreal
 import Lean
 
-/*
+/-!
 # Core transfer tactic implementation
 
 A simplified version focusing on the essential transfer rules.
-*/
+-/
 
 open Lean Meta Elab Tactic
 open Filter Germ

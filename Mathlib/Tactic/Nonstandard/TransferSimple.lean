@@ -6,11 +6,11 @@ import Mathlib.Tactic.Nonstandard.Complements.FilterProduct
 import Mathlib.Data.Real.Hyperreal
 import Lean
 
-/*
+/-!
 # Transfer tactic for nonstandard analysis
 
 A simplified implementation of the transfer tactic.
-*/
+-/
 
 open Lean Meta Elab Tactic
 open Filter Germ

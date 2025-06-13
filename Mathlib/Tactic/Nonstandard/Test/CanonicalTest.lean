@@ -2,12 +2,12 @@ import Canonical
 import Mathlib.Tactic.Nonstandard.HyperfiniteInduction
 import Mathlib.Tactic.Nonstandard.Transfer
 
-/*
+/-!
 # Testing Canonical with Nonstandard Analysis
 
 This file demonstrates using the canonical tactic to search for proofs 
 in nonstandard analysis.
-*/
+-/
 
 open Filter Germ Hypernat
 

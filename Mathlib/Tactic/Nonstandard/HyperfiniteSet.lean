@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Data.Finset.Basic
 
-/*
+/-!
 # Hyperfinite Sets in NSA
 
 This file implements hyperfinite sets - sets that behave like finite sets
@@ -23,7 +23,7 @@ but can have a hyperfinite number of elements (like ω).
 * Hyperfinite induction works on hyperfinite sets
 * Pigeonhole principle for hyperfinite sets
 * Every hyperfinite set has a maximum (even with ω elements!)
-*/
+-/
 
 namespace NSA
 
@@ -119,7 +119,7 @@ def powerset (S : Hyperfinite α) : Hyperfinite (Hyperfinite α) :=
 
 end Hyperfinite
 
-/* ## Examples with hyperfinite sets */
+-- ## Examples with hyperfinite sets
 
 /-- We can sum 1/n for n = 1 to ω */
 example : ∃ H : Hyperreal, H.IsInfinite ∧ 

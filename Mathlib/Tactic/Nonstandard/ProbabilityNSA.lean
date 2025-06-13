@@ -6,7 +6,7 @@ import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Tactic.Nonstandard.HyperfiniteSet
 import Mathlib.Probability.ProbabilityMassFunction.Basic
 
-/*
+/-!
 # Probability Theory via Nonstandard Analysis
 
 This file shows how NSA provides intuitive proofs in probability theory
@@ -17,7 +17,7 @@ by working with hyperfinite sample spaces.
 * Law of large numbers via hyperfinite sampling
 * Central limit theorem via infinitesimal analysis
 * Brownian motion as a hyperfinite random walk
-*/
+-/
 
 namespace NSA.Probability
 
