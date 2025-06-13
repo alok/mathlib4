@@ -118,8 +118,14 @@ theorem standard_or_infinite (n : Hypernat) : n.IsStandard ∨ n.IsInfinite := b
     intro m
     by_contra h'
     push_neg at h
-    push_neg at h
-    exact absurd (h m) h'
+    -- h says ¬∃ m, (m : Hypernat) ≥ n
+    -- which means ∀ m, (m : Hypernat) < n
+    have : ∀ m, (m : Hypernat) < n := by
+      intro m
+      by_contra h_not_lt
+      push_neg at h_not_lt
+      exact h ⟨m, h_not_lt⟩
+    exact absurd (this m) h'
 
 /-- The hypernatural ω is the equivalence class of the identity function -/
 noncomputable def omega : Hypernat := (↑(fun n : ℕ => n) : (hyperfilter ℕ : Filter ℕ).Germ ℕ)
@@ -133,7 +139,9 @@ theorem omega_infinite : omega.IsInfinite := by
   -- Show ↑m < ↑(fun n => n)
   -- This is true because {n : m < n} has finite complement
   -- Show that ↑m < (the germ of the identity function)
-  have : omega = (fun n => n : (hyperfilter ℕ : Filter ℕ).Germ ℕ) := rfl
+  -- omega is defined as the germ of the identity function
+  -- We need to show ↑m < omega
+  change ↑m < omega
   rw [this, Germ.const_lt]
   -- Need to show that {n | m < n} ∈ hyperfilter ℕ
   apply mem_hyperfilter_of_finite_compl
@@ -165,13 +173,13 @@ theorem hyperfiniteInduction {p : Hypernat → Prop} (N : Hypernat)
         have hp : p ↑(m - 1) := by
           apply ih (m - 1) hpred
           calc ↑(m - 1) ≤ ↑m := by 
-                 exact Germ.const_le.mpr
+                 apply Germ.const_le_iff.mp
                  exact Nat.sub_le m 1
                _ ≤ N := hn
         -- Now apply the successor property
         have hlt : ↑(m - 1) < N := by
           calc ↑(m - 1) < ↑m := by
-                 exact Germ.const_lt.mpr
+                 apply Germ.const_lt_iff.mp
                  exact Nat.sub_lt hpos (by norm_num)
                _ ≤ N := hn
         have : p (↑(m - 1) + 1) := succ ↑(m - 1) hlt hp
@@ -358,7 +366,9 @@ theorem overspill {P : Hypernat → Prop}
   · exact omega_infinite
   · -- Show P ω
     -- omega = Quotient.mk _ (fun n => n)
-    rw [← hQ (fun n => n)]
+    -- omega is the quotient of the identity function
+    have : omega = Quotient.mk _ (fun n => n) := rfl
+    rw [this, ← hQ]
     -- Need to show Q (fun n => n)
     
     -- Key idea: For each i, the function f_i(j) = if j = i then i else 0
@@ -392,7 +402,7 @@ theorem overspill {P : Hypernat → Prop}
         apply Quotient.sound
         apply mem_hyperfilter_of_finite_compl  
         simp [f_i, Set.finite_singleton]
-      rw [← hQ f_i, this]
+      rw [← hQ, this]
       exact h i
     
     -- The identity function and f_i eventually agree (they both equal i at position i)
