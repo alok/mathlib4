@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 -/
 import Mathlib.Data.Real.Hyperreal
 import Mathlib.Order.Filter.Germ.Basic
+import Mathlib.Topology.ContinuousOn
+import Mathlib.Analysis.SpecialFunctions.Pow.Real
 -- import Canonical
 
 /-!
@@ -209,6 +211,102 @@ theorem continuum_many_hypernaturals :
     ∃ f : (ℕ → Bool) → Hypernat, Function.Injective f := by
   -- Each function ℕ → Bool gives a different hypernatural
   -- This shows we can "count through the continuum" using hyperfinite induction
+  sorry
+
+/-- Concrete example: Sum of 1/n for n from 1 to ω is infinite -/
+theorem harmonic_sum_infinite : 
+    let S : Hypernat → Hyperreal := fun n => 
+      if n = 0 then 0 else (Finset.range n).sum (fun k => 1 / (k + 1 : Hyperreal))
+    S omega > (n : Hyperreal) ∀ n : ℕ := by
+  -- By hyperfinite induction, we can compute S(ω) = 1 + 1/2 + ... + 1/ω
+  -- This sum is infinite (greater than any standard natural)
+  sorry
+
+/-- The "finite" pigeonhole principle applies to hyperfinite sets -/
+theorem hyperfinite_pigeonhole {α : Type*} (S : Finset α) (f : α → Hypernat) 
+    (N : Hypernat) (h : ∀ a ∈ S, f a ≤ N) :
+    S.card > N → ∃ a b ∈ S, a ≠ b ∧ f a = f b := by
+  -- Even though N might be infinite, we can still apply pigeonhole!
+  -- This is because we're working with a hyperfinite codomain
+  sorry
+
+/-- Hyperfinite approximation of the unit interval [0,1] -/
+def HyperUnitInterval : Type := {n : Hypernat // n ≤ omega}
+
+namespace HyperUnitInterval
+
+/-- Convert a hypernatural in [0, ω] to a hyperreal in [0, 1] -/
+noncomputable def toHyperreal (x : HyperUnitInterval) : Hyperreal :=
+  (x.val : Hyperreal) / (omega : Hyperreal)
+
+end HyperUnitInterval
+
+/-- Simple example: Finding maximum on a hyperfinite set -/
+theorem hyperfinite_has_maximum (S : Hypernat → Hyperreal) (N : Hypernat) :
+    ∃ n ≤ N, ∀ m ≤ N, S m ≤ S n := by
+  -- This is the hyperfinite version of "every finite set has a maximum"
+  -- We use hyperfinite induction on N!
+  apply hyperfiniteInduction N
+  · -- Base case: When N = 0, the only element is S 0
+    use 0
+    simp
+  · -- Inductive step: If we have a max up to k, extend to k+1
+    intro k hk ⟨n, hn, max_n⟩
+    -- Compare S(k+1) with the current maximum S(n)
+    by_cases h : S n ≤ S (k + 1)
+    · -- S(k+1) is the new maximum
+      use k + 1
+      constructor
+      · exact Nat.le_succ_of_le hk
+      · intro m hm
+        by_cases hm' : m ≤ k
+        · exact le_trans (max_n m hm') h
+        · -- m = k + 1
+          sorry -- m ≤ k+1 and not m ≤ k implies m = k+1
+    · -- S(n) remains the maximum
+      use n
+      constructor
+      · exact le_trans hn (Nat.le_succ_of_le hk)
+      · intro m hm
+        by_cases hm' : m ≤ k
+        · exact max_n m hm'
+        · -- m = k + 1
+          exact le_of_not_le h
+  · -- The conclusion for n ≤ N
+    sorry
+
+/-- The Extreme Value Theorem via hyperfinite induction: 
+    A continuous function on [0,1] attains its maximum -/
+theorem extreme_value_hyperfinite {f : ℝ → ℝ} (hf : ContinuousOn f (Set.Icc 0 1)) :
+    ∃ x ∈ Set.Icc 0 1, ∀ y ∈ Set.Icc 0 1, f y ≤ f x := by
+  -- The "finite" proof: We discretize [0,1] into ω+1 points: 0/ω, 1/ω, ..., ω/ω
+  -- Among these finitely many (but hyperfinitely many!) points, there's a maximum
+  -- By continuity and the transfer principle, this gives the actual maximum
+  sorry
+
+/-- Example: The intermediate value theorem by "counting" -/
+theorem intermediate_value_hyperfinite {f : ℝ → ℝ} (hf : ContinuousOn f (Set.Icc 0 1))
+    (h0 : f 0 < 0) (h1 : f 1 > 0) : ∃ x ∈ Set.Icc 0 1, f x = 0 := by
+  -- We can "count" through the hyperfinite grid until we find where f changes sign
+  -- This is a finite search through ω+1 points!
+  
+  -- Define the property "f is negative at position k/ω"
+  let P : Hypernat → Prop := fun k => 
+    k ≤ omega ∧ f ((k : Hyperreal) / (omega : Hyperreal)).standardPart < 0
+  
+  -- By hyperfinite downward induction from ω to 0:
+  -- - P(0) is true (given)
+  -- - P(ω) is false (since f(1) > 0)
+  -- - So there's a first k where P(k) is true but P(k+1) is false
+  -- - By continuity, f must be 0 somewhere between k/ω and (k+1)/ω
+  sorry
+
+/-- The "finite" proof that every bounded sequence has a convergent subsequence -/
+theorem bolzano_weierstrass_hyperfinite {s : ℕ → ℝ} (hs : Bornology.IsBounded (Set.range s)) :
+    ∃ (a : ℝ) (φ : ℕ → ℕ), StrictMono φ ∧ Filter.Tendsto (s ∘ φ) Filter.atTop (𝓝 a) := by
+  -- The hyperfinite proof: Among the hyperfinitely many terms s(0), s(1), ..., s(ω),
+  -- at least one value must appear "hyperfinitely often" (pigeonhole principle)
+  -- This gives us our limit point!
   sorry
 
 end Hypernat
