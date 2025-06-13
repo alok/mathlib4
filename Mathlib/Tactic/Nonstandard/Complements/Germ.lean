@@ -6,7 +6,7 @@ import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Order.Filter.Germ.OrderedMonoid
 import Mathlib.Tactic.Nonstandard.ForMathlib.FilterBasic
 
-/-! # Complements on filter germs -/
+/* # Complements on filter germs */
 
 open Filter Function
 
@@ -18,7 +18,7 @@ lemma eq_def' : ((· = ·) : l.Germ α → l.Germ α → Prop) = LiftRel (· = �
   ext ⟨f⟩ ⟨g⟩
   exact coe_eq
 
-/-! ## Product of germs -/
+/* ## Product of germs */
 
 def prodEquiv : l.Germ α × l.Germ β ≃ l.Germ (α × β) where
   toFun := uncurry (Quotient.map₂ (fun f g i => ⟨f i, g i⟩)
@@ -60,9 +60,9 @@ lemma liftRel_symm (r : α → β → Prop) (x : l.Germ α) (y : l.Germ β) :
   refine x.inductionOn₂ y (fun f g => ?_)
   rfl
 
-/-! ## Transfer lemmas -/
+/* ## Transfer lemmas */
 
-/-! ### Forall rules -/
+/* ### Forall rules */
 
 lemma forall_iff_forall_liftPred [l.NeBot] (p : α → Prop) : 
   (∀ x, p x) ↔ (∀ x : l.Germ α, LiftPred p x) := by
@@ -94,7 +94,7 @@ lemma forall_forall_eq_iff_forall_forall_eq {ι α : Type*} {l : Filter ι} [l.N
     have : (↑x : l.Germ α) = ↑y := h ↑x ↑y
     simpa using this
 
-/-! ### Exists rules -/
+/* ### Exists rules */
 
 lemma exists_iff_exists_liftPred [l.NeBot] (p : α → Prop) : 
   (∃ x, p x) ↔ (∃ x : l.Germ α, LiftPred p x) := by
@@ -134,7 +134,7 @@ lemma liftPred_exists_iff_exists_liftPred' [l.NeBot] (r : α → β → Prop) (x
     ∃ (y : l.Germ β), LiftPred (fun u : α × β => r u.1 u.2) (prodEquiv l (x, y)) :=
 liftPred_exists_iff_exists_liftPred l r x
 
-/-! ### Eq rules -/
+/* ### Eq rules */
 
 lemma liftPred_eq_iff_eq_map (f g : α → β) (x : l.Germ α) :
   LiftPred (fun x => f x = g x) x ↔ Germ.map f x = Germ.map g x := by
@@ -142,25 +142,25 @@ lemma liftPred_eq_iff_eq_map (f g : α → β) (x : l.Germ α) :
   simp only [liftPred_coe, map_coe, coe_eq]
   rfl
 
-/-! ### And rules -/
+/* ### And rules */
 
 lemma liftPred_and_iff_and_liftPred [l.NeBot] (p q : α → Prop) (x : l.Germ α) :
   LiftPred (fun x => p x ∧ q x) x ↔ LiftPred p x ∧ LiftPred q x := by
   refine x.inductionOn (fun f => ?_)
   exact eventually_and
 
-/-! ### Not rules -/
+/* ### Not rules */
 
 -- We'll add a simpler version of liftPred_not later if needed
 
-/-! ### Exists rules for Props -/
+/* ### Exists rules for Props */
 
 lemma liftPred_exists_prop_iff_and_liftPred [l.NeBot] (p q : α → Prop) (x : l.Germ α) :
   LiftPred (fun x => ∃ (_ : p x), q x) x ↔ LiftPred p x ∧ LiftPred q x := by
   conv_lhs => arg 1; ext; rw [exists_prop]
   exact liftPred_and_iff_and_liftPred l p q x
 
-/-! ### Logical connectives -/
+/* ### Logical connectives */
 
 lemma and_iff_and_liftPred [l.NeBot] (p q : α → Prop) :
   (∀ x, p x ∧ q x) ↔ (∀ x : l.Germ α, LiftPred p x ∧ LiftPred q x) := by
@@ -217,7 +217,7 @@ lemma imp_iff_imp_liftPred [l.NeBot] (p q : α → Prop) :
   · intro h x px
     exact liftPred_const_iff.mp (h ↑x (liftPred_const px))
 
-/-! ### Relation rules with constants -/
+/* ### Relation rules with constants */
 
 lemma liftRel_const_left_iff_liftPred [l.NeBot] (r : α → β → Prop) (a : α) (y : l.Germ β) :
   LiftRel r ↑a y ↔ LiftPred (r a ·) y := by
@@ -258,7 +258,7 @@ lemma eq_const_iff_liftPred [l.NeBot] (x : l.Germ α) (a : α) :
 -- For now, we'll skip the ne lemmas as they require more careful handling
 -- They involve the relationship between ∃ᶠ and ∀ᶠ which is subtle
 
-/-! ### Combined forall rules with relations -/
+/* ### Combined forall rules with relations */
 
 lemma forall_le_const_iff_forall_germ_le [Preorder α] [l.NeBot] (a : α) :
   (∀ x, a ≤ x) ↔ (∀ x : l.Germ α, ↑a ≤ x) := by
@@ -305,7 +305,7 @@ lemma exists_const_eq_iff_exists_germ_eq [l.NeBot] (a : α) :
   simp only [eq_const_iff_liftPred]
   exact exists_iff_exists_liftPred l (· = a)
 
-/-! ### Arithmetic operation rules -/
+/* ### Arithmetic operation rules */
 
 section Arithmetic
 

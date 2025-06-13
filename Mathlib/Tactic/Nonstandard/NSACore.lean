@@ -1,18 +1,18 @@
 /-
 Copyright (c) 2025. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
--/
+*/
 import Mathlib.Data.Real.Hyperreal
 import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Order.Filter.Ultrafilter.Basic
 
-/-!
+/*
 # Core Implementation of NSA
 
 This file provides the actual implementation of the NSA interface,
 proving the basic theorems using the ultrapower construction.
 Users should import NSA.lean, not this file.
--/
+*/
 
 open Filter
 
@@ -20,61 +20,61 @@ namespace NSA
 
 -- Implementation details using ultrafilters
 
-/-- The hypernatural numbers -/
+/-- The hypernatural numbers */
 abbrev Hypernat := (hyperfilter ℕ : Filter ℕ).Germ ℕ
 
-/-- The hyperreal numbers -/
+/-- The hyperreal numbers */
 abbrev Hyperreal := (hyperfilter ℕ : Filter ℕ).Germ ℝ
 
 -- Basic instances
 noncomputable instance : LinearOrderedSemiring Hypernat := Germ.linearOrderedSemiring
 noncomputable instance : LinearOrderedField Hyperreal := Germ.instLinearOrderedField
 
-/-- Natural embedding of naturals -/
+/-- Natural embedding of naturals */
 @[coe] def ofNat : ℕ → Hypernat := fun n => ↑n
 
-/-- Natural embedding of reals -/
+/-- Natural embedding of reals */
 @[coe] def ofReal : ℝ → Hyperreal := fun r => ↑r
 
 instance : Coe ℕ Hypernat := ⟨ofNat⟩
 instance : Coe ℝ Hyperreal := ⟨ofReal⟩
 
-/-- A hypernatural is standard if it's the image of a natural -/
+/-- A hypernatural is standard if it's the image of a natural */
 def Hypernat.IsStandard (x : Hypernat) : Prop := ∃ n : ℕ, x = ↑n
 
-/-- A hyperreal is standard if it's the image of a real -/
+/-- A hyperreal is standard if it's the image of a real */
 def Hyperreal.IsStandard (x : Hyperreal) : Prop := ∃ r : ℝ, x = ↑r
 
-/-- A hypernatural is infinite if it's larger than all standard naturals -/
+/-- A hypernatural is infinite if it's larger than all standard naturals */
 def Hypernat.IsInfinite (x : Hypernat) : Prop := ∀ n : ℕ, ↑n < x
 
-/-- A hyperreal is infinite if its absolute value is larger than all standard reals -/
+/-- A hyperreal is infinite if its absolute value is larger than all standard reals */
 def Hyperreal.IsInfinite (x : Hyperreal) : Prop := ∀ r : ℝ, r > 0 → ↑r < |x|
 
-/-- A hyperreal is infinitesimal if its absolute value is smaller than all positive standard reals -/
+/-- A hyperreal is infinitesimal if its absolute value is smaller than all positive standard reals */
 def Hyperreal.IsInfinitesimal (x : Hyperreal) : Prop := ∀ r : ℝ, r > 0 → |x| < ↑r
 
-/-- A hyperreal is finite if it's bounded by some standard real -/
+/-- A hyperreal is finite if it's bounded by some standard real */
 def Hyperreal.IsFinite (x : Hyperreal) : Prop := ∃ r : ℝ, |x| ≤ ↑r
 
-/-- Two hyperreals are infinitely close -/
+/-- Two hyperreals are infinitely close */
 def Hyperreal.InfinitelyClose (x y : Hyperreal) : Prop := (x - y).IsInfinitesimal
 
 notation x " ≈ " y => Hyperreal.InfinitelyClose x y
 
-/-- The canonical infinite hypernatural -/
+/-- The canonical infinite hypernatural */
 noncomputable def omega : Hypernat := ⟦id⟧
 
 notation "ω" => omega
 
-/-- ω is infinite -/
+/-- ω is infinite */
 theorem omega_infinite : omega.IsInfinite := by
   intro n
   rw [Hypernat.IsInfinite, Germ.const_lt]
   apply mem_hyperfilter_of_finite_compl
   exact Set.finite_le_nat n
 
-/-- Every hypernatural is either standard or infinite -/
+/-- Every hypernatural is either standard or infinite */
 theorem Hypernat.standard_or_infinite (x : Hypernat) : x.IsStandard ∨ x.IsInfinite := by
   by_cases h : ∃ n : ℕ, ↑n ≥ x
   · left
@@ -97,13 +97,13 @@ theorem Hypernat.standard_or_infinite (x : Hypernat) : x.IsStandard ∨ x.IsInfi
     push_neg at h
     exact h
 
-/-- Standard part of a finite hyperreal -/
+/-- Standard part of a finite hyperreal */
 noncomputable def Hyperreal.standardPart (x : Hyperreal) (h : x.IsFinite) : ℝ :=
   Classical.choose (Hyperreal.finite_iff_has_standard_part.mp h)
 
 notation "st" => Hyperreal.standardPart
 
-/-- Standard part theorem: every finite hyperreal is infinitely close to a unique standard real -/
+/-- Standard part theorem: every finite hyperreal is infinitely close to a unique standard real */
 theorem Hyperreal.finite_iff_has_standard_part (x : Hyperreal) :
     x.IsFinite ↔ ∃! r : ℝ, x ≈ ↑r := by
   constructor
@@ -127,7 +127,7 @@ theorem Hyperreal.finite_iff_has_standard_part (x : Hyperreal) :
     _ < 1 + |↑r| := add_lt_add_right this _
     _ = |↑r| + 1 := by ring
 
-/-- Transfer principle for predicates -/
+/-- Transfer principle for predicates */
 theorem transfer_predicate {P : ℕ → Prop} :
     (∀ n : ℕ, P n) ↔ (∀ x : Hypernat, x.IsStandard → ∃ n : ℕ, x = ↑n ∧ P n) := by
   constructor
@@ -138,7 +138,7 @@ theorem transfer_predicate {P : ℕ → Prop} :
     have : n = m := Germ.const_inj.mp hm
     rwa [this]
 
-/-- Internal sets/predicates -/
+/-- Internal sets/predicates */
 structure Internal {α : Type*} (P : α → Prop) : Prop where
   -- A predicate is internal if it respects the ultrafilter structure
   -- For simplicity, we make most "reasonable" predicates internal
@@ -150,7 +150,7 @@ instance : Internal (fun n : Hypernat => n ≤ omega) := ⟨trivial⟩
 instance {k : Hypernat} : Internal (fun n : Hypernat => n ≤ k) := ⟨trivial⟩
 instance {k : Hypernat} : Internal (fun n : Hypernat => n < k) := ⟨trivial⟩
 
-/-- Internal induction principle -/
+/-- Internal induction principle */
 theorem internal_induction {P : Hypernat → Prop} [Internal P]
     (zero : P 0)
     (succ : ∀ n, P n → P (n + 1)) :
@@ -164,7 +164,7 @@ theorem internal_induction {P : Hypernat → Prop} [Internal P]
   -- Then we can apply coordinate-wise induction
   sorry -- This requires the full internal predicate machinery
 
-/-- Overspill principle -/
+/-- Overspill principle */
 theorem overspill {P : Hypernat → Prop} [Internal P]
     (h : ∀ n : ℕ, P ↑n) :
     ∃ x : Hypernat, x.IsInfinite ∧ P x := by
@@ -178,12 +178,12 @@ theorem overspill {P : Hypernat → Prop} [Internal P]
     -- contradicting that ω exists
     sorry -- Requires internal set theory axioms
 
-/-- Hyperfinite sets -/
+/-- Hyperfinite sets */
 structure Hyperfinite (α : Type*) where
   size : Hypernat
   enum : Fin size.toNat → α  -- This is a simplification
 
-/-- Standard part for continuous functions -/
+/-- Standard part for continuous functions */
 theorem continuous_standard_part {f : ℝ → ℝ} {a : ℝ} (hf : ContinuousAt f a) 
     {x : Hyperreal} (hx : x ≈ ↑a) : 
     Function.star f x ≈ ↑(f a) := by

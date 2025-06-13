@@ -5,7 +5,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib.Tactic.Nonstandard.HyperfiniteInductionClean
 import Mathlib.Tactic.Nonstandard.Tactics
 
-/-!
+/*
 # Examples of Nonstandard Analysis
 
 This file shows how clean and intuitive NSA proofs can be when
@@ -17,7 +17,7 @@ the ultrafilter machinery is hidden.
 2. We can use infinite and infinitesimal numbers naturally  
 3. Continuous functions preserve nearness (≈)
 4. Hyperfinite sets behave like finite sets
--/
+*/
 
 open NSA
 
@@ -28,7 +28,7 @@ notation "∞" => ω                   -- Infinity
 
 namespace NSAExamples
 
-/-! ## Basic properties of hyperreals -/
+/* ## Basic properties of hyperreals */
 
 /-- Infinitesimals exist! -/
 example : ε > 0 ∧ ∀ r : ℝ, r > 0 → ε < *r := by
@@ -84,7 +84,7 @@ example : ∃ x : ℝ*, ∀ r : ℝ, x ≠ *r := by
     rw [h] at this
     exact lt_irrefl _ this
 
-/-! ## Continuity via infinitesimals -/
+/* ## Continuity via infinitesimals */
 
 /-- A function is continuous iff it preserves infinite closeness -/
 theorem continuous_iff_preserves_nearness {f : ℝ → ℝ} {a : ℝ} :
@@ -102,7 +102,7 @@ example : Continuous (fun x : ℝ => x^2) := by
   -- Both 2*a*ε and ε² are infinitesimal
   sorry -- This requires showing that products preserve infinitesimals
 
-/-! ## Differentiation via infinitesimals -/
+/* ## Differentiation via infinitesimals */
 
 /-- The derivative as a standard part -/
 def derivative (f : ℝ → ℝ) (a : ℝ) : ℝ :=
@@ -114,7 +114,7 @@ example (a : ℝ) : derivative (fun x => x^2) a = 2 * a := by
   -- Compute: ((a + ε)² - a²) / ε = (2aε + ε²) / ε = 2a + ε ≈ 2a
   sorry
 
-/-! ## Integration via hyperfinite sums -/
+/* ## Integration via hyperfinite sums */
 
 /-- The integral as a hyperfinite Riemann sum -/
 def integral (f : ℝ → ℝ) (a b : ℝ) : ℝ :=
@@ -127,7 +127,7 @@ example : integral (fun x => x) 0 1 = 1/2 := by
   -- = (1/ω²) * (ω(ω+1)/2) ≈ 1/2
   sorry
 
-/-! ## Sequences and limits -/
+/* ## Sequences and limits */
 
 /-- A sequence converges to L iff sₙ ≈ L for all infinite n -/
 theorem converges_iff_infinite_close {s : ℕ → ℝ} {L : ℝ} :
@@ -149,7 +149,7 @@ example : Filter.Tendsto (fun n : ℕ => (1 : ℝ) / n) Filter.atTop (nhds 0) :=
   -- So 1/n < 1/(*(ceil(1/r))) ≤ *r
   sorry -- Complete using properties of infinite hypernaturals
 
-/-! ## Compactness via hyperfinite covers -/
+/* ## Compactness via hyperfinite covers */
 
 /-- [0,1] is compact: every hyperfinite open cover has a finite subcover -/
 example : IsCompact (Set.Icc (0 : ℝ) 1) := by
@@ -157,7 +157,7 @@ example : IsCompact (Set.Icc (0 : ℝ) 1) := by
   -- By hyperfinite induction, we can extract a finite subcover
   sorry
 
-/-! ## The Peano axioms with hyperfinite induction -/
+/* ## The Peano axioms with hyperfinite induction */
 
 /-- ℕ* satisfies a strong form of Peano axioms -/
 example : 
@@ -171,7 +171,7 @@ example (N : ℕ*) (P : ℕ* → Prop) [Internal ℕ* P] :
     P 0 → (∀ n < N, P n → P (n + 1)) → ∀ n ≤ N, P n := by
   exact Hypernat.hyperfinite_induction N
 
-/-! ## Nonstandard characterization of uniform continuity -/
+/* ## Nonstandard characterization of uniform continuity */
 
 /-- f is uniformly continuous on [a,b] iff for all x,y ∈ [a,b]*, x ≈ y → f(x) ≈ f(y) -/
 theorem uniform_continuous_iff {f : ℝ → ℝ} {a b : ℝ} :
@@ -181,7 +181,7 @@ theorem uniform_continuous_iff {f : ℝ → ℝ} {a b : ℝ} :
 
 end NSAExamples
 
-/-! ## Advanced example: Proving the Bolzano-Weierstrass theorem -/
+/* ## Advanced example: Proving the Bolzano-Weierstrass theorem */
 
 theorem bolzano_weierstrass_clean {s : ℕ → ℝ} (hs : Bornology.IsBounded (Set.range s)) :
     ∃ (a : ℝ) (φ : ℕ → ℕ), StrictMono φ ∧ Filter.Tendsto (s ∘ φ) Filter.atTop (nhds a) := by
@@ -191,7 +191,7 @@ theorem bolzano_weierstrass_clean {s : ℕ → ℝ} (hs : Bornology.IsBounded (S
   -- Step 4: Build subsequence by picking nₖ such that |s(nₖ) - a| < 1/k
   sorry
 
-/-! ## The magic: Infinite objects behave finitely -/
+/* ## The magic: Infinite objects behave finitely */
 
 /-- We can find the minimum of a hyperfinite set! -/
 example (S : Hyperfinite ℝ*) (hS : NSA.Hyperfinite.nonempty S) :

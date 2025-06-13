@@ -7,7 +7,7 @@ import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Topology.Compactness.Compact
 import Mathlib.Analysis.Normed.Field.Basic
 
-/-!
+/*
 # Compactness via Nonstandard Analysis
 
 This file develops the NSA approach to compactness, showing how
@@ -19,7 +19,7 @@ the nonstandard characterization makes many proofs trivial.
 * `heine_borel_nsa` - [a,b] is compact (trivial proof!)
 * `compact_implies_closed_nsa` - Compact subsets of Hausdorff spaces are closed
 * `extreme_value_nsa` - Extreme value theorem with 5-line proof
--/
+*/
 
 namespace NSA
 
@@ -71,7 +71,7 @@ theorem mem_star_iff {S : Set ℝ} {x : ℝ} : ↑x ∈ *S ↔ x ∈ S := by
     use fun _ => x
     simp [hx]
 
-/-! ## Robinson's Characterization of Compactness -/
+/* ## Robinson's Characterization of Compactness */
 
 /-- The monad of a standard real -/
 def monad (a : ℝ) : Set Hyperreal := {x : Hyperreal | x ≈ ↑a}
@@ -130,7 +130,7 @@ theorem compact_iff_monad {K : Set ℝ} :
       symmetry
       sorry -- Apply uniqueness of standard part
 
-/-! ## Easy Proofs Using NSA Characterization -/
+/* ## Easy Proofs Using NSA Characterization */
 
 /-- Heine-Borel: [a,b] is compact (trivial with NSA!) -/
 theorem heine_borel_nsa {a b : ℝ} (h : a ≤ b) : IsCompact (Set.Icc a b) := by
@@ -158,7 +158,7 @@ theorem distance_attained_nsa {K : Set ℝ} (hK : IsCompact K) (hne : K.Nonempty
   -- By extreme value theorem, it attains its minimum
   sorry
 
-/-! ## Extreme Value Theorem - Super Clean Proof -/
+/* ## Extreme Value Theorem - Super Clean Proof */
 
 /-- A continuous function on a compact set attains its maximum -/
 theorem extreme_value_nsa {f : ℝ → ℝ} {K : Set ℝ} 
@@ -178,7 +178,7 @@ theorem extreme_value_nsa {f : ℝ → ℝ} {K : Set ℝ}
   -- Because *f(↑y) ≤ *f(ξ) and continuity preserves ≈
   sorry
 
-/-! ## Uniform Continuity on Compact Sets -/
+/* ## Uniform Continuity on Compact Sets */
 
 /-- Heine-Cantor: Continuous functions on compact sets are uniformly continuous -/
 theorem heine_cantor_nsa {f : ℝ → ℝ} {K : Set ℝ}
@@ -192,7 +192,7 @@ theorem heine_cantor_nsa {f : ℝ → ℝ} {K : Set ℝ}
   -- ↑x and ↑y are infinitely close, so *f(↑x) ≈ *f(↑y) by the NSA criterion
   sorry
 
-/-! ## Sequential Compactness -/
+/* ## Sequential Compactness */
 
 /-- Bolzano-Weierstrass: Every sequence in a compact set has a convergent subsequence -/
 theorem bolzano_weierstrass_compact {K : Set ℝ} (hK : IsCompact K)
@@ -203,7 +203,7 @@ theorem bolzano_weierstrass_compact {K : Set ℝ} (hK : IsCompact K)
   -- This is the limit of a subsequence
   sorry
 
-/-! ## Total Boundedness -/
+/* ## Total Boundedness */
 
 /-- A set is totally bounded iff it can be covered by finitely many ε-balls -/
 theorem totally_bounded_nsa {S : Set ℝ} :

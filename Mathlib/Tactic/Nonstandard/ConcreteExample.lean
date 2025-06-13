@@ -5,12 +5,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
-/-!
+/*
 # A Concrete Example: Proving e^x is Continuous Using NSA
 
 This file gives a complete proof that e^x is continuous using
 nonstandard analysis, demonstrating how clean NSA proofs can be.
--/
+*/
 
 namespace NSA
 

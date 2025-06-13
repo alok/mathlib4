@@ -1,12 +1,12 @@
 /-
 Copyright (c) 2025. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
--/
+*/
 import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Order.Filter.Ultrafilter.Basic
 import Mathlib.ModelTheory.Ultraproducts
 
-/-!
+/*
 # The Transfer Principle for NSA
 
 This file provides the implementation of the transfer principle,
@@ -19,26 +19,26 @@ nonstandard models.
 * `transfer_exists` - Existential statements transfer  
 * `transfer_iff` - Logical equivalences transfer
 * `internal_char` - Characterization of internal predicates
--/
+*/
 
 namespace NSA
 
 open Filter
 
-/-- A predicate on hypernaturals is internal if it comes from a sequence of predicates -/
+/-- A predicate on hypernaturals is internal if it comes from a sequence of predicates */
 def IsInternalPred (P : Hypernat → Prop) : Prop :=
   ∃ (Q : (ℕ → ℕ) → Prop), 
     (∀ f g : ℕ → ℕ, f =ᶠ[hyperfilter ℕ] g → (Q f ↔ Q g)) ∧
     (∀ f : ℕ → ℕ, P ⟦f⟧ ↔ Q f)
 
-/-- A binary relation is internal if it comes from a sequence of relations -/
+/-- A binary relation is internal if it comes from a sequence of relations */
 def IsInternalRel (R : Hypernat → Hypernat → Prop) : Prop :=
   ∃ (S : (ℕ → ℕ) → (ℕ → ℕ) → Prop),
     (∀ f₁ g₁ f₂ g₂, f₁ =ᶠ[hyperfilter ℕ] g₁ → f₂ =ᶠ[hyperfilter ℕ] g₂ → 
       (S f₁ f₂ ↔ S g₁ g₂)) ∧
     (∀ f₁ f₂, R ⟦f₁⟧ ⟦f₂⟧ ↔ S f₁ f₂)
 
-/-- Transfer for universal quantification -/
+/-- Transfer for universal quantification */
 theorem transfer_forall {P : ℕ → Prop} :
     (∀ n : ℕ, P n) ↔ (∀ x : Hypernat, x.IsStandard → ∃ n : ℕ, x = ↑n ∧ P n) := by
   constructor
@@ -49,7 +49,7 @@ theorem transfer_forall {P : ℕ → Prop} :
     have : n = m := Germ.const_inj.mp hm
     rwa [this]
 
-/-- Transfer for existential quantification -/
+/-- Transfer for existential quantification */
 theorem transfer_exists {P : ℕ → Prop} :
     (∃ n : ℕ, P n) ↔ (∃ x : Hypernat, x.IsStandard ∧ ∃ n : ℕ, x = ↑n ∧ P n) := by
   constructor
@@ -58,7 +58,7 @@ theorem transfer_exists {P : ℕ → Prop} :
   · intro ⟨x, ⟨n, hn⟩, m, hm, hp⟩
     use m, hp
 
-/-- Transfer for implications -/
+/-- Transfer for implications */
 theorem transfer_imp {P Q : ℕ → Prop} :
     (∀ n, P n → Q n) ↔ 
     (∀ x : Hypernat, x.IsStandard → 
@@ -71,7 +71,7 @@ theorem transfer_imp {P Q : ℕ → Prop} :
     have : n = m := Germ.const_inj.mp hm.symm
     rwa [← this]
 
-/-- Internal predicates satisfy coordinate-wise properties -/
+/-- Internal predicates satisfy coordinate-wise properties */
 theorem internal_coordinate_wise {P : Hypernat → Prop} (h : IsInternalPred P) :
     ∃ (Pₙ : ℕ → ℕ → Prop), ∀ f : ℕ → ℕ,
       P ⟦f⟧ ↔ ∀ᶠ n in hyperfilter ℕ, Pₙ n (f n) := by
@@ -89,7 +89,7 @@ theorem internal_coordinate_wise {P : Hypernat → Prop} (h : IsInternalPred P) 
     -- If Pₙ(f(n)) holds for almost all n, then Q f holds
     sorry
 
-/-- Overspill principle via ultrafilters -/
+/-- Overspill principle via ultrafilters */
 theorem overspill_ultrafilter {P : Hypernat → Prop} (h : IsInternalPred P)
     (hstd : ∀ n : ℕ, P ↑n) :
     ∃ x : Hypernat, x.IsInfinite ∧ P x := by
@@ -118,7 +118,7 @@ theorem overspill_ultrafilter {P : Hypernat → Prop} (h : IsInternalPred P)
     -- By overspill on the ultrafilter, Q id holds
     sorry
 
-/-- Internal induction principle implementation -/
+/-- Internal induction principle implementation */
 theorem internal_induction_impl {P : Hypernat → Prop} (h : IsInternalPred P)
     (zero : P 0) (succ : ∀ n, P n → P (n + 1)) :
     ∀ n, P n := by

@@ -2,7 +2,7 @@ import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Tactic.Nonstandard.Complements.Germ
 import Mathlib.Order.Filter.Ultrafilter.Defs
 
-/-! # Complements on filter products -/
+/* # Complements on filter products */
 
 open Filter Function
 
@@ -10,9 +10,9 @@ namespace Filter.Germ
 
 variable {ι α β : Type*} (l : Ultrafilter ι)
 
-/-! ## Transfer lemmas -/
+/* ## Transfer lemmas */
 
-/-! ### Not rules -/
+/* ### Not rules */
 
 lemma liftPred_not_iff_not_liftPred (p : α → Prop) (x : (l : Filter ι).Germ α) : 
   LiftPred (fun x => ¬ p x) x ↔ ¬ LiftPred p x := by
@@ -25,7 +25,7 @@ lemma liftRel_not_iff_not_liftRel (r : α → β → Prop)
   refine x.inductionOn₂ y (fun f g => ?_)
   rw [liftRel_coe, liftRel_coe, Ultrafilter.eventually_not]
 
-/-! ### Ne rules -/
+/* ### Ne rules */
 
 lemma liftPred_ne_iff_ne_map (f g : α → β) (x : (l : Filter ι).Germ α) :
   LiftPred (fun x => f x ≠ g x) x ↔ Germ.map f x ≠ Germ.map g x := by
@@ -36,7 +36,7 @@ lemma liftPred_ne_iff_ne_map (f g : α → β) (x : (l : Filter ι).Germ α) :
   simp only [EventuallyEq]
   rfl
 
-/-! ### Imp rules -/
+/* ### Imp rules */
 
 lemma liftPred_imp_iff_imp_liftPred (p q : α → Prop) (x : (l : Filter ι).Germ α) :
   LiftPred (fun x => p x → q x) x ↔ (LiftPred p x → LiftPred q x) := by
@@ -44,7 +44,7 @@ lemma liftPred_imp_iff_imp_liftPred (p q : α → Prop) (x : (l : Filter ι).Ger
   rw [liftPred_coe, liftPred_coe]
   exact Ultrafilter.eventually_imp
 
-/-! ### Forall rules -/
+/* ### Forall rules */
 
 lemma liftPred_forall_iff_forall_liftRel (r : α → β → Prop) (x : (l : Filter ι).Germ α) : 
   LiftPred (fun x => ∀ (y : β), r x y) x ↔ ∀ (y : (l : Filter ι).Germ β), LiftRel r x y := by
@@ -66,7 +66,7 @@ lemma liftPred_forall_iff_forall_liftPred' (r : α → β → Prop) (x : (l : Fi
       LiftPred (fun u : α × β => r u.1 u.2) (prodEquiv (l : Filter ι) (x, y)) :=
 liftPred_forall_iff_forall_liftPred l r x
 
-/-! ### Or rules -/
+/* ### Or rules */
 
 lemma liftPred_or_iff_or_liftPred (p q : α → Prop) (x : (l : Filter ι).Germ α) :
   LiftPred (fun x => p x ∨ q x) x ↔ LiftPred p x ∨ LiftPred q x := by
@@ -74,7 +74,7 @@ lemma liftPred_or_iff_or_liftPred (p q : α → Prop) (x : (l : Filter ι).Germ 
   rw [liftPred_coe, liftPred_coe, liftPred_coe]
   exact Ultrafilter.eventually_or
 
-/-! ### Lt rules -/
+/* ### Lt rules */
 
 lemma liftPred_lt_iff_lt_map [Preorder β] (f g : α → β) (x : (l : Filter ι).Germ α) :
   LiftPred (fun x => f x < g x) x ↔ Germ.map f x < Germ.map g x := by

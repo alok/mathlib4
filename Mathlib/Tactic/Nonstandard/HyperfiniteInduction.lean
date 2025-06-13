@@ -8,7 +8,7 @@ import Mathlib.Topology.ContinuousOn
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
 -- import Canonical
 
-/-!
+/*
 # Hyperfinite Induction
 
 This file establishes the principle of hyperfinite induction for nonstandard analysis.
@@ -18,7 +18,7 @@ This file establishes the principle of hyperfinite induction for nonstandard ana
 * `hyperfiniteInduction` : Induction principle for standard hypernaturals
 * `internalInduction` : Induction works internally up to any hyperfinite bound
 * `overspill` : If a property holds for all standard naturals, it holds for some infinite hypernatural
--/
+*/
 
 open Filter Germ
 
@@ -582,7 +582,7 @@ theorem bolzano_weierstrass_hyperfinite {s : ℕ → ℝ} (hs : Bornology.IsBoun
 
 end Hypernat
 
-/-! ## Comparison with Ordinal Induction -/
+/* ## Comparison with Ordinal Induction */
 
 /-- Hyperfinite induction is analogous to ordinal induction but for internal sets.
 

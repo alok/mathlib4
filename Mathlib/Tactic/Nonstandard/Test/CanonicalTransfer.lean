@@ -2,12 +2,12 @@ import Canonical
 import Mathlib.Tactic.Nonstandard.Transfer
 import Mathlib.Tactic.Nonstandard.Complements.Germ
 
-/-!
+/*
 # Using Canonical to Search for Transfer Proofs
 
 This demonstrates using canonical as a search mechanism to find proofs
 that our transfer tactic can handle.
--/
+*/
 
 open Filter Germ
 

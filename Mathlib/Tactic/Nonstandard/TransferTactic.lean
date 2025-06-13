@@ -2,25 +2,25 @@
 Copyright (c) 2025 [Authors]. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: [Authors]
--/
+*/
 import Mathlib.Tactic.Nonstandard.Complements.FilterProduct
 import Mathlib.Tactic.Nonstandard.Complements.Germ
 import Mathlib.Data.Real.Hyperreal
 import Lean
 
-/-!
+/*
 # Transfer tactic for nonstandard analysis
 
 This file implements a transfer tactic for working with filter germs and hyperreals.
 The tactic converts statements about germs to equivalent statements about the underlying types.
--/
+*/
 
 open Lean Meta Elab Tactic
 open Filter Germ
 
 namespace Mathlib.Tactic.Transfer
 
-/-- Helper function to check if an expression is a filter germ type -/
+/-- Helper function to check if an expression is a filter germ type */
 def isGermType (e : Expr) : MetaM Bool := do
   let e ← whnf e
   match e with
@@ -28,7 +28,7 @@ def isGermType (e : Expr) : MetaM Bool := do
   | .const ``Hyperreal _ => return true
   | _ => return false
 
-/-- Helper function to extract filter and type from a germ expression -/
+/-- Helper function to extract filter and type from a germ expression */
 def extractGermInfo (e : Expr) : MetaM (Option (Expr × Expr)) := do
   let e ← whnf e
   match e with
@@ -39,7 +39,7 @@ def extractGermInfo (e : Expr) : MetaM (Option (Expr × Expr)) := do
     return some (l, α)
   | _ => return none
 
-/-- Apply the forall lifting rule -/
+/-- Apply the forall lifting rule */
 def applyForallRule (goal : MVarId) : TacticM Unit := do
   goal.withContext do
     let tgt ← goal.getType
@@ -56,7 +56,7 @@ def applyForallRule (goal : MVarId) : TacticM Unit := do
       | _ => throwError "RHS is not a forall"
     | _ => throwError "Goal is not an iff"
 
-/-- Apply the exists lifting rule -/
+/-- Apply the exists lifting rule */
 def applyExistsRule (goal : MVarId) : TacticM Unit := do
   goal.withContext do
     let tgt ← goal.getType
@@ -73,7 +73,7 @@ def applyExistsRule (goal : MVarId) : TacticM Unit := do
       | _ => throwError "RHS is not an exists"
     | _ => throwError "Goal is not an iff"
 
-/-- First step: lift LHS of the equivalence -/
+/-- First step: lift LHS of the equivalence */
 def transferLiftLHS (goal : MVarId) : TacticM Unit := do
   goal.withContext do
     let tgt ← goal.getType
@@ -86,7 +86,7 @@ def transferLiftLHS (goal : MVarId) : TacticM Unit := do
       | _ => throwError "No known pattern applicable for lift_lhs"
     | _ => throwError "Goal is not an equivalence"
 
-/-- Apply congruence rules for logical connectives -/
+/-- Apply congruence rules for logical connectives */
 def transferCongr (goal : MVarId) : TacticM Unit := do
   goal.withContext do
     let tgt ← goal.getType
@@ -134,7 +134,7 @@ def transferCongr (goal : MVarId) : TacticM Unit := do
       | _ => throwError "No known pattern applicable for congr"
     | _ => throwError "Goal is not an equivalence"
 
-/-- Push lift_pred inside logical connectives and relations -/
+/-- Push lift_pred inside logical connectives and relations */
 def transferPushLift (goal : MVarId) : TacticM Unit := do
   goal.withContext do
     let tgt ← goal.getType
@@ -286,7 +286,7 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
       | _ => throwError "liftPred argument is not a lambda"
     | _ => throwError "Goal does not match liftPred pattern"
 
-/-- Perform induction on all germ variables in context -/
+/-- Perform induction on all germ variables in context */
 def transferInduction (goal : MVarId) : TacticM Unit := do
   goal.withContext do
     let ctx ← getLCtx
@@ -322,7 +322,7 @@ def transferInduction (goal : MVarId) : TacticM Unit := do
     
     replaceMainGoal currentGoals
 
-/-- Try to close the goal by reflexivity after induction -/
+/-- Try to close the goal by reflexivity after induction */
 def transferClose (goal : MVarId) : TacticM Unit := do
   transferInduction goal
   -- Try reflexivity on all resulting goals
@@ -335,7 +335,7 @@ def transferClose (goal : MVarId) : TacticM Unit := do
       return true
   replaceMainGoal remainingGoals
 
-/-- Try one step of the transfer tactic -/
+/-- Try one step of the transfer tactic */
 def transferStep (goal : MVarId) : TacticM Bool := do
   -- Try close first
   try
@@ -363,7 +363,7 @@ def transferStep (goal : MVarId) : TacticM Bool := do
   
   return false
 
-/-- Main transfer tactic -/
+/-- Main transfer tactic */
 elab "transfer" : tactic => do
   -- Repeat transfer steps until no progress
   let rec loop (n : Nat) : TacticM Unit := do
@@ -396,7 +396,7 @@ elab "transfer" : tactic => do
   
   loop 100  -- Maximum 100 steps
 
-/-- Individual tactics for debugging -/
+/-- Individual tactics for debugging */
 elab "transfer_lift_lhs" : tactic => do
   let goal ← getMainGoal
   transferLiftLHS goal

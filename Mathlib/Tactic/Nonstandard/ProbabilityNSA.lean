@@ -1,12 +1,12 @@
 /-
 Copyright (c) 2025. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
--/
+*/
 import Mathlib.Tactic.Nonstandard.NSACore
 import Mathlib.Tactic.Nonstandard.HyperfiniteSet
 import Mathlib.Probability.ProbabilityMassFunction.Basic
 
-/-!
+/*
 # Probability Theory via Nonstandard Analysis
 
 This file shows how NSA provides intuitive proofs in probability theory
@@ -17,24 +17,24 @@ by working with hyperfinite sample spaces.
 * Law of large numbers via hyperfinite sampling
 * Central limit theorem via infinitesimal analysis
 * Brownian motion as a hyperfinite random walk
--/
+*/
 
 namespace NSA.Probability
 
 open NSA
 
-/-- A hyperfinite probability space -/
+/-- A hyperfinite probability space */
 structure HyperfiniteProb (Ω : Type*) where
   sample_space : Hyperfinite Ω
   prob : Ω → Hyperreal
   nonneg : ∀ ω ∈ sample_space, 0 ≤ prob ω
   sum_one : Hyperfinite.sum sample_space prob = 1
 
-/-- Expected value in a hyperfinite probability space -/
+/-- Expected value in a hyperfinite probability space */
 def expectation {Ω : Type*} (P : HyperfiniteProb Ω) (X : Ω → Hyperreal) : Hyperreal :=
   Hyperfinite.sum P.sample_space (fun ω => X ω * P.prob ω)
 
-/-- A hyperfinite uniform distribution on {1, ..., n} -/
+/-- A hyperfinite uniform distribution on {1, ..., n} */
 def uniformHyperfinite (n : Hypernat) : HyperfiniteProb Hypernat where
   sample_space := Hyperfinite.range n
   prob := fun _ => 1 / n
@@ -43,11 +43,11 @@ def uniformHyperfinite (n : Hypernat) : HyperfiniteProb Hypernat where
     -- Sum of n terms, each 1/n, equals 1
     sorry
 
-/-- Hyperfinite binomial distribution -/
+/-- Hyperfinite binomial distribution */
 def binomialHyperfinite (n : Hypernat) (p : Hyperreal) : HyperfiniteProb Hypernat :=
   sorry -- Distribution on {0, 1, ..., n} with binomial probabilities
 
-/-- Law of Large Numbers via hyperfinite sampling -/
+/-- Law of Large Numbers via hyperfinite sampling */
 theorem lln_hyperfinite {n : Hypernat} (hn : n.IsInfinite) (p : ℝ) :
     let X := binomialHyperfinite n ↑p
     let avg := expectation X (fun k => k / n)
@@ -56,14 +56,14 @@ theorem lln_hyperfinite {n : Hypernat} (hn : n.IsInfinite) (p : ℝ) :
   -- For infinite n, the average is infinitely close to p
   sorry
 
-/-- Hyperfinite random walk -/
+/-- Hyperfinite random walk */
 def randomWalk (n : Hypernat) : HyperfiniteProb (Hypernat → Hyperreal) where
   sample_space := sorry -- All paths of length n
   prob := fun path => (1/2)^n -- Fair coin flips
   nonneg := sorry
   sum_one := sorry
 
-/-- Brownian motion as scaled random walk -/
+/-- Brownian motion as scaled random walk */
 theorem brownian_approximation {t : ℝ} (ht : 0 ≤ t ∧ t ≤ 1) :
     ∃ (n : Hypernat) (hn : n.IsInfinite),
     let W := randomWalk n
@@ -74,7 +74,7 @@ theorem brownian_approximation {t : ℝ} (ht : 0 ≤ t ∧ t ≤ 1) :
   -- by taking n → ∞ in the scaled random walk
   sorry
 
-/-- The Poisson distribution as a limit -/
+/-- The Poisson distribution as a limit */
 theorem poisson_limit {λ : ℝ} (hλ : 0 < λ) :
     ∃ (n : Hypernat) (hn : n.IsInfinite),
     let B := binomialHyperfinite n (↑λ / n)
@@ -86,7 +86,7 @@ theorem poisson_limit {λ : ℝ} (hλ : 0 < λ) :
   -- For large n, Binomial(n, λ/n) ≈ Poisson(λ)
   sorry
 
-/-- Monte Carlo integration via hyperfinite sampling -/
+/-- Monte Carlo integration via hyperfinite sampling */
 theorem monte_carlo {f : ℝ → ℝ} (hf : ContinuousOn f (Set.Icc 0 1)) :
     let n := ω
     let samples := uniformHyperfinite n
@@ -96,7 +96,7 @@ theorem monte_carlo {f : ℝ → ℝ} (hf : ContinuousOn f (Set.Icc 0 1)) :
   -- For n = ω, this is infinitely close
   sorry
 
-/-- Central Limit Theorem via infinitesimals -/
+/-- Central Limit Theorem via infinitesimals */
 theorem clt_hyperfinite {X : ℕ → ℝ} (μ σ : ℝ) 
     (hiid : ∀ n, ExpectedValue (X n) = μ ∧ Variance (X n) = σ^2) :
     let n := ω
@@ -108,11 +108,11 @@ theorem clt_hyperfinite {X : ℕ → ℝ} (μ σ : ℝ)
   -- The standardized sum converges to normal distribution
   sorry
 
-/-- Hypergeometric distribution for hyperfinite populations -/
+/-- Hypergeometric distribution for hyperfinite populations */
 def hypergeometric (N M n : Hypernat) : HyperfiniteProb Hypernat :=
   sorry -- Distribution of white balls when drawing n from N balls (M white)
 
-/-- In a hyperfinite population, sampling with and without replacement are ≈ -/
+/-- In a hyperfinite population, sampling with and without replacement are ≈ */
 theorem sampling_approximation {N n : Hypernat} (hN : N.IsInfinite) (hn : n.IsStandard) :
     let with_replacement := binomialHyperfinite n (↑(1/2))
     let without_replacement := hypergeometric N (N/2) n

@@ -1,10 +1,10 @@
 /-
 Copyright (c) 2025. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
--/
+*/
 import Mathlib.Tactic.Nonstandard.NSA
 
-/-!
+/*
 # Hyperfinite Induction in Nonstandard Analysis
 
 This file develops the principle of hyperfinite induction using the clean NSA interface,
@@ -16,13 +16,13 @@ without explicit reference to ultrafilters or germs.
 * `hyperfinite_induction` : Induction works up to any hypernatural bound  
 * `overspill` : If P holds for all standard naturals, it holds for some infinite one
 * `hyperfinite_downward_induction` : We can count down from any hypernatural
--/
+*/
 
 open NSA
 
 namespace Hypernat
 
-/-- If a hypernatural is bounded by a standard natural, it must be standard -/
+/-- If a hypernatural is bounded by a standard natural, it must be standard */
 theorem bounded_implies_standard (n : ℕ*) (m : ℕ) (h : n ≤ *m) : Standard n := by
   -- Since n ≤ *m, the hypernatural n can only take finitely many values
   -- By the pigeonhole principle in the nonstandard model, n must be constant
@@ -39,7 +39,7 @@ theorem bounded_implies_standard (n : ℕ*) (m : ℕ) (h : n ≤ *m) : Standard 
   apply Quotient.sound
   exact hk
 
-/-- External induction: Standard induction only gives us standard naturals -/
+/-- External induction: Standard induction only gives us standard naturals */
 theorem external_induction {P : ℕ* → Prop} 
     (zero : P 0)
     (succ : ∀ n, P n → P (n + 1))
@@ -55,7 +55,7 @@ theorem external_induction {P : ℕ* → Prop}
     convert succ (*m) this
     simp [star_nat]
 
-/-- The key theorem: Hyperfinite induction works up to any bound N -/
+/-- The key theorem: Hyperfinite induction works up to any bound N */
 theorem hyperfinite_induction {P : ℕ* → Prop} [Internal ℕ* P] (N : ℕ*)
     (zero : P 0)
     (succ : ∀ n < N, P n → P (n + 1))
@@ -88,7 +88,7 @@ theorem hyperfinite_induction {P : ℕ* → Prop} [Internal ℕ* P] (N : ℕ*)
     -- it holds for all hypernaturals by internal induction
     sorry -- This requires the internal induction machinery
 
-/-- Hyperfinite downward induction -/
+/-- Hyperfinite downward induction */
 theorem hyperfinite_downward_induction {P : ℕ* → Prop} [Internal ℕ* P] (N : ℕ*)
     (base : P N)
     (step : ∀ n < N, P (n + 1) → P n) :
@@ -103,14 +103,14 @@ theorem hyperfinite_downward_induction {P : ℕ* → Prop} [Internal ℕ* P] (N 
     sorry -- This requires careful handling of subtraction
   exact this 0 (zero_le N)
 
-/-- The overspill principle in clean form -/
+/-- The overspill principle in clean form */
 theorem overspill_clean {P : ℕ* → Prop} [Internal ℕ* P]
     (h : ∀ n : ℕ, P (*n)) :
     ∃ H : ℕ*, Infinite H ∧ P H := by
   -- Direct application of overspill from NSA
   exact overspill h
 
-/-- Example: We can count through hyperfinitely many elements -/
+/-- Example: We can count through hyperfinitely many elements */
 example : ∀ n ≤ ω, n < n + 1 := by
   intro n hn
   -- Use hyperfinite induction up to ω!
@@ -127,7 +127,7 @@ example : ∀ n ≤ ω, n < n + 1 := by
       simp
     exact lt_add_of_pos_right k this
 
-/-- The fundamental theorem of algebra by counting roots -/
+/-- The fundamental theorem of algebra by counting roots */
 theorem fundamental_theorem_hyperfinite (p : Polynomial ℂ) (hp : 0 < p.degree) :
     ∃ z : ℂ, p.eval z = 0 := by
   -- Hyperfinite proof:
@@ -136,7 +136,7 @@ theorem fundamental_theorem_hyperfinite (p : Polynomial ℂ) (hp : 0 < p.degree)
   -- 3. By calculus, this must be a root
   sorry
 
-/-- The intermediate value theorem by hyperfinite search -/
+/-- The intermediate value theorem by hyperfinite search */
 theorem intermediate_value_hyperfinite {f : ℝ → ℝ} (hf : ContinuousOn f (Set.Icc 0 1))
     (h0 : f 0 < 0) (h1 : f 1 > 0) : ∃ x ∈ Set.Icc 0 1, f x = 0 := by
   -- Hyperfinite proof:
@@ -145,12 +145,12 @@ theorem intermediate_value_hyperfinite {f : ℝ → ℝ} (hf : ContinuousOn f (S
   -- 3. By continuity, f = 0 somewhere between (k-1)/ω and k/ω
   sorry
 
-/-- Hyperfinite approximation to integration -/
+/-- Hyperfinite approximation to integration */
 def hyperfinite_integral (f : ℝ → ℝ) (a b : ℝ) (N : ℕ*) : ℝ* :=
   let dx := (b - a) / N
   hsum (hyperfinite_interval N) (fun i => *f(a + i * dx) * dx)
 
-/-- The Riemann integral as standard part of hyperfinite sum -/
+/-- The Riemann integral as standard part of hyperfinite sum */
 theorem riemann_integral_nsa {f : ℝ → ℝ} {a b : ℝ} (hf : ContinuousOn f (Set.Icc a b)) :
     ∃ I : ℝ, ∀ ε > 0, ∃ N₀ : ℕ, ∀ N ≥ N₀, 
       |st (hyperfinite_integral f a b (*N)) - I| < ε := by
@@ -160,7 +160,7 @@ end Hypernat
 
 -- Example of how clean NSA proofs look:
 
-/-- Every continuous function on [0,1] attains its maximum -/
+/-- Every continuous function on [0,1] attains its maximum */
 theorem extreme_value_clean {f : ℝ → ℝ} (hf : ContinuousOn f (Set.Icc 0 1)) :
     ∃ x ∈ Set.Icc 0 1, ∀ y ∈ Set.Icc 0 1, f y ≤ f x := by
   -- Step 1: Partition [0,1] into hyperfinitely many points

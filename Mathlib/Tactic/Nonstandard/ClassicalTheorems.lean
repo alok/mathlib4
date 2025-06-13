@@ -8,7 +8,7 @@ import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Topology.Compactness.Compact
 import Mathlib.Analysis.Normed.Field.Basic
 
-/-!
+/*
 # Classical Theorems via Nonstandard Analysis
 
 This file proves classical theorems using clean NSA methods, demonstrating
@@ -21,7 +21,7 @@ how intuitive and powerful the nonstandard approach can be.
 * Heine-Borel theorem
 * Bolzano-Weierstrass theorem
 * Uniform continuity theorem
--/
+*/
 
 open NSA Filter Topology
 
@@ -59,7 +59,7 @@ def galaxy : Set ℝ* := {x | Finite x}
 
 end NSA
 
-/-! ## Compactness in NSA -/
+/* ## Compactness in NSA */
 
 namespace CompactnessNSA
 
@@ -92,7 +92,7 @@ theorem seq_compact_nsa {K : Set ℝ} :
 
 end CompactnessNSA
 
-/-! ## Extreme Value Theorem via NSA -/
+/* ## Extreme Value Theorem via NSA */
 
 theorem extreme_value_nsa {f : ℝ → ℝ} {K : Set ℝ} 
     (hK : IsCompact K) (hf : ContinuousOn f K) (hne : K.Nonempty) :
@@ -126,7 +126,7 @@ theorem extreme_value_nsa {f : ℝ → ℝ} {K : Set ℝ}
   -- Taking standard parts: f(y) ≤ st(*f(ξ)) = f(x)
   sorry
 
-/-! ## Bolzano-Weierstrass via NSA -/
+/* ## Bolzano-Weierstrass via NSA */
 
 theorem bolzano_weierstrass_nsa {s : ℕ → ℝ} 
     (hs : ∃ M, ∀ n, |s n| ≤ M) :
@@ -151,7 +151,7 @@ theorem bolzano_weierstrass_nsa {s : ℕ → ℝ}
   -- This is possible because (*s)(H) ≈ *a
   sorry
 
-/-! ## Uniform Continuity via NSA -/
+/* ## Uniform Continuity via NSA */
 
 /-- NSA characterization of uniform continuity -/
 theorem uniform_continuous_nsa {f : ℝ → ℝ} {S : Set ℝ} :
@@ -193,7 +193,7 @@ theorem heine_cantor_nsa {f : ℝ → ℝ} {K : Set ℝ}
   -- Therefore (*f) x ≈ (*f) y
   sorry
 
-/-! ## Intermediate Value Theorem via NSA -/
+/* ## Intermediate Value Theorem via NSA */
 
 theorem intermediate_value_nsa {f : ℝ → ℝ} {a b : ℝ} (hab : a < b)
     (hf : ContinuousOn f (Set.Icc a b))
@@ -217,7 +217,7 @@ theorem intermediate_value_nsa {f : ℝ → ℝ} {a b : ℝ} (hab : a < b)
   -- Since (*f) changes sign in an infinitesimal interval, f(c) = 0
   sorry
 
-/-! ## Riemann Integration via NSA -/
+/* ## Riemann Integration via NSA */
 
 /-- Hyperfinite Riemann sum -/
 noncomputable def hyperfinite_riemann_sum (f : ℝ → ℝ) (a b : ℝ) (n : ℕ*) : ℝ* :=
@@ -232,7 +232,7 @@ theorem riemann_integrable_nsa {f : ℝ → ℝ} {a b : ℝ} (hab : a < b) :
       hyperfinite_riemann_sum f a b n ≈ hyperfinite_riemann_sum f a b m) := by
   sorry
 
-/-! ## Compactness in Metric Spaces via NSA -/
+/* ## Compactness in Metric Spaces via NSA */
 
 section MetricSpace
 
@@ -261,7 +261,7 @@ theorem totally_bounded_nsa {S : Set X} :
 
 end MetricSpace
 
-/-! ## The Ascoli-Arzelà theorem via NSA -/
+/* ## The Ascoli-Arzelà theorem via NSA */
 
 /-- A family F is equicontinuous iff for all f ∈ *F and x ≈ y, we have f(x) ≈ f(y) -/
 theorem equicontinuous_nsa {F : Set (ℝ → ℝ)} {K : Set ℝ} :

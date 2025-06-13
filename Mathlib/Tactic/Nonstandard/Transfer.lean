@@ -1,17 +1,17 @@
 /-
 Copyright (c) 2025. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
--/
+*/
 import Mathlib.Tactic.Nonstandard.Complements.FilterProduct
 import Mathlib.Data.Real.Hyperreal
 import Lean
 
-/-!
+/*
 # Transfer tactic for nonstandard analysis
 
 This file implements a transfer tactic for working with filter germs and hyperreals.
 The tactic converts statements about germs to equivalent statements about the underlying types.
--/
+*/
 
 open Lean Meta Elab Tactic Lean.Elab.Term
 open Filter Germ
@@ -21,7 +21,7 @@ initialize registerTraceClass `transfer
 
 namespace Mathlib.Tactic.Transfer
 
-/-- Apply the forall lifting rule for the LHS -/
+/-- Apply the forall lifting rule for the LHS */
 def forallRule (l α : Expr) : TacticM Unit := do
   trace[transfer] "forallRule called with l={l}, α={α}"
   -- Check that l has type Filter ι
@@ -87,7 +87,7 @@ def forallRule (l α : Expr) : TacticM Unit := do
       trace[transfer] "Rewrite failed with error: {e.toMessageData}"
       throwError "Failed to apply forall rule: {e.toMessageData}\nThm type: {← inferType thm}"
 
-/-- Apply the exists lifting rule for the LHS -/
+/-- Apply the exists lifting rule for the LHS */
 def existsRule (l α : Expr) : TacticM Unit := do
   trace[transfer] "existsRule called with l={l}, α={α}"
   -- Check that l has type Filter ι
@@ -142,7 +142,7 @@ def existsRule (l α : Expr) : TacticM Unit := do
       trace[transfer] "Rewrite failed with error: {e.toMessageData}"
       throwError "Failed to apply exists rule: {e.toMessageData}\nThm type: {← inferType thm}"
 
-/-- Check if an expression is a coercion `↑a` -/
+/-- Check if an expression is a coercion `↑a` */
 def isCoeConst (e : Expr) : MetaM (Option Expr) := do
   trace[transfer] "isCoeConst checking: {e}"
   
@@ -190,7 +190,7 @@ def isCoeConst (e : Expr) : MetaM (Option Expr) := do
 -- Forward declare transferCongr
 mutual
 
-/-- Lift quantifiers from the LHS to the RHS -/
+/-- Lift quantifiers from the LHS to the RHS */
 partial def transferLiftLhs : TacticM Unit := do
   let tgt ← getMainTarget
   let tgt ← instantiateMVars tgt
@@ -999,7 +999,7 @@ partial def transferLiftLhs : TacticM Unit := do
     
   | _ => throwError "RHS is not a forall or exists: {rhs}"
 
-/-- Apply congruence rules to decompose the goal -/
+/-- Apply congruence rules to decompose the goal */
 partial def transferCongr : TacticM Unit := withMainContext do
   let tgt ← getMainTarget
   let tgt ← instantiateMVars tgt
@@ -1043,7 +1043,7 @@ partial def transferCongr : TacticM Unit := withMainContext do
 
 end -- mutual
 
-/-- Push liftPred inside logical operations -/
+/-- Push liftPred inside logical operations */
 def transferPushLift : TacticM Unit := withMainContext do
   let tgt ← getMainTarget
   let tgt ← instantiateMVars tgt
@@ -1134,7 +1134,7 @@ def transferPushLift : TacticM Unit := withMainContext do
     | _ => throwError "No known pattern applicable (step 3)"
   | _ => throwError "Expected lambda in liftPred"
 
-/-- Apply induction on all germ variables in the context -/
+/-- Apply induction on all germ variables in the context */
 def transferInduction : TacticM Unit := do
   let goals ← getGoals
   let mut allNewGoals : List MVarId := []
@@ -1177,7 +1177,7 @@ def transferInduction : TacticM Unit := do
   
   replaceMainGoal allNewGoals
 
-/-- Try to close the goal by induction and reflexivity -/
+/-- Try to close the goal by induction and reflexivity */
 def transferClose : TacticM Unit := do
   -- First try if the goal is trivial (e.g., True)
   try
@@ -1192,7 +1192,7 @@ def transferClose : TacticM Unit := do
   if !goals.isEmpty then
     evalTactic (← `(tactic| rfl))
 
-/-- One step of the transfer tactic -/
+/-- One step of the transfer tactic */
 def transferStep : TacticM Unit := do
   let tryTransferCongr : TacticM Unit := try transferCongr catch _ => pure ()
   
@@ -1231,7 +1231,7 @@ def transferStep : TacticM Unit := do
             | _ => MessageData.ofFormat "All transfer steps failed"
           throwError "transfer tactic failed: {finalErr}"
 
-/-- The main transfer tactic -/
+/-- The main transfer tactic */
 elab "transfer" : tactic => do
   -- Repeatedly apply transfer steps
   let rec loop : Nat → TacticM Unit

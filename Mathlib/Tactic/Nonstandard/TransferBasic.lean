@@ -2,24 +2,24 @@
 Copyright (c) 2025 [Authors]. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: [Authors]
--/
+*/
 import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Data.Real.Hyperreal
 import Lean
 
-/-!
+/*
 # Basic transfer tactic for nonstandard analysis
 
 This file implements a basic transfer tactic for working with filter germs.
 This is a simplified version that handles the most common cases.
--/
+*/
 
 open Lean Meta Elab Tactic
 open Filter
 
 namespace Mathlib.Tactic.TransferBasic
 
-/-- Apply basic transfer rules -/
+/-- Apply basic transfer rules */
 elab "transfer_basic" : tactic => do
   let goal ← getMainGoal
   
@@ -78,7 +78,7 @@ theorem forall_iff_forall_germ_liftPred (P : α → Prop) :
 
 end TransferTheorems
 
-/-- A very basic transfer that just handles constant lifting -/
+/-- A very basic transfer that just handles constant lifting */
 elab "transfer_const" : tactic => do
   let goal ← getMainGoal
   

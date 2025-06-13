@@ -1,10 +1,10 @@
 /-
 Copyright (c) 2025. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
--/
+*/
 import Mathlib.Tactic.Nonstandard.NSA
 
-/-!
+/*
 # Tactics for Nonstandard Analysis
 
 This file provides tactics that make working with NSA feel natural,
@@ -17,13 +17,13 @@ hiding all the ultrafilter machinery.
 * `overspill` - Apply overspill when applicable  
 * `hyperfinite_induction` - Set up hyperfinite induction
 * `internal` - Prove that a predicate is internal
--/
+*/
 
 namespace Mathlib.Tactic.NSA
 
 open Lean Meta Elab Tactic
 
-/-- `transfer` tactic - automatically apply transfer principle -/
+/-- `transfer` tactic - automatically apply transfer principle */
 elab "transfer" : tactic => do
   -- Get the goal
   let goal ← getMainGoal
@@ -39,14 +39,14 @@ elab "transfer" : tactic => do
     catch _ =>
       throwError "Goal is not suitable for transfer principle"
 
-/-- `st_intro` - Introduce standard part when dealing with finite hyperreals -/
+/-- `st_intro` - Introduce standard part when dealing with finite hyperreals */
 elab "st_intro" x:ident : tactic => do
   let goal ← getMainGoal
   goal.withContext do
     -- Find a hyperreal that's finite and introduce its standard part
     sorry
 
-/-- `overspill` - Look for universal quantifier over standard naturals and apply overspill -/
+/-- `overspill` - Look for universal quantifier over standard naturals and apply overspill */
 elab "overspill" : tactic => do
   let goal ← getMainGoal
   goal.withContext do
@@ -55,19 +55,19 @@ elab "overspill" : tactic => do
     -- where we have ∀ n : ℕ, P (*n) as hypothesis
     sorry
 
-/-- `hyperfinite_induction` - Set up hyperfinite induction to a given bound -/
+/-- `hyperfinite_induction` - Set up hyperfinite induction to a given bound */
 elab "hyperfinite_induction" N:term : tactic => do
   let goal ← getMainGoal  
   goal.withContext do
     -- Apply hyperfinite_induction theorem with given bound N
     sorry
 
-/-- `internal` - Prove that a predicate is internal (usually automatic) -/
+/-- `internal` - Prove that a predicate is internal (usually automatic) */
 elab "internal" : tactic => do
   -- Most predicates built from first-order operations are automatically internal
   sorry
 
-/-- `standard_cases` - Case split on whether a hypernatural is standard or infinite -/  
+/-- `standard_cases` - Case split on whether a hypernatural is standard or infinite */  
 elab "standard_cases" x:ident : tactic => do
   let goal ← getMainGoal
   goal.withContext do
