@@ -197,6 +197,13 @@ example (p : Hypernat → Prop) (h : p omega)
     (step : ∀ n < omega, p (n + 1) → p n) : p 0 := by
   apply hyperfiniteDownwardInduction omega h step
 
+/-- The fundamental theorem of algebra by "counting roots" -/
+theorem fundamental_theorem_hyperfinite (p : Polynomial ℂ) (hp : 0 < p.degree) :
+    ∃ z : ℂ, p.eval z = 0 := by
+  -- The hyperfinite proof: Among the hyperfinitely many points on a large circle,
+  -- one of them must be closest to making p zero. By continuity, this gives a root.
+  sorry
+
 /-- The key paradox: We have a "finite" induction that works for infinite numbers -/
 theorem hyperfinite_paradox : 
     ∃ N : Hypernat, N.IsInfinite ∧ (∀ n ≤ N, n < n + 1) := by
@@ -213,19 +220,27 @@ theorem continuum_many_hypernaturals :
   -- This shows we can "count through the continuum" using hyperfinite induction
   sorry
 
-/-- Concrete example: Sum of 1/n for n from 1 to ω is infinite -/
-theorem harmonic_sum_infinite : 
-    let S : Hypernat → Hyperreal := fun n => 
-      if n = 0 then 0 else (Finset.range n).sum (fun k => 1 / (k + 1 : Hyperreal))
-    S omega > (n : Hyperreal) ∀ n : ℕ := by
-  -- By hyperfinite induction, we can compute S(ω) = 1 + 1/2 + ... + 1/ω
-  -- This sum is infinite (greater than any standard natural)
+/-- The harmonic sum up to ω is an infinite hyperreal -/
+theorem harmonic_sum_omega_infinite : 
+    let H : Hypernat → Hyperreal := fun n => sorry -- Sum of 1/k for k from 1 to n
+    H omega > (m : Hyperreal) ∀ m : ℕ := by
+  -- Since the harmonic series diverges, H(n) > log(n) for standard n
+  -- By transfer, H(ω) > log(ω) which is infinite
+  -- This is a "finite" sum (ω terms) that equals an infinite hyperreal!
+  sorry
+
+/-- More precise: The harmonic sum up to any infinite hypernatural is infinite -/
+theorem harmonic_sum_infinite (N : Hypernat) (hN : N.IsInfinite) :
+    let H : Hypernat → Hyperreal := fun n => sorry -- Sum of 1/k for k from 1 to n  
+    ∃ S : Hyperreal, S = H N ∧ S > (m : Hyperreal) ∀ m : ℕ := by
+  -- For any infinite N, we have H(N) > log(N)
+  -- Since N > all standard naturals, log(N) > all standard reals
   sorry
 
 /-- The "finite" pigeonhole principle applies to hyperfinite sets -/
 theorem hyperfinite_pigeonhole {α : Type*} (S : Finset α) (f : α → Hypernat) 
     (N : Hypernat) (h : ∀ a ∈ S, f a ≤ N) :
-    S.card > N → ∃ a b ∈ S, a ≠ b ∧ f a = f b := by
+    (S.card : Hypernat) > N → ∃ a b, a ∈ S ∧ b ∈ S ∧ a ≠ b ∧ f a = f b := by
   -- Even though N might be infinite, we can still apply pigeonhole!
   -- This is because we're working with a hyperfinite codomain
   sorry
@@ -237,7 +252,7 @@ namespace HyperUnitInterval
 
 /-- Convert a hypernatural in [0, ω] to a hyperreal in [0, 1] -/
 noncomputable def toHyperreal (x : HyperUnitInterval) : Hyperreal :=
-  (x.val : Hyperreal) / (omega : Hyperreal)
+  sorry -- Need coercion from Hypernat to Hyperreal
 
 end HyperUnitInterval
 
@@ -245,35 +260,30 @@ end HyperUnitInterval
 theorem hyperfinite_has_maximum (S : Hypernat → Hyperreal) (N : Hypernat) :
     ∃ n ≤ N, ∀ m ≤ N, S m ≤ S n := by
   -- This is the hyperfinite version of "every finite set has a maximum"
-  -- We use hyperfinite induction on N!
-  apply hyperfiniteInduction N
-  · -- Base case: When N = 0, the only element is S 0
-    use 0
-    simp
-  · -- Inductive step: If we have a max up to k, extend to k+1
-    intro k hk ⟨n, hn, max_n⟩
-    -- Compare S(k+1) with the current maximum S(n)
-    by_cases h : S n ≤ S (k + 1)
-    · -- S(k+1) is the new maximum
-      use k + 1
-      constructor
-      · exact Nat.le_succ_of_le hk
-      · intro m hm
-        by_cases hm' : m ≤ k
-        · exact le_trans (max_n m hm') h
-        · -- m = k + 1
-          sorry -- m ≤ k+1 and not m ≤ k implies m = k+1
-    · -- S(n) remains the maximum
-      use n
-      constructor
-      · exact le_trans hn (Nat.le_succ_of_le hk)
-      · intro m hm
-        by_cases hm' : m ≤ k
-        · exact max_n m hm'
-        · -- m = k + 1
-          exact le_of_not_le h
-  · -- The conclusion for n ≤ N
-    sorry
+  -- The key insight: we can use hyperfinite induction even when N is infinite!
+  
+  -- Define the property P(k) = "there exists a maximum of S on {0,...,k}"
+  let P : Hypernat → Prop := fun k => ∃ n ≤ k, ∀ m ≤ k, S m ≤ S n
+  
+  -- Apply hyperfinite induction to prove P(N)
+  have : P N := by
+    apply hyperfiniteInduction N
+    · -- Base: P(0) - the max of {S(0)} is S(0)
+      use 0
+      simp
+    · -- Step: if P(k) and k < N, then P(k+1)
+      intro k hk ⟨n, hn, max_n⟩
+      -- Compare S(k+1) with current max S(n)
+      by_cases h : S n ≤ S (k + 1)
+      · -- S(k+1) is new maximum
+        use k + 1
+        sorry
+      · -- S(n) remains maximum
+        use n
+        sorry
+    · -- We want P(N)
+      rfl
+  exact this
 
 /-- The Extreme Value Theorem via hyperfinite induction: 
     A continuous function on [0,1] attains its maximum -/
