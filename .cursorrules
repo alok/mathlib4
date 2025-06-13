@@ -1,0 +1,13 @@
+goal: convert https://github.com/ADedecker/nonstandard to lean 4. add it as a worktree.
+
+use lean-explore to carefully find the right theorem names.
+
+you can run it with `uv run --directory /Users/alokbeniwal/lean-explore leanexplore`
+
+ultrathink a plan first
+
+use lean-lsp-mcp to run every snippet for very fast feedback loops.
+
+install mcp tools
+
+use tasks to do each theorem/lemma separately by forking yourself into subagents.

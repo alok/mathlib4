@@ -18,6 +18,7 @@ require "leanprover-community" / "proofwidgets" @ git "v0.0.62" -- ProofWidgets 
 require "leanprover-community" / "importGraph" @ git "main"
 require "leanprover-community" / "LeanSearchClient" @ git "main"
 require "leanprover-community" / "plausible" @ git "main"
+require "chasenorman" / "Canonical" @ git "master"
 
 /-!
 ## Options for building mathlib

@@ -3,7 +3,7 @@ import Mathlib.Tactic.Nonstandard.Transfer
 open Filter
 
 -- Test the transfer tactic with simple examples
--- set_option trace.transfer false
+-- set_option trace.transfer true
 example (α ι : Type*) [Preorder α] (l : Ultrafilter ι) (a : α) : 
   (∀ x, a ≤ x) ↔ (∀ x : (l : Filter ι).Germ α, ↑a ≤ x) := by
   transfer

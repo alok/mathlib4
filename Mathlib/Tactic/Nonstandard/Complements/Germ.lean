@@ -1,3 +1,7 @@
+/-
+Copyright (c) 2025. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+-/
 import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Order.Filter.Germ.OrderedMonoid
 import Mathlib.Tactic.Nonstandard.ForMathlib.FilterBasic
@@ -69,6 +73,27 @@ lemma forall_iff_forall_liftPred [l.NeBot] (p : α → Prop) :
   · intro h x
     exact Filter.Germ.liftPred_const_iff.mp (h ↑x)
 
+lemma forall_forall_iff_forall_forall_liftRel [l.NeBot] (r : α → β → Prop) :
+  (∀ x y, r x y) ↔ (∀ (x : l.Germ α) (y : l.Germ β), LiftRel r x y) := by
+  constructor
+  · intro h x y
+    refine x.inductionOn₂ y (fun f g => ?_)
+    exact Eventually.of_forall (fun n => h (f n) (g n))
+  · intro h x y
+    have : LiftRel r (↑x : l.Germ α) (↑y : l.Germ β) := h ↑x ↑y
+    simpa using this
+
+lemma forall_forall_eq_iff_forall_forall_eq {ι α : Type*} {l : Filter ι} [l.NeBot] :
+  (∀ x y : α, x = y) ↔ (∀ x y : l.Germ α, x = y) := by
+  constructor
+  · intro h x y
+    refine x.inductionOn₂ y (fun f g => ?_)
+    simp only [Filter.Germ.eq_def']
+    exact Eventually.of_forall (fun n => h (f n) (g n))
+  · intro h x y
+    have : (↑x : l.Germ α) = ↑y := h ↑x ↑y
+    simpa using this
+
 /-! ### Exists rules -/
 
 lemma exists_iff_exists_liftPred [l.NeBot] (p : α → Prop) : 
@@ -134,6 +159,63 @@ lemma liftPred_exists_prop_iff_and_liftPred [l.NeBot] (p q : α → Prop) (x : l
   LiftPred (fun x => ∃ (_ : p x), q x) x ↔ LiftPred p x ∧ LiftPred q x := by
   conv_lhs => arg 1; ext; rw [exists_prop]
   exact liftPred_and_iff_and_liftPred l p q x
+
+/-! ### Logical connectives -/
+
+lemma and_iff_and_liftPred [l.NeBot] (p q : α → Prop) :
+  (∀ x, p x ∧ q x) ↔ (∀ x : l.Germ α, LiftPred p x ∧ LiftPred q x) := by
+  constructor
+  · intro h x
+    exact ⟨(forall_iff_forall_liftPred l _).mp (fun a => (h a).1) x,
+            (forall_iff_forall_liftPred l _).mp (fun a => (h a).2) x⟩
+  · intro h x
+    exact ⟨(forall_iff_forall_liftPred l _).mpr (fun g => (h g).1) x,
+            (forall_iff_forall_liftPred l _).mpr (fun g => (h g).2) x⟩
+
+lemma or_iff_or_liftPred [l.NeBot] (p q : α → Prop) :
+  (∃ x, p x ∨ q x) ↔ (∃ x : l.Germ α, LiftPred p x ∨ LiftPred q x) := by
+  constructor
+  · intro ⟨x, hx⟩
+    use ↑x
+    cases hx with
+    | inl h => left; exact liftPred_const h
+    | inr h => right; exact liftPred_const h
+  · intro ⟨x, hx⟩
+    revert hx
+    refine x.inductionOn (fun f => ?_)
+    intro hf
+    cases hf with
+    | inl h => 
+      obtain ⟨i, hi⟩ := h.exists
+      exact ⟨f i, Or.inl hi⟩
+    | inr h =>
+      obtain ⟨i, hi⟩ := h.exists
+      exact ⟨f i, Or.inr hi⟩
+
+lemma not_iff_not_liftPred [l.NeBot] (p : α → Prop) :
+  (∀ x, ¬p x) ↔ (∀ x : l.Germ α, ¬LiftPred p x) := by
+  constructor
+  · intro h x
+    intro hx
+    revert hx
+    refine x.inductionOn (fun f => ?_)
+    intro hf
+    obtain ⟨i, hi⟩ := hf.exists
+    exact h (f i) hi
+  · intro h x
+    by_contra px
+    exact h ↑x (liftPred_const px)
+
+lemma imp_iff_imp_liftPred [l.NeBot] (p q : α → Prop) :
+  (∀ x, p x → q x) ↔ (∀ x : l.Germ α, LiftPred p x → LiftPred q x) := by
+  constructor
+  · intro h x hp
+    revert hp
+    refine x.inductionOn (fun f => ?_)
+    intro hpf
+    exact hpf.mono (fun a ha => h (f a) ha)
+  · intro h x px
+    exact liftPred_const_iff.mp (h ↑x (liftPred_const px))
 
 /-! ### Relation rules with constants -/
 
@@ -222,5 +304,53 @@ lemma exists_const_eq_iff_exists_germ_eq [l.NeBot] (a : α) :
   (∃ x, x = a) ↔ (∃ x : l.Germ α, x = ↑a) := by
   simp only [eq_const_iff_liftPred]
   exact exists_iff_exists_liftPred l (· = a)
+
+/-! ### Arithmetic operation rules -/
+
+section Arithmetic
+
+variable {ι α β : Type*} {l : Filter ι} [l.NeBot]
+
+lemma map_add_iff_add_map [Add α] (f g : l.Germ α) :
+  Germ.map (· + ·) (prodEquiv l (f, g)) = f + g := by
+  refine f.inductionOn₂ g (fun a b => ?_)
+  simp [prodEquiv_coe, map_coe]
+  rfl
+
+lemma map_mul_iff_mul_map [Mul α] (f g : l.Germ α) :
+  Germ.map (· * ·) (prodEquiv l (f, g)) = f * g := by
+  refine f.inductionOn₂ g (fun a b => ?_)
+  simp [prodEquiv_coe, map_coe]
+  rfl
+
+lemma map_sub_iff_sub_map [Sub α] (f g : l.Germ α) :
+  Germ.map (· - ·) (prodEquiv l (f, g)) = f - g := by
+  refine f.inductionOn₂ g (fun a b => ?_)
+  simp [prodEquiv_coe, map_coe]
+  rfl
+
+lemma map_div_iff_div_map [Div α] (f g : l.Germ α) :
+  Germ.map (· / ·) (prodEquiv l (f, g)) = f / g := by
+  refine f.inductionOn₂ g (fun a b => ?_)
+  simp [prodEquiv_coe, map_coe]
+  rfl
+
+lemma const_add [Add α] (a b : α) : (↑(a + b) : l.Germ α) = ↑a + ↑b := by
+  rfl
+
+lemma const_mul [Mul α] (a b : α) : (↑(a * b) : l.Germ α) = ↑a * ↑b := by
+  rfl
+
+lemma const_sub [Sub α] (a b : α) : (↑(a - b) : l.Germ α) = ↑a - ↑b := by
+  rfl
+
+lemma const_div [Div α] (a b : α) : (↑(a / b) : l.Germ α) = ↑a / ↑b := by
+  rfl
+
+lemma const_zero [Zero α] : (↑(0 : α) : l.Germ α) = 0 := rfl
+
+lemma const_one [One α] : (↑(1 : α) : l.Germ α) = 1 := rfl
+
+end Arithmetic
 
 end Filter.Germ

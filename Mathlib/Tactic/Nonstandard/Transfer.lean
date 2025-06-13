@@ -76,7 +76,6 @@ def forallRule (l α : Expr) : TacticM Unit := do
     -- The theorem exactly proves our goal
     trace[transfer] "Theorem exactly matches goal, closing with theorem"
     closeMainGoal `forallRule thm
-    return ()
   else
     -- Try rewriting
     try
@@ -132,7 +131,6 @@ def existsRule (l α : Expr) : TacticM Unit := do
     -- The theorem exactly proves our goal
     trace[transfer] "Theorem exactly matches goal, closing with theorem"
     closeMainGoal `existsRule thm
-    return ()
   else
     -- Try rewriting
     try
@@ -252,9 +250,185 @@ partial def transferLiftLhs : TacticM Unit := do
           throwError "RHS body does not match pattern: LiftPred <?> (.bvar 0)"
         return
     
-    -- If not LiftPred, check if it's a relation with a constant
+    -- If not LiftPred, check if it's a logical connective of LiftPreds
+    -- Pattern: LiftPred p x ∧ LiftPred q x, etc.
+    trace[transfer] "Body is not LiftPred, checking for logical connective pattern"
+    trace[transfer] "Body: {body}"
+    
+    -- Check if body is a logical connective
+    if body.isAppOfArity ``And 2 then
+      -- Body is: LiftPred p x ∧ LiftPred q x
+      let arg1 := body.getArg! 0
+      let arg2 := body.getArg! 1
+      
+      -- Check both args are LiftPred applications with .bvar 0
+      trace[transfer] "And arg1: {arg1}, isApp: {arg1.isApp}"
+      trace[transfer] "And arg2: {arg2}, isApp: {arg2.isApp}"
+      if arg1.isApp then
+        trace[transfer] "arg1 fn: {arg1.getAppFn}, args: {arg1.getAppArgs}"
+      if arg2.isApp then
+        trace[transfer] "arg2 fn: {arg2.getAppFn}, args: {arg2.getAppArgs}"
+      
+      -- LiftPred when fully applied has 5 args: [ι, α, filter, predicate, element]
+      -- Check if both are LiftPred applications
+      let isLiftPred1 := arg1.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                         arg1.isAppOfArity ``Germ.LiftPred 5 ||
+                         arg1.isAppOfArity ``LiftPred 5
+      let isLiftPred2 := arg2.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                         arg2.isAppOfArity ``Germ.LiftPred 5 ||
+                         arg2.isAppOfArity ``LiftPred 5
+      
+      if isLiftPred1 && isLiftPred2 && 
+         arg1.getArg! 4 == .bvar 0 && arg2.getArg! 4 == .bvar 0 then
+        let p := arg1.getArg! 3
+        let q := arg2.getArg! 3
+        
+        -- Get the filter from context
+        let ctx ← getLCtx
+        let mut filterVar : Option Expr := none
+        
+        for decl in ctx do
+          if !decl.isImplementationDetail then
+            let declType ← instantiateMVars decl.type
+            if declType.isAppOfArity ``Ultrafilter 1 then
+              filterVar := some (mkFVar decl.fvarId)
+              break
+        
+        match filterVar with
+        | some l =>
+          let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+          let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterL])
+          let thm ← mkAppOptM ``Filter.Germ.and_iff_and_liftPred 
+            #[none, none, some filterL, some inst, some p, some q]
+          
+          let thmType ← inferType thm
+          let target ← getMainTarget
+          trace[transfer] "Applying and rule"
+          trace[transfer] "Theorem type: {thmType}"
+          trace[transfer] "Target: {target}"
+          
+          if ← isDefEq thmType target then
+            closeMainGoal `forallAndRule thm
+          else
+            let goal ← getMainGoal
+            let newGoals ← goal.rewrite target thm
+            replaceMainGoal newGoals.mvarIds
+        | none => throwError "Could not find ultrafilter in context"
+      else
+        throwError "And body does not match pattern: LiftPred p x ∧ LiftPred q x"
+      return
+    else if body.isAppOfArity ``Not 1 then
+      -- Body is: ¬LiftPred p x
+      let arg := body.getArg! 0
+      
+      -- Check arg is LiftPred application with .bvar 0
+      let isLiftPred := arg.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                        arg.isAppOfArity ``Germ.LiftPred 5 ||
+                        arg.isAppOfArity ``LiftPred 5
+      if isLiftPred && arg.getArg! 4 == .bvar 0 then
+        let p := arg.getArg! 3
+        
+        -- Get the filter from context
+        let ctx ← getLCtx
+        let mut filterVar : Option Expr := none
+        
+        for decl in ctx do
+          if !decl.isImplementationDetail then
+            let declType ← instantiateMVars decl.type
+            if declType.isAppOfArity ``Ultrafilter 1 then
+              filterVar := some (mkFVar decl.fvarId)
+              break
+        
+        match filterVar with
+        | some l =>
+          let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+          let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterL])
+          let thm ← mkAppOptM ``Filter.Germ.not_iff_not_liftPred 
+            #[none, none, some filterL, some inst, some p]
+          
+          let thmType ← inferType thm
+          let target ← getMainTarget
+          trace[transfer] "Applying not rule"
+          trace[transfer] "Theorem type: {thmType}"
+          trace[transfer] "Target: {target}"
+          
+          if ← isDefEq thmType target then
+            closeMainGoal `forallNotRule thm
+          else
+            let goal ← getMainGoal
+            let newGoals ← goal.rewrite target thm
+            replaceMainGoal newGoals.mvarIds
+        | none => throwError "Could not find ultrafilter in context"
+      else
+        throwError "Not body does not match pattern: ¬LiftPred p x"
+      return
+    else if body.isForall then
+      -- Check if it's an implication pattern: LiftPred p x → LiftPred q x
+      match body with
+      | .forallE _ ty innerBody _ =>
+        -- Check if ty is LiftPred p x
+        let isLiftPred1 := ty.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                           ty.isAppOfArity ``Germ.LiftPred 5 ||
+                           ty.isAppOfArity ``LiftPred 5
+        let isLiftPred2 := innerBody.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                           innerBody.isAppOfArity ``Germ.LiftPred 5 ||
+                           innerBody.isAppOfArity ``LiftPred 5
+        if isLiftPred1 && ty.getArg! 4 == .bvar 0 &&
+           isLiftPred2 && innerBody.getArg! 4 == .bvar 1 then  -- Note: .bvar 1 due to new binding
+          let p := ty.getArg! 3
+          let q := innerBody.getArg! 3
+          
+          -- Get the filter from context
+          let ctx ← getLCtx
+          let mut filterVar : Option Expr := none
+          
+          for decl in ctx do
+            if !decl.isImplementationDetail then
+              let declType ← instantiateMVars decl.type
+              if declType.isAppOfArity ``Ultrafilter 1 then
+                filterVar := some (mkFVar decl.fvarId)
+                break
+          
+          match filterVar with
+          | some l =>
+            let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+            let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterL])
+            let thm ← mkAppOptM ``Filter.Germ.imp_iff_imp_liftPred 
+              #[none, none, some filterL, some inst, some p, some q]
+            
+            let thmType ← inferType thm
+            let target ← getMainTarget
+            trace[transfer] "Applying imp rule"
+            trace[transfer] "Theorem type: {thmType}"
+            trace[transfer] "Target: {target}"
+            
+            if ← isDefEq thmType target then
+              closeMainGoal `forallImpRule thm
+            else
+              let goal ← getMainGoal
+              let newGoals ← goal.rewrite target thm
+              replaceMainGoal newGoals.mvarIds
+          | none => throwError "Could not find ultrafilter in context"
+          return  -- Important: return after successfully handling implication
+        else
+          -- Not an implication pattern, continue to nested forall handling
+          trace[transfer] "Not an implication pattern, continuing to nested forall"
+      | _ => throwError "Expected forall in implication pattern"
+    
+    -- If not a logical connective, check if it's an arithmetic operation
+    -- Pattern: x + y, x * y, etc.
+    trace[transfer] "Body is not a logical connective, checking for arithmetic pattern"
+    trace[transfer] "Body: {body}"
+    
+    -- Check if body contains arithmetic operations
+    if body.isAppOfArity ``HAdd.hAdd 6 || body.isAppOfArity ``Add.add 4 then
+      -- Pattern: x + y where x and y might be germs
+      trace[transfer] "Found addition pattern"
+      -- For now, skip complex arithmetic handling
+      
+    -- If not arithmetic, check if it's a relation with a constant
     -- Pattern: ↑a ≤ x or x ≤ ↑a, etc.
-    trace[transfer] "Body is not LiftPred, checking for relation pattern"
+    trace[transfer] "Body is not arithmetic, checking for relation pattern"
     trace[transfer] "Body: {body}"
     
     -- Check if body is a binary relation
@@ -362,7 +536,6 @@ partial def transferLiftLhs : TacticM Unit := do
               -- The theorem exactly proves our goal
               trace[transfer] "Theorem exactly matches goal, closing with theorem"
               closeMainGoal `forallRelationRule thm
-              return ()
             else
               -- Try rewriting
               let goal ← getMainGoal
@@ -376,12 +549,151 @@ partial def transferLiftLhs : TacticM Unit := do
     else if body.isForall then
       -- Nested quantifier case: body is another ∀
       trace[transfer] "Found nested quantifier in RHS, body: {body}"
-      -- This means we have ∀ x : Germ, ∀ y : Germ, ...
-      -- The outer loop should have handled this with transferCongr
-      -- If we're here, it means transferCongr didn't match properly
-      throwError "Nested quantifier in RHS not handled by congruence"
+      -- For nested forall like ∀ x y, x = y
+      -- We need to apply forall_forall_eq_iff_forall_forall_eq
+      
+      -- Check if the innermost body is an equality
+      match body with
+      | .forallE _ ty2 innerBody _ =>
+        -- Check if ty2 is also a Germ type
+        if ty2 == ty then  -- Both quantifiers are over the same type
+          -- Check if innerBody is x = y where x and y are bound vars
+          if innerBody.isAppOfArity ``Eq 3 then
+            let args := innerBody.getAppArgs
+            if args[1]! == .bvar 1 && args[2]! == .bvar 0 then
+              -- Pattern matches ∀ x y, x = y
+              -- Get the filter from context
+              let ctx ← getLCtx
+              let mut filterVar : Option Expr := none
+              
+              for decl in ctx do
+                if !decl.isImplementationDetail then
+                  let declType ← instantiateMVars decl.type
+                  if declType.isAppOfArity ``Ultrafilter 1 then
+                    filterVar := some (mkFVar decl.fvarId)
+                    break
+              
+              match filterVar with
+              | some l =>
+                -- Extract the filter from the germ type
+                let filterExpr ← 
+                  if ty.isApp && ty.getAppFn.isConstOf ``Filter.Germ then
+                    let args := ty.getAppArgs
+                    if args.size == 3 then
+                      pure args[1]!
+                    else
+                      throwError "Germ has unexpected number of arguments: {args.size}"
+                  else
+                    throwError "Cannot extract filter from type: {ty}"
+                
+                -- Apply the theorem forall_forall_eq_iff_forall_forall_eq
+                -- The theorem has signature: {α : Type*} {ι : Type*} {l : Filter ι} [l.NeBot]
+                -- Extract the types from the germ type
+                let germArgs := ty.getAppArgs
+                let ι := germArgs[0]!  -- First arg is ι
+                let α := germArgs[2]!  -- Third arg is α
+                trace[transfer] "Germ type args: {germArgs}"
+                trace[transfer] "ι = {ι}, α = {α}, filterExpr = {filterExpr}"
+                -- The filter expr type should match Filter ι
+                let filterExprType ← inferType filterExpr
+                trace[transfer] "filterExpr type = {filterExprType}"
+                let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterExpr])
+                let thm ← mkAppOptM ``Filter.Germ.forall_forall_eq_iff_forall_forall_eq 
+                  #[some ι, some α, some filterExpr, some inst]
+                
+                -- Check if the theorem exactly matches the goal
+                let thmType ← inferType thm
+                let target ← getMainTarget
+                trace[transfer] "Applying nested forall theorem"
+                trace[transfer] "Theorem type: {thmType}"
+                trace[transfer] "Target: {target}"
+                
+                if ← isDefEq thmType target then
+                  trace[transfer] "Theorem exactly matches goal, closing with theorem"
+                  closeMainGoal `forallForallRule thm
+                else
+                  -- Try rewriting
+                  let goal ← getMainGoal
+                  let newGoals ← goal.rewrite target thm
+                  trace[transfer] "After applying nested forall rule, new goals: {newGoals.mvarIds}"
+                  replaceMainGoal newGoals.mvarIds
+              | none => 
+                throwError "Could not find ultrafilter in context"
+            else
+              throwError "Nested forall body is not of the form x = y"
+          else if innerBody.isAppOfArity ``Filter.Germ.LiftRel 5 || innerBody.isAppOfArity ``Germ.LiftRel 5 then
+            -- Pattern for LiftRel r x y
+            let args := innerBody.getAppArgs
+            if args[2]! == .bvar 1 && args[3]! == .bvar 0 then
+              -- Pattern matches ∀ x y, LiftRel r x y
+              let r := args[1]!
+              
+              -- Get the filter from context
+              let ctx ← getLCtx
+              let mut filterVar : Option Expr := none
+              
+              for decl in ctx do
+                if !decl.isImplementationDetail then
+                  let declType ← instantiateMVars decl.type
+                  if declType.isAppOfArity ``Ultrafilter 1 then
+                    filterVar := some (mkFVar decl.fvarId)
+                    break
+              
+              match filterVar with
+              | some l =>
+                -- Extract the filter from the germ type
+                let filterExpr ← 
+                  if ty.isApp && ty.getAppFn.isConstOf ``Filter.Germ then
+                    let args := ty.getAppArgs
+                    if args.size == 3 then
+                      pure args[1]!
+                    else
+                      throwError "Germ has unexpected number of arguments: {args.size}"
+                  else
+                    throwError "Cannot extract filter from type: {ty}"
+                
+                -- Apply the theorem forall_forall_iff_forall_forall_liftRel
+                -- Extract types from r
+                let rType ← inferType r
+                trace[transfer] "Relation type: {rType}"
+                -- r has type α → β → Prop, extract α and β
+                match rType with
+                | .forallE _ α (.forallE _ β _ _) _ =>
+                  -- Extract ι from the filter type
+                  let germArgs := ty.getAppArgs
+                  let ι := germArgs[0]!
+                  let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterExpr])
+                  let thm ← mkAppOptM ``Filter.Germ.forall_forall_iff_forall_forall_liftRel 
+                    #[some ι, some α, some β, some filterExpr, some inst, some r]
+                  
+                  -- Check if the theorem exactly matches the goal
+                  let thmType ← inferType thm
+                  let target ← getMainTarget
+                  trace[transfer] "Applying nested forall LiftRel theorem"
+                  trace[transfer] "Theorem type: {thmType}"
+                  trace[transfer] "Target: {target}"
+                  
+                  if ← isDefEq thmType target then
+                    trace[transfer] "Theorem exactly matches goal, closing with theorem"
+                    closeMainGoal `forallForallLiftRelRule thm
+                  else
+                    -- Try rewriting
+                    let goal ← getMainGoal
+                    let newGoals ← goal.rewrite target thm
+                    trace[transfer] "After applying nested forall LiftRel rule, new goals: {newGoals.mvarIds}"
+                    replaceMainGoal newGoals.mvarIds
+                | _ => throwError "Relation does not have expected type: {rType}"
+              | none => 
+                throwError "Could not find ultrafilter in context"
+            else
+              throwError "Nested forall body is not of the form LiftRel r x y"
+          else
+            throwError "Nested forall body is not an equality or LiftRel"
+        else
+          throwError "Nested forall has different types"
+      | _ => throwError "Expected nested forall"
     else
-      throwError "RHS body is neither LiftPred nor a supported relation: {body}"
+      throwError "RHS body is neither LiftPred, a logical connective, nor a supported relation: {body}"
   | .app (.app (.const ``Exists _) ty) (.lam _ _ body _) =>
     -- Handle exists case similar to forall
     trace[transfer] "RHS is exists with type: {ty}"
@@ -425,8 +737,66 @@ partial def transferLiftLhs : TacticM Unit := do
           throwError "RHS body does not match pattern: LiftPred <?> (.bvar 0)"
         return
     
-    -- If not LiftPred, check if it's a relation with constant (similar to forall case)
-    trace[transfer] "Exists body is not LiftPred, checking for relation pattern"
+    -- If not LiftPred, check if it's a logical connective
+    trace[transfer] "Exists body is not LiftPred, checking for logical connective pattern"
+    trace[transfer] "Body: {body}"
+    
+    -- Check if body is Or
+    if body.isAppOfArity ``Or 2 then
+      -- Body is: LiftPred p x ∨ LiftPred q x
+      let arg1 := body.getArg! 0
+      let arg2 := body.getArg! 1
+      
+      -- Check both args are LiftPred applications with .bvar 0
+      let isLiftPred1 := arg1.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                         arg1.isAppOfArity ``Germ.LiftPred 5 ||
+                         arg1.isAppOfArity ``LiftPred 5
+      let isLiftPred2 := arg2.isAppOfArity ``Filter.Germ.LiftPred 5 || 
+                         arg2.isAppOfArity ``Germ.LiftPred 5 ||
+                         arg2.isAppOfArity ``LiftPred 5
+      
+      if isLiftPred1 && isLiftPred2 && 
+         arg1.getArg! 4 == .bvar 0 && arg2.getArg! 4 == .bvar 0 then
+        let p := arg1.getArg! 3
+        let q := arg2.getArg! 3
+        
+        -- Get the filter from context
+        let ctx ← getLCtx
+        let mut filterVar : Option Expr := none
+        
+        for decl in ctx do
+          if !decl.isImplementationDetail then
+            let declType ← instantiateMVars decl.type
+            if declType.isAppOfArity ``Ultrafilter 1 then
+              filterVar := some (mkFVar decl.fvarId)
+              break
+        
+        match filterVar with
+        | some l =>
+          let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+          let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterL])
+          let thm ← mkAppOptM ``Filter.Germ.or_iff_or_liftPred 
+            #[none, none, some filterL, some inst, some p, some q]
+          
+          let thmType ← inferType thm
+          let target ← getMainTarget
+          trace[transfer] "Applying or rule"
+          trace[transfer] "Theorem type: {thmType}"
+          trace[transfer] "Target: {target}"
+          
+          if ← isDefEq thmType target then
+            closeMainGoal `existsOrRule thm
+          else
+            let goal ← getMainGoal
+            let newGoals ← goal.rewrite target thm
+            replaceMainGoal newGoals.mvarIds
+        | none => throwError "Could not find ultrafilter in context"
+      else
+        throwError "Or body does not match pattern: LiftPred p x ∨ LiftPred q x"
+      return
+    
+    -- If not Or, check if it's a relation with constant
+    trace[transfer] "Body is not Or, checking for relation pattern"
     trace[transfer] "Body: {body}"
     
     -- Check if body is a binary relation
@@ -511,7 +881,6 @@ partial def transferLiftLhs : TacticM Unit := do
           if ← isDefEq thmType target then
             trace[transfer] "Theorem exactly matches goal, closing with theorem"
             closeMainGoal `existsRelationRule thm
-            return ()
           else
             -- Try rewriting
             let goal ← getMainGoal
@@ -523,7 +892,110 @@ partial def transferLiftLhs : TacticM Unit := do
       | none =>
         throwError "Relation does not involve a constant: {constArg}"
     else
-      throwError "Exists body is neither LiftPred nor a supported relation: {body}"
+      throwError "Exists body is neither LiftPred, a logical connective, nor a supported relation: {body}"
+  
+  -- Handle logical connectives in RHS without quantifiers
+  | .app (.app (.const ``And _) _) _ =>
+    -- Pattern: LiftPred p x ∧ LiftPred q x
+    trace[transfer] "Found And in RHS"
+    -- Get the filter from context
+    let ctx ← getLCtx
+    let mut filterVar : Option Expr := none
+    
+    for decl in ctx do
+      if !decl.isImplementationDetail then
+        let declType ← instantiateMVars decl.type
+        if declType.isAppOfArity ``Ultrafilter 1 then
+          filterVar := some (mkFVar decl.fvarId)
+          break
+    
+    match filterVar with
+    | some l =>
+      let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+      -- Extract predicates from LHS
+      match lhs with
+      | .forallE _ _ body _ =>
+        -- Extract p and q from (p x ∧ q x)
+        if body.isAppOfArity ``And 2 then
+          -- Apply and_iff_and_liftPred theorem
+          let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterL])
+          -- Need to extract p and q as lambdas
+          let filterType ← inferType filterL
+          let α := filterType.getArg! 0
+          let extractedThm ← withLocalDecl `x .default α fun x => do
+            let bodyWithVar := body.instantiate #[x]
+            if bodyWithVar.isAppOfArity ``And 2 then
+              let p1 := bodyWithVar.getArg! 0
+              let p2 := bodyWithVar.getArg! 1
+              let p ← mkLambdaFVars #[x] p1
+              let q ← mkLambdaFVars #[x] p2
+              mkAppOptM ``Filter.Germ.and_iff_and_liftPred 
+                #[none, none, some filterL, some inst, some p, some q]
+            else
+              throwError "Could not extract predicates from And"
+          let thmType ← inferType extractedThm
+          let target ← getMainTarget
+          if ← isDefEq thmType target then
+            closeMainGoal `andRule extractedThm
+          else
+            let goal ← getMainGoal
+            let newGoals ← goal.rewrite target extractedThm
+            replaceMainGoal newGoals.mvarIds
+        else
+          throwError "LHS is not forall with And body"
+      | _ => throwError "LHS is not a forall for And"
+    | none => throwError "Could not find ultrafilter in context"
+  
+  | .app (.app (.const ``Or _) _) _ =>
+    -- Pattern: LiftPred p x ∨ LiftPred q x
+    trace[transfer] "Found Or in RHS"
+    -- Similar to And case but for exists
+    let ctx ← getLCtx
+    let mut filterVar : Option Expr := none
+    
+    for decl in ctx do
+      if !decl.isImplementationDetail then
+        let declType ← instantiateMVars decl.type
+        if declType.isAppOfArity ``Ultrafilter 1 then
+          filterVar := some (mkFVar decl.fvarId)
+          break
+    
+    match filterVar with
+    | some l =>
+      let filterL ← mkAppM ``Ultrafilter.toFilter #[l]
+      -- Extract predicates from LHS
+      match lhs with
+      | .app (.app (.const ``Exists _) _) (.lam _ _ body _) =>
+        -- Extract p and q from (p x ∨ q x)
+        if body.isAppOfArity ``Or 2 then
+          -- Apply or_iff_or_liftPred theorem
+          let inst ← synthInstance (← mkAppM ``Filter.NeBot #[filterL])
+          -- Need to extract p and q as lambdas
+          let filterType ← inferType filterL
+          let α := filterType.getArg! 0
+          let extractedThm ← withLocalDecl `x .default α fun x => do
+            let bodyWithVar := body.instantiate #[x]
+            if bodyWithVar.isAppOfArity ``Or 2 then
+              let p1 := bodyWithVar.getArg! 0
+              let p2 := bodyWithVar.getArg! 1
+              let p ← mkLambdaFVars #[x] p1
+              let q ← mkLambdaFVars #[x] p2
+              mkAppOptM ``Filter.Germ.or_iff_or_liftPred 
+                #[none, none, some filterL, some inst, some p, some q]
+            else
+              throwError "Could not extract predicates from Or"
+          let thmType ← inferType extractedThm
+          let target ← getMainTarget
+          if ← isDefEq thmType target then
+            closeMainGoal `orRule extractedThm
+          else
+            let goal ← getMainGoal
+            let newGoals ← goal.rewrite target extractedThm
+            replaceMainGoal newGoals.mvarIds
+        else
+          throwError "LHS is not exists with Or body"
+      | _ => throwError "LHS is not an exists for Or"
+    | none => throwError "Could not find ultrafilter in context"
     
   | _ => throwError "RHS is not a forall or exists: {rhs}"
 
@@ -582,14 +1054,14 @@ def transferPushLift : TacticM Unit := withMainContext do
   -- Check if LHS is liftPred p x
   guard (lhs.isAppOfArity ``Filter.Germ.LiftPred 2)
   let p := lhs.getArg! 2
-  let x := lhs.getArg! 3
+  let _ := lhs.getArg! 3
   
   -- Match patterns in p (which should be a lambda)
   match p with
   | .lam _ _ body _ =>
     -- Analyze the body
     match body with
-    | .forallE _ ty body' _ => do
+    | .forallE _ _ _ _ => do
       -- Try different forall rules
       try
         let thm ← mkAppM ``Filter.Germ.liftPred_forall_iff_forall_liftPred' #[]
@@ -796,7 +1268,7 @@ elab "transfer" : tactic => do
           return ()
         else
           -- If we still have goals and no progress, throw error
-          throwError "transfer tactic failed: {e.toMessageData}"
+          throw e
   loop 100
 
 end Mathlib.Tactic.Transfer
