@@ -165,7 +165,7 @@ theorem compact_nsa {X : Type*} [TopologicalSpace X] {K : Set X} :
 example : ∀ P : ℕ* → Prop, Internal ℕ* P → P 0 → (∀ n, P n → P (n + 1)) → ∀ n, P n :=
   fun P _ => internal_induction
 
-/-- But we can still do induction up to any bound, even infinite ones! */
+/-- But we can still do induction up to any bound, even infinite ones! -/
 example : ∀ n ≤ ω, n < n + 1 := by
   intro n hn
   -- This works by hyperfinite induction up to ω

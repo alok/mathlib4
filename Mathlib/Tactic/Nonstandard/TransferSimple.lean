@@ -17,7 +17,7 @@ open Filter Germ
 
 namespace Mathlib.Tactic.TransferSimple
 
-/-- The main transfer tactic */
+/-- The main transfer tactic -/
 elab "transfer" : tactic => do
   -- For now, just try reflexivity
   -- This is a placeholder that will be expanded

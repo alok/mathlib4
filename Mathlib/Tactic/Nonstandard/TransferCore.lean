@@ -17,7 +17,7 @@ open Filter Germ
 
 namespace Mathlib.Tactic.TransferCore
 
-/-- The main transfer tactic */
+/-- The main transfer tactic -/
 elab "transfer" : tactic => do
   let goal ← getMainGoal
   -- For now, just try reflexivity as a placeholder
