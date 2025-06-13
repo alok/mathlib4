@@ -82,8 +82,13 @@ lemma bounded_implies_standard (n : Hypernat) (m : ℕ) (h : n ≤ ↑m) : n.IsS
     -- By ultrafilter property, one piece must be in the filter
     have hfin_is : (Finset.range (m + 1) : Set ℕ).Finite := Finset.finite_toSet _
     -- Use the fact that finite unions preserve membership in ultrafilters
-    rw [Ultrafilter.finite_biUnion_mem_iff hfin_is] at hS
-    obtain ⟨k, hk, hmem⟩ := hS
+    -- Convert to use the theorem with Set instead of Finset
+    have hS' : (⋃ k ∈ (↑(Finset.range (m + 1)) : Set ℕ), {i | i ∈ S ∧ f i = k}) ∈ hyperfilter ℕ := by
+      convert hS
+      ext i
+      simp only [Set.mem_iUnion, Finset.mem_coe]
+    rw [Ultrafilter.finite_biUnion_mem_iff hfin_is] at hS'
+    obtain ⟨k, hk, hmem⟩ := hS'
     simp only [Finset.mem_coe, Finset.mem_range] at hk
     use k, Nat.le_of_lt_succ hk
     -- Convert the membership to an eventually statement
@@ -113,7 +118,8 @@ theorem standard_or_infinite (n : Hypernat) : n.IsStandard ∨ n.IsInfinite := b
     intro m
     by_contra h'
     push_neg at h
-    exact h m (le_of_not_gt h')
+    push_neg at h
+    exact absurd (h m) h'
 
 /-- The hypernatural ω is the equivalence class of the identity function -/
 noncomputable def omega : Hypernat := (↑(fun n : ℕ => n) : (hyperfilter ℕ : Filter ℕ).Germ ℕ)
@@ -123,13 +129,16 @@ notation "ω" => Hypernat.omega
 /-- ω is infinite -/
 theorem omega_infinite : omega.IsInfinite := by
   intro m
-  simp only [omega, IsInfinite]
-  -- We need to show (m : Hypernat) < (id : Hypernat)
-  rw [Germ.const_lt]
-  -- Need to show that {n | m < id n} ∈ hyperfilter ℕ
+  simp only [omega]
+  -- Show ↑m < ↑(fun n => n)
+  -- This is true because {n : m < n} has finite complement
+  -- Show that ↑m < (the germ of the identity function)
+  have : omega = (fun n => n : (hyperfilter ℕ : Filter ℕ).Germ ℕ) := rfl
+  rw [this, Germ.const_lt]
+  -- Need to show that {n | m < n} ∈ hyperfilter ℕ
   apply mem_hyperfilter_of_finite_compl
-  -- The complement {n | ¬(m < id n)} = {n | id n ≤ m} = {n | n ≤ m} is finite
-  simp only [Set.compl_setOf, not_lt, id]
+  -- The complement is {n | n ≤ m} which is finite
+  simp only [Set.compl_setOf, not_lt]
   exact Set.finite_le_nat m
 
 /-- Hyperfinite induction: If a property holds at 0 and is preserved by successor,
@@ -156,13 +165,13 @@ theorem hyperfiniteInduction {p : Hypernat → Prop} (N : Hypernat)
         have hp : p ↑(m - 1) := by
           apply ih (m - 1) hpred
           calc ↑(m - 1) ≤ ↑m := by 
-                 rw [Germ.const_le]
+                 exact Germ.const_le.mpr
                  exact Nat.sub_le m 1
                _ ≤ N := hn
         -- Now apply the successor property
         have hlt : ↑(m - 1) < N := by
           calc ↑(m - 1) < ↑m := by
-                 rw [Germ.const_lt]
+                 exact Germ.const_lt.mpr
                  exact Nat.sub_lt hpos (by norm_num)
                _ ≤ N := hn
         have : p (↑(m - 1) + 1) := succ ↑(m - 1) hlt hp
@@ -173,16 +182,11 @@ theorem hyperfiniteInduction {p : Hypernat → Prop} (N : Hypernat)
         rw [this]
         -- Show ↑((m - 1) + 1) = ↑(m - 1) + 1
         rfl
-  · -- Case 2: n is infinite
-    -- External proof using ultrapower construction
-    -- If n is infinite, it's represented by an unbounded sequence f
-    -- But n ≤ N means f i ≤ g i for almost all i (where N = [g])
-    -- Apply coordinate-wise induction
-    
-    -- First, we need to show that predicates defined by induction are internal
-    -- This is the key missing piece - we need to prove that p is internal
-    -- when defined by the induction hypothesis
-    sorry -- This requires proving that inductively defined predicates are internal
+  · -- Case 2: n is infinite but n ≤ N
+    -- The key insight: we can use external reasoning about the ultrapower
+    -- n is represented by some unbounded sequence, but it's still ≤ N coordinate-wise
+    -- So coordinate-wise induction applies
+    sorry -- This requires developing the theory that inductively defined predicates are internal
 
 /-- External induction: The standard induction principle only works for standard hypernaturals -/
 theorem externalInduction {p : Hypernat → Prop} 
@@ -199,9 +203,10 @@ theorem externalInduction {p : Hypernat → Prop}
     rw [this]
     exact succ (↑m) ih
 
-/-- A predicate is internal if it respects the ultrafilter -/
+/-- A predicate is internal if it respects the ultrafilter equivalence relation -/
 def IsInternal (p : Hypernat → Prop) : Prop :=
-  ∃ (P : (ℕ → ℕ) → Prop), ∀ f : ℕ → ℕ, p ↑f ↔ P f
+  ∃ (P : (ℕ → ℕ) → Prop), (∀ f g : ℕ → ℕ, f =ᶠ[hyperfilter ℕ] g → (P f ↔ P g)) ∧ 
+    (∀ f : ℕ → ℕ, p (Quotient.mk _ f) ↔ P f)
 
 /-- The key insight: internal predicates satisfy induction up to any bound -/
 theorem internalInduction {p : Hypernat → Prop} (N : Hypernat)
@@ -209,9 +214,8 @@ theorem internalInduction {p : Hypernat → Prop} (N : Hypernat)
     (zero : p 0)
     (succ : ∀ k < N, p k → p (k + 1)) :
     ∀ n ≤ N, p n := by
-  -- External proof using the ultrapower construction
-  -- An internal predicate corresponds to a family of predicates on ℕ
-  obtain ⟨P, hP⟩ := internal
+  -- External proof using the ultrapower construction  
+  obtain ⟨P, hP_resp, hP⟩ := internal
   intro n hn
   
   -- Express n and N as equivalence classes of sequences
@@ -222,28 +226,63 @@ theorem internalInduction {p : Hypernat → Prop} (N : Hypernat)
   have hfg : ∀ᶠ i in hyperfilter ℕ, f i ≤ g i := hn
   
   -- Apply the internal predicate characterization
-  rw [← hP]
+  rw [← hP f]
   
-  -- We need to show P f holds
-  -- Key idea: use coordinate-wise induction
-  -- For each coordinate i where f i ≤ g i, standard induction gives P_i(f i)
-  
-  -- First, let's define predicates for each coordinate
-  have coord_ind : ∀ i, f i ≤ g i → ∃ Q : ℕ → Prop, Q 0 ∧ (∀ k < g i, Q k → Q (k + 1)) ∧ Q (f i) := by
+  -- Key insight: Define a predicate on each coordinate that satisfies induction
+  -- Let Q_i be the predicate "for all k ≤ g(i), P holds for the function that equals k at position i"
+  have : ∀ᶠ i in hyperfilter ℕ, ∀ k ≤ g i, P (fun j => if j = i then k else 0) := by
+    -- We'll prove this by showing it holds for each i where f i ≤ g i
+    apply Filter.mem_of_superset hfg
     intro i hi
-    -- Define Q_i(k) to mean "P holds for the constant function with value k at position i"
-    use fun k => P (fun j => if j = i then k else 0)
-    constructor
-    · -- Base case: Q_i(0)
-      sorry -- This requires showing P respects the zero predicate
-    · constructor
-      · -- Inductive step
-        sorry -- This requires showing P respects successor
-      · -- Q_i(f i) holds
-        sorry -- This follows from the induction
+    -- Use standard induction at coordinate i
+    intro k hk
+    induction k using Nat.strong_induction_on with
+    | _ k ih => 
+      by_cases hk0 : k = 0
+      · -- Base case
+        rw [hk0]
+        -- p 0 = p (↑0) = p (Quotient.mk _ (fun _ => 0))
+        have : (0 : Hypernat) = Quotient.mk _ (fun _ : ℕ => 0) := rfl
+        rw [← this] at zero
+        rw [hP (fun _ => 0)] at zero
+        -- Show P (fun j => if j = i then 0 else 0) ↔ P (fun _ => 0)
+        apply hP_resp (fun _ => 0) (fun j => if j = i then 0 else 0) ?_ ▸ zero
+        simp
+      · -- Inductive case
+        have hpos : 0 < k := Nat.pos_of_ne_zero hk0
+        have hpred : k - 1 < k := Nat.sub_lt hpos (by norm_num)
+        have hle : k - 1 ≤ g i := Nat.le_trans (Nat.le_pred_of_lt (Nat.lt_of_le_of_ne hk fun h => hk0 (Nat.eq_zero_of_le_zero (h ▸ hk)))) hk
+        have ih_app := ih (k - 1) hpred hle
+        -- Now we need to apply the successor property
+        -- First show that the k-1 function is < N
+        have : Quotient.mk _ (fun j => if j = i then k - 1 else 0) < Quotient.mk _ g := by
+          rw [Quotient.lt_def]
+          apply mem_hyperfilter_of_finite_compl
+          simp only [Set.compl_setOf, not_lt]
+          sorry -- Show finite complement
+        -- Apply successor
+        have succ_app := succ (Quotient.mk _ (fun j => if j = i then k - 1 else 0)) this
+        rw [hP] at succ_app
+        specialize succ_app ih_app
+        -- Show that successor of k-1 function gives k function
+        have : Quotient.mk _ (fun j => if j = i then k - 1 else 0) + 1 = 
+               Quotient.mk _ (fun j => if j = i then k else 0) := by
+          apply Quotient.sound
+          simp only [Filter.EventuallyEq]
+          apply mem_hyperfilter_of_finite_compl
+          simp only [Set.compl_setOf]
+          sorry -- Arithmetic
+        rw [← this, ← hP] at succ_app
+        exact succ_app
   
-  -- Now use the ultrafilter to combine the coordinate-wise results
-  sorry -- Apply Łoś's theorem to lift coordinate-wise induction
+  -- Now apply this to f(i)
+  apply Filter.mem_of_superset this
+  intro i hi
+  specialize hi (f i) (Filter.mem_of_superset hfg (fun _ h => h) i)
+  -- Show P f ↔ P (fun j => if j = i then f i else 0) for almost all i
+  apply hP_resp ?_ ▸ hi
+  -- Show f =ᶠ[hyperfilter ℕ] (fun j => if j = i then f i else 0)
+  sorry -- This requires showing these functions are eventually equal
 
 /-- Hyperfinite downward induction: We can count down from any hypernatural -/
 theorem hyperfiniteDownwardInduction {p : Hypernat → Prop} (N : Hypernat)
@@ -258,7 +297,7 @@ theorem hyperfiniteDownwardInduction {p : Hypernat → Prop} (N : Hypernat)
   -- Show q 0 (which gives p N)
   have q0 : q 0 := by
     intro h
-    simp only [tsub_zero]
+    simp only [tsub_zero, imp_self, implies_true]
     exact base
   
   -- Show the inductive step for q
@@ -269,12 +308,10 @@ theorem hyperfiniteDownwardInduction {p : Hypernat → Prop} (N : Hypernat)
     have : k ≤ N := le_of_lt hk
     have pk : p (N - k) := qk this
     -- Now use the step hypothesis
-    have : N - (k + 1) < N := by
-      sorry -- Arithmetic with hypernaturals
-    have : N - k = N - (k + 1) + 1 := by
-      sorry -- Arithmetic identity
-    rw [this] at pk
-    exact step _ ‹N - (k + 1) < N› pk
+    -- We need to be careful with hypernatural arithmetic
+    -- The key is that N - (k + 1) < N when k < N
+    -- And (N - (k + 1)) + 1 = N - k when k + 1 ≤ N
+    sorry -- This requires developing hypernatural arithmetic
   
   -- Apply internal induction to q if p is internal
   -- For now, we'll use a simpler approach
@@ -312,23 +349,69 @@ theorem overspill {P : Hypernat → Prop}
     (internal : IsInternal P)
     (h : ∀ n : ℕ, P ↑n) :
     ∃ N : Hypernat, N.IsInfinite ∧ P N := by
-  -- The key idea: if P holds for all standard naturals, 
-  -- then {n : ℕ | P ↑n} = ℕ, which has infinite complement ∅
-  -- By the ultrafilter property, either this set or its complement is in the filter
-  -- Since ∅ ∉ hyperfilter, we have ℕ ∈ hyperfilter
-  -- But P is internal, so there exists f : ℕ → ℕ such that P ⟨f⟩ holds
-  -- and f must be unbounded (otherwise ⟨f⟩ would be standard)
+  -- External proof using the ultrapower construction
+  obtain ⟨Q, hQ_resp, hQ⟩ := internal
   
-  -- Take N = ω (the identity function)
+  -- We'll show P(ω) holds where ω is the identity function
   use omega
   constructor
   · exact omega_infinite
-  · -- We need to show P ω
-    -- Since P is internal, there exists a sequence of predicates Pₙ such that
-    -- P ⟨f⟩ iff {n | Pₙ(f n)} ∈ hyperfilter
-    -- From h, we know that for each standard k, P ↑k holds
-    -- This means for the constant function f(n) = k, we have {n | Pₙ(k)} ∈ hyperfilter
-    sorry -- This requires the precise definition of internal predicates
+  · -- Show P ω
+    -- omega = Quotient.mk _ (fun n => n)
+    rw [← hQ (fun n => n)]
+    -- Need to show Q (fun n => n)
+    
+    -- Key idea: For each i, the function f_i(j) = if j = i then i else 0
+    -- represents the standard natural i, so Q(f_i) holds
+    -- These functions "approximate" the identity at each coordinate
+    
+    -- The set of coordinates where Q holds for the identity is all of ℕ
+    apply mem_hyperfilter_of_finite_compl
+    simp only [Set.compl_setOf]
+    
+    -- Suppose the complement is nonempty
+    by_contra h_nonempty
+    rw [Set.nonempty_iff_ne_empty] at h_nonempty
+    
+    -- Then there exists i where Q doesn't hold for the identity
+    have : ∃ i, i ∈ {j | ¬Q (fun n => n)} := by
+      by_contra h2
+      push_neg at h2
+      have : {j | ¬Q (fun n => n)} = ∅ := by
+        ext j
+        simp [h2 j]
+      exact h_nonempty this
+    obtain ⟨i, hi⟩ := this
+    simp at hi
+    
+    -- But Q holds for the function that equals i at position i
+    let f_i := fun j => if j = i then i else 0
+    have hf_i : Q f_i := by
+      -- f_i represents the standard natural i
+      have : Quotient.mk _ f_i = ↑i := by
+        apply Quotient.sound
+        apply mem_hyperfilter_of_finite_compl  
+        simp [f_i, Set.finite_singleton]
+      rw [← hQ f_i, this]
+      exact h i
+    
+    -- The identity function and f_i eventually agree (they both equal i at position i)
+    -- This contradicts that Q respects the equivalence relation
+    have : {j | (fun n => n) j = f_i j} ∈ hyperfilter ℕ := by
+      apply mem_hyperfilter_of_finite_compl
+      simp [f_i]
+      convert Set.finite_singleton i
+      ext j; simp [eq_comm]
+    
+    -- Since Q respects =ᶠ, and id =ᶠ f_i on a set in the ultrafilter,
+    -- Q(id) ↔ Q(f_i), but Q(f_i) holds and Q(id) doesn't at coordinate i
+    have h_equiv : {j | (fun n => n) j = f_i j} ∈ hyperfilter ℕ → 
+                   (Q (fun n => n) ↔ Q f_i) := by
+      intro h_eq
+      apply hQ_resp
+      exact h_eq
+    
+    exact hi (h_equiv this ▸ hf_i)
 
 /-- Transfer principle for hypernaturals -/
 theorem transfer {P : ℕ → Prop} :
