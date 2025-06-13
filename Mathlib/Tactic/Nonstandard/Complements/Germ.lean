@@ -312,25 +312,25 @@ section Arithmetic
 variable {ι α β : Type*} {l : Filter ι} [l.NeBot]
 
 lemma map_add_iff_add_map [Add α] (f g : l.Germ α) :
-  Germ.map (· + ·) (prodEquiv l (f, g)) = f + g := by
+  Germ.map (fun p : α × α => p.1 + p.2) (prodEquiv l (f, g)) = f + g := by
   refine f.inductionOn₂ g (fun a b => ?_)
   simp [prodEquiv_coe, map_coe]
   rfl
 
 lemma map_mul_iff_mul_map [Mul α] (f g : l.Germ α) :
-  Germ.map (· * ·) (prodEquiv l (f, g)) = f * g := by
+  Germ.map (fun p : α × α => p.1 * p.2) (prodEquiv l (f, g)) = f * g := by
   refine f.inductionOn₂ g (fun a b => ?_)
   simp [prodEquiv_coe, map_coe]
   rfl
 
 lemma map_sub_iff_sub_map [Sub α] (f g : l.Germ α) :
-  Germ.map (· - ·) (prodEquiv l (f, g)) = f - g := by
+  Germ.map (fun p : α × α => p.1 - p.2) (prodEquiv l (f, g)) = f - g := by
   refine f.inductionOn₂ g (fun a b => ?_)
   simp [prodEquiv_coe, map_coe]
   rfl
 
 lemma map_div_iff_div_map [Div α] (f g : l.Germ α) :
-  Germ.map (· / ·) (prodEquiv l (f, g)) = f / g := by
+  Germ.map (fun p : α × α => p.1 / p.2) (prodEquiv l (f, g)) = f / g := by
   refine f.inductionOn₂ g (fun a b => ?_)
   simp [prodEquiv_coe, map_coe]
   rfl
@@ -341,11 +341,12 @@ lemma const_add [Add α] (a b : α) : (↑(a + b) : l.Germ α) = ↑a + ↑b := 
 lemma const_mul [Mul α] (a b : α) : (↑(a * b) : l.Germ α) = ↑a * ↑b := by
   rfl
 
-lemma const_sub [Sub α] (a b : α) : (↑(a - b) : l.Germ α) = ↑a - ↑b := by
-  rfl
+-- Note: const_sub and const_div are already defined in the library
+-- lemma const_sub [Sub α] (a b : α) : (↑(a - b) : l.Germ α) = ↑a - ↑b := by
+--   rfl
 
-lemma const_div [Div α] (a b : α) : (↑(a / b) : l.Germ α) = ↑a / ↑b := by
-  rfl
+-- lemma const_div [Div α] (a b : α) : (↑(a / b) : l.Germ α) = ↑a / ↑b := by
+--   rfl
 
 lemma const_zero [Zero α] : (↑(0 : α) : l.Germ α) = 0 := rfl
 

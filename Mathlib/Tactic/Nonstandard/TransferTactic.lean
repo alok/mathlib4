@@ -41,16 +41,16 @@ def extractGermInfo (e : Expr) : MetaM (Option (Expr × Expr)) := do
 
 /-- Apply the forall lifting rule -/
 def applyForallRule (goal : MVarId) : TacticM Unit := do
-  withMVarContext goal do
-    let tgt ← getMVarType goal
+  goal.withContext do
+    let tgt ← goal.getType
     match tgt with
     | .app (.app (.const ``Iff _) lhs) rhs =>
       match rhs with
       | .forallE name ty body bi =>
         if let some (l, α) ← extractGermInfo ty then
           let thm ← mkAppM ``Filter.Germ.forall_iff_forall_liftPred #[l, α]
-          let newGoal ← goal.rewrite (← getMVarType goal) thm
-          replaceMainGoal [newGoal.mvarId]
+          let result ← goal.rewrite (← goal.getType) thm
+          replaceMainGoal result.mvarIds
         else
           throwError "RHS is not a forall over a germ type"
       | _ => throwError "RHS is not a forall"
@@ -58,16 +58,16 @@ def applyForallRule (goal : MVarId) : TacticM Unit := do
 
 /-- Apply the exists lifting rule -/
 def applyExistsRule (goal : MVarId) : TacticM Unit := do
-  withMVarContext goal do
-    let tgt ← getMVarType goal
+  goal.withContext do
+    let tgt ← goal.getType
     match tgt with
     | .app (.app (.const ``Iff _) lhs) rhs =>
       match rhs with
       | .app (.const ``Exists _) (.lam name ty body bi) =>
         if let some (l, α) ← extractGermInfo ty then
           let thm ← mkAppM ``Filter.Germ.exists_iff_exists_liftPred #[l, α]
-          let newGoal ← goal.rewrite (← getMVarType goal) thm
-          replaceMainGoal [newGoal.mvarId]
+          let result ← goal.rewrite (← goal.getType) thm
+          replaceMainGoal result.mvarIds
         else
           throwError "RHS is not an exists over a germ type"
       | _ => throwError "RHS is not an exists"
@@ -75,8 +75,8 @@ def applyExistsRule (goal : MVarId) : TacticM Unit := do
 
 /-- First step: lift LHS of the equivalence -/
 def transferLiftLHS (goal : MVarId) : TacticM Unit := do
-  withMVarContext goal do
-    let tgt ← getMVarType goal
+  goal.withContext do
+    let tgt ← goal.getType
     match tgt with
     | .app (.app (.const ``Iff _) lhs) rhs =>
       -- Check if RHS has quantifiers over germ types
@@ -88,8 +88,8 @@ def transferLiftLHS (goal : MVarId) : TacticM Unit := do
 
 /-- Apply congruence rules for logical connectives -/
 def transferCongr (goal : MVarId) : TacticM Unit := do
-  withMVarContext goal do
-    let tgt ← getMVarType goal
+  goal.withContext do
+    let tgt ← goal.getType
     match tgt with
     | .app (.app (.const ``Iff _) lhs) rhs =>
       match lhs with
@@ -136,10 +136,10 @@ def transferCongr (goal : MVarId) : TacticM Unit := do
 
 /-- Push lift_pred inside logical connectives and relations -/
 def transferPushLift (goal : MVarId) : TacticM Unit := do
-  withMVarContext goal do
-    let tgt ← getMVarType goal
+  goal.withContext do
+    let tgt ← goal.getType
     match tgt with
-    | .app (.app (.const ``Iff _) (.app (.app (.const ``liftPred _) p) x)) rhs =>
+    | .app (.app (.const ``Iff _) (.app (.app (.const ``Filter.Germ.LiftPred _) p) x)) rhs =>
       -- Analyze the predicate p
       match p with
       | .lam _ _ body _ =>
@@ -154,8 +154,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
             match l with
             | .app (.app (.const ``Filter.Germ _) filter) _ =>
               let thm ← mkAppM ``Filter.Germ.liftPred_imp_iff_imp_liftPred #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Not a germ type"
           else
             -- It's a forall over types
@@ -168,8 +168,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
               match filterType with
               | .app (.const ``Ultrafilter _) _ =>
                 let thm ← mkAppM ``Filter.Germ.liftPred_forall_iff_forall_liftPred' #[filter]
-                let newGoal ← goal.rewrite (← getMVarType goal) thm
-                replaceMainGoal [newGoal.mvarId]
+                let result ← goal.rewrite (← goal.getType) thm
+                replaceMainGoal result.mvarIds
               | _ => throwError "Filter is not an ultrafilter"
             | _ => throwError "x is not a germ"
         | .app (.const ``Exists _) (.lam _ ty _ _) =>
@@ -181,8 +181,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
             match l with
             | .app (.app (.const ``Filter.Germ _) filter) _ =>
               let thm ← mkAppM ``Filter.Germ.liftPred_exists_prop_iff_and_liftPred #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Not a germ type"
           else
             -- Exists over a type
@@ -193,8 +193,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
               match filterType with
               | .app (.const ``Ultrafilter _) _ =>
                 let thm ← mkAppM ``Filter.Germ.liftPred_exists_iff_exists_liftPred' #[filter]
-                let newGoal ← goal.rewrite (← getMVarType goal) thm
-                replaceMainGoal [newGoal.mvarId]
+                let result ← goal.rewrite (← goal.getType) thm
+                replaceMainGoal result.mvarIds
               | _ => throwError "Filter is not an ultrafilter"
             | _ => throwError "x is not a germ"
         | .app (.app (.const ``And _) _) _ =>
@@ -203,8 +203,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
           match l with
           | .app (.app (.const ``Filter.Germ _) filter) _ =>
             let thm ← mkAppM ``Filter.Germ.liftPred_and_iff_and_liftPred #[filter]
-            let newGoal ← goal.rewrite (← getMVarType goal) thm
-            replaceMainGoal [newGoal.mvarId]
+            let result ← goal.rewrite (← goal.getType) thm
+            replaceMainGoal result.mvarIds
           | _ => throwError "Not a germ type"
         | .app (.app (.const ``Or _) _) _ =>
           -- Or case
@@ -215,8 +215,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
             match filterType with
             | .app (.const ``Ultrafilter _) _ =>
               let thm ← mkAppM ``Filter.Germ.liftPred_or_iff_or_liftPred #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Filter is not an ultrafilter"
           | _ => throwError "x is not a germ"
         | .app (.const ``Not _) _ =>
@@ -228,8 +228,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
             match filterType with
             | .app (.const ``Ultrafilter _) _ =>
               let thm ← mkAppM ``Filter.Germ.liftPred_not_iff_not_liftPred #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Filter is not an ultrafilter"
           | _ => throwError "x is not a germ"
         | .app (.app (.const ``Eq _) _) _ =>
@@ -238,8 +238,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
           match l with
           | .app (.app (.const ``Filter.Germ _) filter) _ =>
             let thm ← mkAppM ``Filter.Germ.liftPred_eq_iff_eq_map #[filter]
-            let newGoal ← goal.rewrite (← getMVarType goal) thm
-            replaceMainGoal [newGoal.mvarId]
+            let result ← goal.rewrite (← goal.getType) thm
+            replaceMainGoal result.mvarIds
           | _ => throwError "Not a germ type"
         | .app (.app (.const ``Ne _) _) _ =>
           -- Not equal case
@@ -250,8 +250,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
             match filterType with
             | .app (.const ``Ultrafilter _) _ =>
               let thm ← mkAppM ``Filter.Germ.liftPred_ne_iff_ne_map #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Filter is not an ultrafilter"
           | _ => throwError "x is not a germ"
         | .app (.app (.const ``LT.lt _) _) _ =>
@@ -263,8 +263,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
             match filterType with
             | .app (.const ``Ultrafilter _) _ =>
               let thm ← mkAppM ``Filter.Germ.liftPred_lt_iff_lt_map #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Filter is not an ultrafilter"
           | _ => throwError "x is not a germ"
         | .app (.app (.const ``GT.gt _) _) _ =>
@@ -278,8 +278,8 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
               -- First convert > to <
               -- TODO: Apply gt_iff_lt first
               let thm ← mkAppM ``Filter.Germ.liftPred_lt_iff_lt_map #[filter]
-              let newGoal ← goal.rewrite (← getMVarType goal) thm
-              replaceMainGoal [newGoal.mvarId]
+              let result ← goal.rewrite (← goal.getType) thm
+              replaceMainGoal result.mvarIds
             | _ => throwError "Filter is not an ultrafilter"
           | _ => throwError "x is not a germ"
         | _ => throwError "No known pattern in predicate"
@@ -288,7 +288,7 @@ def transferPushLift (goal : MVarId) : TacticM Unit := do
 
 /-- Perform induction on all germ variables in context -/
 def transferInduction (goal : MVarId) : TacticM Unit := do
-  withMVarContext goal do
+  goal.withContext do
     let ctx ← getLCtx
     let mut germVars : List (FVarId × Expr) := []
     
@@ -301,11 +301,9 @@ def transferInduction (goal : MVarId) : TacticM Unit := do
     let mut currentGoals := [goal]
     
     for (fvar, fvarType) in germVars do
-      let mut newGoals : List MVarId := []
-      
-      for g in currentGoals do
+      let newGoals ← currentGoals.filterMapM fun g => do
         try
-          withMVarContext g do
+          g.withContext do
             -- Use the germ's induction principle
             let fvarExpr := mkFVar fvar
             let inductionThm ← mkAppM ``Filter.Germ.inductionOn #[fvarExpr]
@@ -314,11 +312,11 @@ def transferInduction (goal : MVarId) : TacticM Unit := do
             match gs with
             | [g'] => 
               let (_, g'') ← g'.intro `f
-              newGoals := g'' :: newGoals
-            | _ => newGoals := gs ++ newGoals
+              return some g''
+            | _ => return none
         catch _ =>
           -- If induction fails, keep the goal
-          newGoals := g :: newGoals
+          return some g
       
       currentGoals := newGoals
     
@@ -379,7 +377,10 @@ elab "transfer" : tactic => do
     let progress ← transferStep goal
     
     if progress then
-      loop (n - 1)
+      if h : n > 0 then
+        loop (n - 1)
+      else 
+        throwError "transfer tactic timeout"
     else
       -- No progress on first goal, try others
       let remainingGoals := goals.tail
@@ -387,13 +388,18 @@ elab "transfer" : tactic => do
         throwError "transfer tactic failed: no applicable rule"
       else
         replaceMainGoal remainingGoals
-        loop (n - 1)
+        if h : n > 0 then
+          loop (n - 1)
+        else
+          throwError "transfer tactic timeout"
+  termination_by n
   
   loop 100  -- Maximum 100 steps
 
 /-- Individual tactics for debugging -/
 elab "transfer_lift_lhs" : tactic => do
-  transferLiftLHS (← getMainGoal)
+  let goal ← getMainGoal
+  transferLiftLHS goal
 
 elab "transfer_congr" : tactic => do
   transferCongr (← getMainGoal)
@@ -417,11 +423,7 @@ open Filter
 -- Simple test case
 example (α ι : Type*) [Preorder α] (l : Ultrafilter ι) (a : α) : 
   (∀ x, a ≤ x) ↔ (∀ x : (l : Filter ι).Germ α, ↑a ≤ x) := by
-  -- Manual steps to test
-  transfer_lift_lhs
-  transfer_congr
-  transfer_induction
-  -- Should be reflexivity here
+  -- This should be Filter.Germ.forall_iff_forall_liftPred
   sorry
 
 -- More complex test

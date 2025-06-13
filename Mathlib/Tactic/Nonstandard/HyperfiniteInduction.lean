@@ -41,15 +41,9 @@ def IsInfinite (n : Hypernat) : Prop := ∀ m : ℕ, (m : Hypernat) < n
 
 /-- Helper: n < n + 1 for all hypernaturals -/
 lemma lt_add_one (n : Hypernat) : n < n + 1 := by
-  -- Break into small pieces: n < n + 1 is equivalent to n + 0 < n + 1
-  have h1 : n = n + 0 := by simp
-  rw [h1]
-  -- Now we need 0 < 1
-  have h2 : (0 : Hypernat) < 1 := by
-    -- 0 < 1 for germs
-    simp [Germ.const_lt_const_iff]
-  -- Use that addition preserves strict order
-  exact add_lt_add_left h2 n
+  -- Since Hypernat inherits the order structure from Germ
+  rw [show n + 1 = n + (1 : Hypernat) from rfl]
+  exact lt_add_of_pos_right n zero_lt_one
 
 /-- Helper: Addition with constants preserves order -/
 lemma add_const_lt_add_const {n m : Hypernat} (h : n < m) (k : Hypernat) : n + k < m + k := by
@@ -57,10 +51,57 @@ lemma add_const_lt_add_const {n m : Hypernat} (h : n < m) (k : Hypernat) : n + k
 
 /-- Key lemma: If a hypernatural is bounded by a standard natural, it must be standard -/
 lemma bounded_implies_standard (n : Hypernat) (m : ℕ) (h : n ≤ ↑m) : n.IsStandard := by
-  -- n represents some function f : ℕ → ℕ
-  -- Since n ≤ m, we have f ≤ m eventually
-  -- For naturals, bounded functions are eventually constant
-  sorry -- This requires deeper analysis of the ultrafilter
+  -- n is represented by some function f : ℕ → ℕ in the ultrafilter
+  -- Since n ≤ ↑m, we have f ≤ m eventually in the hyperfilter
+  obtain ⟨f, rfl⟩ := Quot.exists_rep n
+  -- f ≤ m eventually means {i | f i ≤ m} ∈ hyperfilter ℕ
+  have hf : ∀ᶠ i in hyperfilter ℕ, f i ≤ m := by
+    -- h tells us that ⟨f⟩ ≤ ↑m in the germ
+    -- This means f ≤ m eventually
+    exact h
+  -- The key insight: f takes only finitely many values (at most m+1) on this set
+  -- By the pigeonhole principle on the ultrafilter, one value must occur on a set in the ultrafilter
+  have : ∃ k ≤ m, ∀ᶠ i in hyperfilter ℕ, f i = k := by
+    -- f restricted to values ≤ m has finite range {0, 1, ..., m}
+    -- The preimages f⁻¹{0}, f⁻¹{1}, ..., f⁻¹{m} partition the set where f ≤ m
+    -- Since the ultrafilter is an ultrafilter, exactly one of these is in the filter
+    let S := {i | f i ≤ m}
+    have hS : S ∈ hyperfilter ℕ := hf
+    -- The finite union ⋃ k ≤ m, f⁻¹{k} ∩ S = S
+    have : S = ⋃ k ∈ Finset.range (m + 1), {i | i ∈ S ∧ f i = k} := by
+      ext i
+      simp only [Set.mem_iUnion, Finset.mem_range, Set.mem_setOf]
+      constructor
+      · intro hi
+        use f i
+        have : f i ≤ m := hi
+        refine ⟨Nat.lt_succ_of_le this, hi, rfl⟩
+      · intro ⟨k, hk, hi, hfi⟩
+        exact hi
+    rw [this] at hS
+    -- By ultrafilter property, one piece must be in the filter
+    have hfin_is : (Finset.range (m + 1) : Set ℕ).Finite := Finset.finite_toSet _
+    -- Use the fact that finite unions preserve membership in ultrafilters
+    rw [Ultrafilter.finite_biUnion_mem_iff hfin_is] at hS
+    obtain ⟨k, hk, hmem⟩ := hS
+    simp only [Finset.mem_coe, Finset.mem_range] at hk
+    use k, Nat.le_of_lt_succ hk
+    -- Convert the membership to an eventually statement
+    have : {i | i ∈ S ∧ f i = k} ∈ hyperfilter ℕ := hmem
+    apply Filter.mem_of_superset this
+    intro i ⟨_, hi⟩
+    exact hi
+  -- Therefore ↑f = ↑k for some k ≤ m
+  obtain ⟨k, hkm, hk⟩ := this
+  use k
+  -- Show that ⟨f⟩ = ↑k in the germ
+  -- f and the constant function k are eventually equal
+  -- Now we need to show that ⟨f⟩ = ↑k
+  -- This means f =ᶠ[hyperfilter ℕ] (fun _ => k)
+  -- Convert to the quotient equality
+  change Quotient.mk _ f = Quotient.mk _ (fun _ => k)
+  apply Quotient.sound
+  exact hk
 
 /-- Every hypernatural is either standard or infinite -/
 theorem standard_or_infinite (n : Hypernat) : n.IsStandard ∨ n.IsInfinite := by
@@ -72,10 +113,10 @@ theorem standard_or_infinite (n : Hypernat) : n.IsStandard ∨ n.IsInfinite := b
     intro m
     by_contra h'
     push_neg at h
-    exact h ⟨m, le_of_not_lt h'⟩
+    exact h m (le_of_not_gt h')
 
 /-- The hypernatural ω is the equivalence class of the identity function -/
-noncomputable def omega : Hypernat := ↑(id : ℕ → ℕ)
+noncomputable def omega : Hypernat := (↑(fun n : ℕ => n) : (hyperfilter ℕ : Filter ℕ).Germ ℕ)
 
 notation "ω" => Hypernat.omega
 
@@ -83,8 +124,13 @@ notation "ω" => Hypernat.omega
 theorem omega_infinite : omega.IsInfinite := by
   intro m
   simp only [omega, IsInfinite]
-  rw [Germ.const_lt_coe_iff]
-  exact Eventually.of_forall fun n => m < id n
+  -- We need to show (m : Hypernat) < (id : Hypernat)
+  rw [Germ.const_lt]
+  -- Need to show that {n | m < id n} ∈ hyperfilter ℕ
+  apply mem_hyperfilter_of_finite_compl
+  -- The complement {n | ¬(m < id n)} = {n | id n ≤ m} = {n | n ≤ m} is finite
+  simp only [Set.compl_setOf, not_lt, id]
+  exact Set.finite_le_nat m
 
 /-- Hyperfinite induction: If a property holds at 0 and is preserved by successor,
     then it holds for all hypernaturals up to any given bound N -/
@@ -92,10 +138,51 @@ theorem hyperfiniteInduction {p : Hypernat → Prop} (N : Hypernat)
     (zero : p 0)
     (succ : ∀ n < N, p n → p (n + 1))
     (n : Hypernat) (hn : n ≤ N) : p n := by
-  -- This is the key insight: we can do induction up to ANY hypernatural N,
-  -- even if N is infinite! This works because internally, the hypernatural
-  -- represents a sequence and we can do induction on each element of the sequence.
-  sorry -- Requires internal set theory
+  -- We proceed by analyzing whether n is standard or infinite
+  rcases standard_or_infinite n with (⟨m, rfl⟩ | hinf)
+  · -- Case 1: n is standard, n = ↑m for some m : ℕ
+    -- We use strong induction on m
+    induction m using Nat.strongRecOn with
+    | _ m ih =>
+      by_cases hm : m = 0
+      · -- Base case: m = 0
+        rw [hm]
+        convert zero
+        -- ↑0 = 0 in Hypernat
+        rfl
+      · -- Inductive case: m > 0
+        have hpos : 0 < m := Nat.pos_of_ne_zero hm
+        have hpred : m - 1 < m := Nat.sub_lt hpos (by norm_num)
+        have hp : p ↑(m - 1) := by
+          apply ih (m - 1) hpred
+          calc ↑(m - 1) ≤ ↑m := by 
+                 rw [Germ.const_le]
+                 exact Nat.sub_le m 1
+               _ ≤ N := hn
+        -- Now apply the successor property
+        have hlt : ↑(m - 1) < N := by
+          calc ↑(m - 1) < ↑m := by
+                 rw [Germ.const_lt]
+                 exact Nat.sub_lt hpos (by norm_num)
+               _ ≤ N := hn
+        have : p (↑(m - 1) + 1) := succ ↑(m - 1) hlt hp
+        convert this
+        -- Need to show ↑m = ↑(m - 1) + 1
+        have : m = (m - 1) + 1 := by
+          exact (Nat.sub_add_cancel (Nat.one_le_of_lt hpos)).symm
+        rw [this]
+        -- Show ↑((m - 1) + 1) = ↑(m - 1) + 1
+        rfl
+  · -- Case 2: n is infinite
+    -- External proof using ultrapower construction
+    -- If n is infinite, it's represented by an unbounded sequence f
+    -- But n ≤ N means f i ≤ g i for almost all i (where N = [g])
+    -- Apply coordinate-wise induction
+    
+    -- First, we need to show that predicates defined by induction are internal
+    -- This is the key missing piece - we need to prove that p is internal
+    -- when defined by the induction hypothesis
+    sorry -- This requires proving that inductively defined predicates are internal
 
 /-- External induction: The standard induction principle only works for standard hypernaturals -/
 theorem externalInduction {p : Hypernat → Prop} 
@@ -122,35 +209,88 @@ theorem internalInduction {p : Hypernat → Prop} (N : Hypernat)
     (zero : p 0)
     (succ : ∀ k < N, p k → p (k + 1)) :
     ∀ n ≤ N, p n := by
-  -- This is the fundamental theorem of hyperfinite induction!
-  -- Even if N is infinite (like ω), we can still do induction up to N
-  -- because the predicate p is internal - it respects the ultrafilter structure
-  sorry -- Requires internal set theory axioms
+  -- External proof using the ultrapower construction
+  -- An internal predicate corresponds to a family of predicates on ℕ
+  obtain ⟨P, hP⟩ := internal
+  intro n hn
+  
+  -- Express n and N as equivalence classes of sequences
+  obtain ⟨f, rfl⟩ := Quotient.exists_rep n
+  obtain ⟨g, rfl⟩ := Quotient.exists_rep N
+  
+  -- From hn: f ≤ g eventually in the ultrafilter
+  have hfg : ∀ᶠ i in hyperfilter ℕ, f i ≤ g i := hn
+  
+  -- Apply the internal predicate characterization
+  rw [← hP]
+  
+  -- We need to show P f holds
+  -- Key idea: use coordinate-wise induction
+  -- For each coordinate i where f i ≤ g i, standard induction gives P_i(f i)
+  
+  -- First, let's define predicates for each coordinate
+  have coord_ind : ∀ i, f i ≤ g i → ∃ Q : ℕ → Prop, Q 0 ∧ (∀ k < g i, Q k → Q (k + 1)) ∧ Q (f i) := by
+    intro i hi
+    -- Define Q_i(k) to mean "P holds for the constant function with value k at position i"
+    use fun k => P (fun j => if j = i then k else 0)
+    constructor
+    · -- Base case: Q_i(0)
+      sorry -- This requires showing P respects the zero predicate
+    · constructor
+      · -- Inductive step
+        sorry -- This requires showing P respects successor
+      · -- Q_i(f i) holds
+        sorry -- This follows from the induction
+  
+  -- Now use the ultrafilter to combine the coordinate-wise results
+  sorry -- Apply Łoś's theorem to lift coordinate-wise induction
 
 /-- Hyperfinite downward induction: We can count down from any hypernatural -/
 theorem hyperfiniteDownwardInduction {p : Hypernat → Prop} (N : Hypernat)
     (base : p N)
     (step : ∀ n < N, p (n + 1) → p n) :
     p 0 := by
-  -- This captures your insight about "counting down through the continuum"
-  -- We start at N (which could be infinite) and count down to 0
-  sorry
+  -- External proof: Use reverse induction at each coordinate
+  -- The key is that we can define q n = p (N - n) and use upward induction
+  -- Define q : Hypernat → Prop by q n = p (N - n) when n ≤ N
+  let q : Hypernat → Prop := fun n => n ≤ N → p (N - n)
+  
+  -- Show q 0 (which gives p N)
+  have q0 : q 0 := by
+    intro h
+    simp only [tsub_zero]
+    exact base
+  
+  -- Show the inductive step for q
+  have qstep : ∀ k < N, q k → q (k + 1) := by
+    intro k hk qk hle
+    -- We need to show p (N - (k + 1))
+    -- From qk and k ≤ N, we get p (N - k)
+    have : k ≤ N := le_of_lt hk
+    have pk : p (N - k) := qk this
+    -- Now use the step hypothesis
+    have : N - (k + 1) < N := by
+      sorry -- Arithmetic with hypernaturals
+    have : N - k = N - (k + 1) + 1 := by
+      sorry -- Arithmetic identity
+    rw [this] at pk
+    exact step _ ‹N - (k + 1) < N› pk
+  
+  -- Apply internal induction to q if p is internal
+  -- For now, we'll use a simpler approach
+  sorry -- This needs more infrastructure about internal predicates
 
 /-- Standard part of a hypernatural, if it exists -/
-noncomputable def standardPart (n : Hypernat) : Option ℕ :=
+noncomputable def standardPart (n : Hypernat) : Option ℕ := open Classical in
   if h : n.IsStandard then
-    some (Classical.choose h)
+    some (choose h)
   else
     none
 
 /-- A hypernatural has a standard part iff it is standard -/
 theorem standardPart_isSome_iff (n : Hypernat) : n.standardPart.isSome ↔ n.IsStandard := by
   simp only [standardPart, Option.isSome_dite]
-  constructor
-  · intro ⟨h, _⟩
-    exact h
-  · intro h
-    exact ⟨h, trivial⟩
+  tauto
 
 /-- If n is standard, its standard part is n -/
 theorem standardPart_of_standard (n : ℕ) : standardPart ↑n = some n := by
@@ -158,14 +298,37 @@ theorem standardPart_of_standard (n : ℕ) : standardPart ↑n = some n := by
   have h : (↑n : Hypernat).IsStandard := ⟨n, rfl⟩
   simp only [h, dif_pos]
   congr
-  exact (Classical.choose_spec h).symm
+  open Classical in
+  -- choose h gives us some m : ℕ such that ↑n = ↑m
+  -- By injectivity of the constant map, m = n
+  generalize hm : choose h = m
+  have : ↑n = (↑m : Hypernat) := by
+    rw [← hm]
+    exact choose_spec h
+  exact Germ.const_inj.mp this.symm
 
 /-- Overspill principle -/
 theorem overspill {P : Hypernat → Prop}
     (internal : IsInternal P)
     (h : ∀ n : ℕ, P ↑n) :
     ∃ N : Hypernat, N.IsInfinite ∧ P N := by
-  sorry -- Requires ultrafilter properties
+  -- The key idea: if P holds for all standard naturals, 
+  -- then {n : ℕ | P ↑n} = ℕ, which has infinite complement ∅
+  -- By the ultrafilter property, either this set or its complement is in the filter
+  -- Since ∅ ∉ hyperfilter, we have ℕ ∈ hyperfilter
+  -- But P is internal, so there exists f : ℕ → ℕ such that P ⟨f⟩ holds
+  -- and f must be unbounded (otherwise ⟨f⟩ would be standard)
+  
+  -- Take N = ω (the identity function)
+  use omega
+  constructor
+  · exact omega_infinite
+  · -- We need to show P ω
+    -- Since P is internal, there exists a sequence of predicates Pₙ such that
+    -- P ⟨f⟩ iff {n | Pₙ(f n)} ∈ hyperfilter
+    -- From h, we know that for each standard k, P ↑k holds
+    -- This means for the constant function f(n) = k, we have {n | Pₙ(k)} ∈ hyperfilter
+    sorry -- This requires the precise definition of internal predicates
 
 /-- Transfer principle for hypernaturals -/
 theorem transfer {P : ℕ → Prop} :
@@ -177,20 +340,24 @@ theorem transfer {P : ℕ → Prop} :
     obtain ⟨m, hm, hp⟩ := h ↑n ⟨n, rfl⟩
     have : n = m := by
       have : (↑n : Hypernat) = ↑m := hm
-      exact Germ.const_injective this
+      exact Germ.const_inj.mp this
     rwa [this]
 
 /-- Example: We can use hyperfinite induction to prove properties up to ω -/
 example : ∀ n ≤ omega, n < n + 1 := by
   intro n hn
   -- We use hyperfinite induction up to ω!
-  apply hyperfiniteInduction omega
-  · -- Base case: 0 < 0 + 1
-    exact lt_add_one 0
-  · -- Inductive step: if k < k + 1, then (k + 1) < (k + 1) + 1
-    intro k hk _
-    exact lt_add_one (k + 1)
-  · exact hn
+  -- Define the property we want to prove
+  let p : Hypernat → Prop := fun k => k < k + 1
+  have : p n := by
+    apply hyperfiniteInduction omega
+    · -- Base case: 0 < 0 + 1
+      exact lt_add_one 0
+    · -- Inductive step: if k < k + 1, then (k + 1) < (k + 1) + 1
+      intro k hk _
+      exact lt_add_one (k + 1)
+    · exact hn
+  exact this
 
 /-- Example: We can count down from infinity! -/
 example (p : Hypernat → Prop) (h : p omega) 
@@ -223,7 +390,7 @@ theorem continuum_many_hypernaturals :
 /-- The harmonic sum up to ω is an infinite hyperreal -/
 theorem harmonic_sum_omega_infinite : 
     let H : Hypernat → Hyperreal := fun n => sorry -- Sum of 1/k for k from 1 to n
-    H omega > (m : Hyperreal) ∀ m : ℕ := by
+    ∀ m : ℕ, H omega > (m : Hyperreal) := by
   -- Since the harmonic series diverges, H(n) > log(n) for standard n
   -- By transfer, H(ω) > log(ω) which is infinite
   -- This is a "finite" sum (ω terms) that equals an infinite hyperreal!
@@ -232,7 +399,7 @@ theorem harmonic_sum_omega_infinite :
 /-- More precise: The harmonic sum up to any infinite hypernatural is infinite -/
 theorem harmonic_sum_infinite (N : Hypernat) (hN : N.IsInfinite) :
     let H : Hypernat → Hyperreal := fun n => sorry -- Sum of 1/k for k from 1 to n  
-    ∃ S : Hyperreal, S = H N ∧ S > (m : Hyperreal) ∀ m : ℕ := by
+    ∃ S : Hyperreal, S = H N ∧ ∀ m : ℕ, S > (m : Hyperreal) := by
   -- For any infinite N, we have H(N) > log(N)
   -- Since N > all standard naturals, log(N) > all standard reals
   sorry
@@ -301,8 +468,9 @@ theorem intermediate_value_hyperfinite {f : ℝ → ℝ} (hf : ContinuousOn f (S
   -- This is a finite search through ω+1 points!
   
   -- Define the property "f is negative at position k/ω"
-  let P : Hypernat → Prop := fun k => 
-    k ≤ omega ∧ f ((k : Hyperreal) / (omega : Hyperreal)).standardPart < 0
+  -- Note: This is simplified - the actual proof would need proper hyperreal arithmetic
+  let P : Hypernat → Prop := fun k => k ≤ omega ∧ k.IsStandard ∧ 
+    ∃ n : ℕ, k = ↑n ∧ f ((n : ℝ) / (omega.standardPart.getD 1 : ℝ)) < 0
   
   -- By hyperfinite downward induction from ω to 0:
   -- - P(0) is true (given)
@@ -313,7 +481,7 @@ theorem intermediate_value_hyperfinite {f : ℝ → ℝ} (hf : ContinuousOn f (S
 
 /-- The "finite" proof that every bounded sequence has a convergent subsequence -/
 theorem bolzano_weierstrass_hyperfinite {s : ℕ → ℝ} (hs : Bornology.IsBounded (Set.range s)) :
-    ∃ (a : ℝ) (φ : ℕ → ℕ), StrictMono φ ∧ Filter.Tendsto (s ∘ φ) Filter.atTop (𝓝 a) := by
+    ∃ (a : ℝ) (φ : ℕ → ℕ), StrictMono φ ∧ Filter.Tendsto (s ∘ φ) Filter.atTop (nhds a) := by
   -- The hyperfinite proof: Among the hyperfinitely many terms s(0), s(1), ..., s(ω),
   -- at least one value must appear "hyperfinitely often" (pigeonhole principle)
   -- This gives us our limit point!
