@@ -643,4 +643,154 @@ lemma Infinite.pow {x : ℕ*} (hx : Infinite x) {n : ℕ} (hn : 0 < n) : Infinit
 /-- ω² is infinite. -/
 @[simp] lemma infinite_omega_sq : Infinite (ω ^ 2) := infinite_omega_pow (by norm_num)
 
+/-! ### Sequence arithmetic -/
+
+/-- Addition of sequences corresponds to addition of hypernaturals. -/
+theorem ofSeq_add (f g : ℕ → ℕ) : ofSeq f + ofSeq g = ofSeq (f + g) := rfl
+
+/-- Multiplication of sequences corresponds to multiplication of hypernaturals. -/
+theorem ofSeq_mul (f g : ℕ → ℕ) : ofSeq f * ofSeq g = ofSeq (f * g) := rfl
+
+/-- Power of a sequence. -/
+theorem ofSeq_pow (f : ℕ → ℕ) (n : ℕ) : ofSeq f ^ n = ofSeq (f ^ n) := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp only [pow_succ, ih, ofSeq_mul]
+
+/-- Zero sequence gives zero. -/
+@[simp] theorem ofSeq_zero : ofSeq 0 = 0 := rfl
+
+/-- One sequence gives one. -/
+@[simp] theorem ofSeq_one : ofSeq 1 = 1 := rfl
+
+/-! ### Coercion and power -/
+
+/-- Coercion commutes with power. -/
+@[simp, norm_cast] theorem coe_pow (a : ℕ) (n : ℕ) : ((a ^ n : ℕ) : ℕ*) = (a : ℕ*) ^ n := by
+  induction n with
+  | zero => rfl
+  | succ n ih => simp only [pow_succ, coe_mul, ih]
+
+/-- HFinite is closed under power. -/
+lemma HFinite.pow {x : ℕ*} (hx : HFinite x) (n : ℕ) : HFinite (x ^ n) := by
+  induction n with
+  | zero => simp only [pow_zero]; exact hFinite_one
+  | succ n ih => simp only [pow_succ]; exact ih.mul hx
+
+/-- Standard part of power for HFinite numbers. -/
+lemma st_pow {x : ℕ*} (hx : HFinite x) (n : ℕ) : st (x ^ n) = st x ^ n := by
+  induction n with
+  | zero => simp only [pow_zero, st_one]
+  | succ n ih =>
+    simp only [pow_succ]
+    rw [st_mul (hx.pow n) hx, ih]
+
+/-! ### Omega arithmetic -/
+
+/-- 2 * ω is infinite. -/
+@[simp] lemma infinite_two_mul_omega : Infinite (2 * ω) := by
+  intro n
+  have : (n : ℕ*) < ofSeq (fun i => 2 * i) := by
+    apply (ofSeq_lt_ofSeq (f := fun _ => n) (g := fun i => 2 * i)).2
+    apply Nat.hyperfilter_le_atTop
+    filter_upwards [Filter.eventually_gt_atTop n] with i hi
+    omega
+  have h2ω : (2 : ℕ*) * ω = ofSeq (fun i => 2 * i) := by
+    simp only [omega]
+    rfl
+  rw [h2ω]
+  exact this
+
+/-- ω + ω = 2 * ω. -/
+lemma omega_add_omega : ω + ω = 2 * ω := by
+  simp only [omega, ofSeq_add]
+  have h2ω : (2 : ℕ*) * ofSeq Nat.cast = ofSeq (fun i => 2 * i) := by
+    rfl
+  rw [h2ω]
+  congr 1
+  ext i
+  simp only [Pi.add_apply, Nat.cast_id]
+  ring
+
+/-- ω + ω is infinite. -/
+@[simp] lemma infinite_omega_add_omega : Infinite (ω + ω) := by
+  rw [omega_add_omega]
+  exact infinite_two_mul_omega
+
+/-- n * ω is infinite for n > 0. -/
+lemma infinite_coe_mul_omega {n : ℕ} (hn : 0 < n) : Infinite ((n : ℕ*) * ω) := by
+  intro m
+  have hn1 : 1 ≤ n := Nat.one_le_iff_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hn)
+  have hnω : (n : ℕ*) * ω = ofSeq (fun i => n * i) := by
+    simp only [omega]
+    rfl
+  rw [hnω]
+  apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun i => n * i)).2
+  apply Nat.hyperfilter_le_atTop
+  filter_upwards [Filter.eventually_gt_atTop m] with i hi
+  calc m < i := hi
+       _ = 1 * i := (one_mul i).symm
+       _ ≤ n * i := Nat.mul_le_mul_right i hn1
+
+/-- ω * n is infinite for n > 0. -/
+lemma infinite_omega_mul_coe {n : ℕ} (hn : 0 < n) : Infinite (ω * (n : ℕ*)) := by
+  intro m
+  have hn1 : 1 ≤ n := Nat.one_le_iff_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hn)
+  have hωn : ω * (n : ℕ*) = ofSeq (fun i => i * n) := by
+    simp only [omega]
+    rfl
+  rw [hωn]
+  apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun i => i * n)).2
+  apply Nat.hyperfilter_le_atTop
+  filter_upwards [Filter.eventually_gt_atTop m] with i hi
+  calc m < i := hi
+       _ = i * 1 := (Nat.mul_one i).symm
+       _ ≤ i * n := Nat.mul_le_mul_left i hn1
+
+/-! ### Trichotomy and decidability -/
+
+/-- Every hypernatural is either standard or infinite (no third option). -/
+lemma standard_or_infinite (x : ℕ*) : x ∈ Standard ∨ Infinite x := by
+  by_cases h : Infinite x
+  · exact Or.inr h
+  · exact Or.inl (mem_standard_iff_hFinite.mpr h)
+
+/-- A hypernatural is standard iff it is not infinite. -/
+lemma mem_standard_iff_not_infinite {x : ℕ*} : x ∈ Standard ↔ ¬ Infinite x :=
+  mem_standard_iff_hFinite
+
+/-- Two standard hypernaturals are equal iff their standard parts are equal. -/
+lemma eq_of_st_eq {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) (h : st x = st y) : x = y := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  rw [hx', hy', h]
+
+/-! ### Strict positivity -/
+
+/-- A hypernatural is positive iff it's eventually positive. -/
+lemma pos_iff_ofSeq_pos {f : ℕ → ℕ} : 0 < ofSeq f ↔ ∀ᶠ n in hyperfilter ℕ, 0 < f n :=
+  ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)
+
+/-- Every infinite hypernatural is positive. -/
+lemma Infinite.pos {x : ℕ*} (hx : Infinite x) : 0 < x := hx 0
+
+/-! ### Comparisons between standard and infinite -/
+
+/-- Standard is strictly less than infinite. -/
+lemma standard_lt_infinite {x y : ℕ*} (hx : x ∈ Standard) (hy : Infinite y) : x < y := by
+  rcases mem_standard_iff.mp hx with ⟨n, rfl⟩
+  exact hy n
+
+/-- Standard is at most infinite. -/
+lemma standard_le_infinite {x y : ℕ*} (hx : x ∈ Standard) (hy : Infinite y) : x ≤ y :=
+  le_of_lt (standard_lt_infinite hx hy)
+
+/-- If x < y and y is standard, then x is standard. -/
+lemma standard_of_lt {x y : ℕ*} (hxy : x < y) (hy : y ∈ Standard) : x ∈ Standard := by
+  rcases mem_standard_iff.mp hy with ⟨n, rfl⟩
+  by_contra hx
+  rw [not_mem_standard_iff_infinite] at hx
+  have : (n : ℕ*) ≤ x := coe_le_of_infinite hx n
+  exact (lt_irrefl x) (lt_of_lt_of_le hxy this)
+
 end Hypernatural
