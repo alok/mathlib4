@@ -1619,4 +1619,151 @@ lemma zero_dvd {x : ℕ*} : 0 ∣ x ↔ x = 0 := by
     subst h
     exact dvd_refl 0
 
+/-! ### More Arithmetic Properties -/
+
+/-- Multiplication by successor. -/
+lemma mul_succ (x y : ℕ*) : x * succ y = x * y + x := by
+  sorry
+
+/-- Successor times x. -/
+lemma succ_mul (x y : ℕ*) : succ x * y = x * y + y := by
+  sorry
+
+/-- Power of hypernatural. -/
+noncomputable def hpow (x : ℕ*) (n : ℕ) : ℕ* :=
+  match n with
+  | 0 => 1
+  | n + 1 => hpow x n * x
+
+@[simp] lemma hpow_zero (x : ℕ*) : hpow x 0 = 1 := rfl
+@[simp] lemma hpow_succ (x : ℕ*) (n : ℕ) : hpow x (n + 1) = hpow x n * x := rfl
+
+/-- Power preserves standard naturals. -/
+lemma hpow_coe (m n : ℕ) : hpow (m : ℕ*) n = (m ^ n : ℕ*) := by
+  sorry
+
+/-- omega^n is infinite for n ≥ 1. -/
+lemma hpow_omega_infinite (n : ℕ) (hn : 0 < n) : Infinite (hpow ω n) := by
+  sorry
+
+/-! ### Min and Max -/
+
+/-- Minimum of two hypernaturals. -/
+noncomputable def hmin (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => min (f n) (g n)))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      simp [hfn, hgn])
+
+/-- Maximum of two hypernaturals. -/
+noncomputable def hmax (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => max (f n) (g n)))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      simp [hfn, hgn])
+
+@[simp] lemma hmin_ofSeq (f g : ℕ → ℕ) : hmin (ofSeq f) (ofSeq g) = ofSeq (fun n => min (f n) (g n)) := rfl
+
+@[simp] lemma hmax_ofSeq (f g : ℕ → ℕ) : hmax (ofSeq f) (ofSeq g) = ofSeq (fun n => max (f n) (g n)) := rfl
+
+lemma hmin_le_left (x y : ℕ*) : hmin x y ≤ x := by
+  sorry
+
+lemma hmin_le_right (x y : ℕ*) : hmin x y ≤ y := by
+  sorry
+
+lemma le_hmax_left (x y : ℕ*) : x ≤ hmax x y := by
+  sorry
+
+lemma le_hmax_right (x y : ℕ*) : y ≤ hmax x y := by
+  sorry
+
+lemma hmin_comm (x y : ℕ*) : hmin x y = hmin y x := by
+  sorry
+
+lemma hmax_comm (x y : ℕ*) : hmax x y = hmax y x := by
+  sorry
+
+/-! ### More Infinite and HFinite Properties -/
+
+/-- Infinite minus HFinite is still infinite (if result is positive). -/
+lemma Infinite.tsub_hFinite {x y : ℕ*} (hx : Infinite x) (hy : HFinite y) (hpos : y < x) :
+    Infinite (x - y) := by
+  sorry
+
+/-! ### Factorial (optional, requires more setup) -/
+
+/-- Factorial of a hypernatural, defined pointwise. -/
+noncomputable def hfact (x : ℕ*) : ℕ* :=
+  Quotient.liftOn x (fun f => ofSeq (fun n => Nat.factorial (f n)))
+    (fun f₁ f₂ hf => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf] with n hn
+      simp [hn])
+
+@[simp] lemma hfact_ofSeq (f : ℕ → ℕ) : hfact (ofSeq f) = ofSeq (fun n => Nat.factorial (f n)) := rfl
+
+lemma hfact_coe (n : ℕ) : hfact (n : ℕ*) = (Nat.factorial n : ℕ*) := by
+  sorry
+
+lemma hfact_pos (x : ℕ*) : 0 < hfact x := by
+  sorry
+
+lemma infinite_hfact_omega : Infinite (hfact ω) := by
+  sorry
+
+/-! ### GCD and LCM -/
+
+/-- GCD of two hypernaturals. -/
+noncomputable def hgcd (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => Nat.gcd (f n) (g n)))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      simp [hfn, hgn])
+
+/-- LCM of two hypernaturals. -/
+noncomputable def hlcm (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => Nat.lcm (f n) (g n)))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      simp [hfn, hgn])
+
+@[simp] lemma hgcd_ofSeq (f g : ℕ → ℕ) : hgcd (ofSeq f) (ofSeq g) = ofSeq (fun n => Nat.gcd (f n) (g n)) := rfl
+
+@[simp] lemma hlcm_ofSeq (f g : ℕ → ℕ) : hlcm (ofSeq f) (ofSeq g) = ofSeq (fun n => Nat.lcm (f n) (g n)) := rfl
+
+lemma hgcd_comm (x y : ℕ*) : hgcd x y = hgcd y x := by
+  sorry
+
+lemma hlcm_comm (x y : ℕ*) : hlcm x y = hlcm y x := by
+  sorry
+
+lemma hgcd_dvd_left (x y : ℕ*) : hgcd x y ∣ x := by
+  sorry
+
+lemma hgcd_dvd_right (x y : ℕ*) : hgcd x y ∣ y := by
+  sorry
+
+lemma dvd_hlcm_left (x y : ℕ*) : x ∣ hlcm x y := by
+  sorry
+
+lemma dvd_hlcm_right (x y : ℕ*) : y ∣ hlcm x y := by
+  sorry
+
+/-! ### Cofinality Properties -/
+
+/-- For any hypernatural, there exists a representing sequence. -/
+lemma exists_seq (x : ℕ*) : ∃ f : ℕ → ℕ, x = ofSeq f := by
+  rcases ofSeq_surjective x with ⟨f, hf⟩
+  exact ⟨f, hf.symm⟩
+
+/-- Two hypernaturals are equal iff their representing sequences agree almost everywhere. -/
+lemma eq_iff_eventually_eq (x y : ℕ*) : x = y ↔ ∃ f g : ℕ → ℕ, x = ofSeq f ∧ y = ofSeq g ∧
+    ∀ᶠ n in hyperfilter ℕ, f n = g n := by
+  sorry
+
 end Hypernatural

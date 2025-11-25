@@ -5,6 +5,7 @@ Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.FilterProduct
 import Mathlib.Analysis.SpecificLimits.Basic
+import Mathlib.Data.Nat.Hypernatural
 
 /-!
 # Hyperrational numbers
@@ -362,5 +363,232 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
 theorem continuousAt_iff_nsContinuousAt (f : ℚ → ℚ) (a : ℚ) :
     ContinuousAt f a ↔ NSContinuousAt f a :=
   ⟨continuousAt_implies_nsContinuousAt, nsContinuousAt_implies_continuousAt⟩
+
+/-! ## Infinitesimal Algebra -/
+
+/-- Zero is infinitesimal. -/
+theorem infinitesimal_zero : Infinitesimal 0 := by
+  sorry
+
+/-- Negation preserves infinitesimals. -/
+theorem Infinitesimal.neg {x : ℚ*} (hx : Infinitesimal x) : Infinitesimal (-x) := by
+  sorry
+
+/-- Sum of infinitesimals is infinitesimal. -/
+theorem Infinitesimal.add {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
+    Infinitesimal (x + y) := by
+  sorry
+
+/-- Difference of infinitesimals is infinitesimal. -/
+theorem Infinitesimal.sub {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
+    Infinitesimal (x - y) := by
+  sorry
+
+/-- Product of infinitesimal and HFinite is infinitesimal. -/
+theorem Infinitesimal.mul_hFinite {x y : ℚ*} (hx : Infinitesimal x) (hy : HFinite y) :
+    Infinitesimal (x * y) := by
+  sorry
+
+/-- Product of HFinite and infinitesimal is infinitesimal. -/
+theorem HFinite.mul_infinitesimal {x y : ℚ*} (hx : HFinite x) (hy : Infinitesimal y) :
+    Infinitesimal (x * y) := by
+  sorry
+
+/-- Product of two infinitesimals is infinitesimal. -/
+theorem Infinitesimal.mul {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
+    Infinitesimal (x * y) := by
+  sorry
+
+/-! ## HFinite Algebra -/
+
+/-- Standard rationals are HFinite. -/
+theorem hFinite_ofRat (q : ℚ) : HFinite (ofRat q) := by
+  sorry
+
+/-- Sum of HFinite is HFinite. -/
+theorem HFinite.add {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x + y) := by
+  sorry
+
+/-- Negation of HFinite is HFinite. -/
+theorem HFinite.neg {x : ℚ*} (hx : HFinite x) : HFinite (-x) := by
+  sorry
+
+/-- Difference of HFinite is HFinite. -/
+theorem HFinite.sub {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x - y) := by
+  sorry
+
+/-- Product of HFinite is HFinite. -/
+theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x * y) := by
+  sorry
+
+/-- Infinitesimals are HFinite. -/
+theorem Infinitesimal.hFinite {x : ℚ*} (hx : Infinitesimal x) : HFinite x := by
+  sorry
+
+/-! ## Infinite Properties -/
+
+/-- Infinite positives are positive. -/
+theorem InfinitePos.ne_zero {x : ℚ*} (hx : InfinitePos x) : x ≠ 0 :=
+  hx.pos.ne'
+
+/-- Inverse of nonzero infinitesimal is infinite. -/
+theorem Infinitesimal.inv_infinite {x : ℚ*} (hx : Infinitesimal x) (hne : x ≠ 0) :
+    Infinite x⁻¹ := by
+  sorry
+
+/-- Inverse of positive infinite is positive infinitesimal. -/
+theorem InfinitePos.inv_infinitesimal {x : ℚ*} (hx : InfinitePos x) :
+    Infinitesimal x⁻¹ := by
+  sorry
+
+/-- omega * epsilon = 1. -/
+theorem omega_mul_epsilon : ω * ε = 1 := by
+  sorry
+
+/-- epsilon is infinitesimal. -/
+theorem infinitesimal_epsilon : Infinitesimal ε := by
+  sorry
+
+/-! ## Star Function Properties -/
+
+/-- Star preserves addition. -/
+theorem star_add (f g : ℚ → ℚ) (x : ℚ*) :
+    star (fun q => f q + g q) x = star f x + star g x := by
+  sorry
+
+/-- Star preserves multiplication. -/
+theorem star_mul (f g : ℚ → ℚ) (x : ℚ*) :
+    star (fun q => f q * g q) x = star f x * star g x := by
+  sorry
+
+/-- Star preserves negation. -/
+theorem star_neg (f : ℚ → ℚ) (x : ℚ*) :
+    star (fun q => -f q) x = -star f x := by
+  sorry
+
+/-- Star of identity is identity. -/
+theorem star_id (x : ℚ*) : star id x = x := by
+  sorry
+
+/-- Star of constant is constant. -/
+theorem star_const (c : ℚ) (x : ℚ*) : star (fun _ => c) x = ofRat c := by
+  sorry
+
+/-! ## InfClose Properties -/
+
+/-- x ≈ y implies x + z ≈ y + z. -/
+theorem InfClose.add_right {x y : ℚ*} (h : InfClose x y) (z : ℚ*) : InfClose (x + z) (y + z) := by
+  sorry
+
+/-- x ≈ y implies z + x ≈ z + y. -/
+theorem InfClose.add_left {x y : ℚ*} (h : InfClose x y) (z : ℚ*) : InfClose (z + x) (z + y) := by
+  sorry
+
+/-- x ≈ y and z ≈ w implies x + z ≈ y + w. -/
+theorem InfClose.add {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w) :
+    InfClose (x + z) (y + w) := by
+  sorry
+
+/-- x ≈ y implies -x ≈ -y. -/
+theorem InfClose.neg {x y : ℚ*} (h : InfClose x y) : InfClose (-x) (-y) := by
+  sorry
+
+/-- x ≈ y and z ≈ w implies x - z ≈ y - w. -/
+theorem InfClose.sub {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w) :
+    InfClose (x - z) (y - w) := by
+  sorry
+
+/-- HFinite x ≈ y and HFinite z ≈ w implies x * z ≈ y * w. -/
+theorem InfClose.mul {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w)
+    (hx : HFinite x) (hz : HFinite z) : InfClose (x * z) (y * w) := by
+  sorry
+
+/-! ## Sequence Extensions and Convergence
+
+The key insight of nonstandard analysis: a sequence `s : ℕ → ℚ` can be extended
+to `s* : ℕ* → ℚ*` (the "star extension"). This allows us to characterize
+convergence and Cauchy properties using infinitesimals.
+-/
+
+/-- Star extension of a sequence `s : ℕ → ℚ` to `s* : ℕ* → ℚ*`.
+    For standard n, (starSeq s) n = s n. For nonstandard N, it's defined via the ultrapower. -/
+noncomputable def starSeq (s : ℕ → ℚ) : Hypernatural → ℚ* :=
+  fun x => Quotient.liftOn x (fun f => ofSeq (s ∘ f))
+    (fun f₁ f₂ hf => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf] with n hn
+      simp [hn])
+
+@[simp]
+lemma starSeq_ofNat (s : ℕ → ℚ) (n : ℕ) : starSeq s (Hypernatural.ofNat n) = ofRat (s n) := by
+  sorry
+
+@[simp]
+lemma starSeq_ofSeq (s : ℕ → ℚ) (f : ℕ → ℕ) :
+    starSeq s (Hypernatural.ofSeq f) = ofSeq (s ∘ f) := rfl
+
+/-! ### Nonstandard Characterization of Convergence -/
+
+/-- Standard epsilon-delta definition of sequence convergence. -/
+def SeqConvergesTo (s : ℕ → ℚ) (L : ℚ) : Prop :=
+  ∀ eps : ℚ, 0 < eps → ∃ N : ℕ, ∀ n ≥ N, |s n - L| < eps
+
+/-- Nonstandard characterization: s converges to L iff for all infinite N, s*(N) ≈ L. -/
+def NSSeqConvergesTo (s : ℕ → ℚ) (L : ℚ) : Prop :=
+  ∀ N : Hypernatural, Hypernatural.Infinite N → InfClose (starSeq s N) (ofRat L)
+
+/-- Standard definition of Cauchy sequence. -/
+def IsCauchy (s : ℕ → ℚ) : Prop :=
+  ∀ eps : ℚ, 0 < eps → ∃ N : ℕ, ∀ m n, m ≥ N → n ≥ N → |s m - s n| < eps
+
+/-- Nonstandard characterization of Cauchy: for all infinite M, N, s*(M) ≈ s*(N). -/
+def NSIsCauchy (s : ℕ → ℚ) : Prop :=
+  ∀ M N : Hypernatural, Hypernatural.Infinite M → Hypernatural.Infinite N →
+    InfClose (starSeq s M) (starSeq s N)
+
+/-! ### Equivalence Theorems -/
+
+/-- Standard convergence implies nonstandard convergence. -/
+theorem seqConvergesTo_implies_nsSeqConvergesTo {s : ℕ → ℚ} {L : ℚ}
+    (h : SeqConvergesTo s L) : NSSeqConvergesTo s L := by
+  sorry
+
+/-- Nonstandard convergence implies standard convergence. -/
+theorem nsSeqConvergesTo_implies_seqConvergesTo {s : ℕ → ℚ} {L : ℚ}
+    (h : NSSeqConvergesTo s L) : SeqConvergesTo s L := by
+  sorry
+
+/-- Convergence characterization: standard ↔ nonstandard. -/
+theorem seqConvergesTo_iff_nsSeqConvergesTo (s : ℕ → ℚ) (L : ℚ) :
+    SeqConvergesTo s L ↔ NSSeqConvergesTo s L :=
+  ⟨seqConvergesTo_implies_nsSeqConvergesTo, nsSeqConvergesTo_implies_seqConvergesTo⟩
+
+/-- Standard Cauchy implies nonstandard Cauchy. -/
+theorem isCauchy_implies_nsIsCauchy {s : ℕ → ℚ} (h : IsCauchy s) : NSIsCauchy s := by
+  sorry
+
+/-- Nonstandard Cauchy implies standard Cauchy. -/
+theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCauchy s := by
+  sorry
+
+/-- Cauchy characterization: standard ↔ nonstandard. -/
+theorem isCauchy_iff_nsIsCauchy (s : ℕ → ℚ) : IsCauchy s ↔ NSIsCauchy s :=
+  ⟨isCauchy_implies_nsIsCauchy, nsIsCauchy_implies_isCauchy⟩
+
+/-! ### Series and Summability -/
+
+/-- Partial sums of a sequence. -/
+def partialSum (s : ℕ → ℚ) : ℕ → ℚ := fun n => (Finset.range n).sum s
+
+/-- A series converges if its partial sums converge. -/
+def SeriesConverges (s : ℕ → ℚ) : Prop := ∃ L, SeqConvergesTo (partialSum s) L
+
+/-- Nonstandard series convergence. -/
+def NSSeriesConverges (s : ℕ → ℚ) : Prop := ∃ L, NSSeqConvergesTo (partialSum s) L
+
+/-- Series convergence characterization. -/
+theorem seriesConverges_iff_nsSeriesConverges (s : ℕ → ℚ) :
+    SeriesConverges s ↔ NSSeriesConverges s := by
+  simp only [SeriesConverges, NSSeriesConverges, seqConvergesTo_iff_nsSeqConvergesTo]
 
 end Hyperrational
