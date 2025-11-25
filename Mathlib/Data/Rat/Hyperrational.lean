@@ -524,9 +524,51 @@ theorem InfinitePos.inv_infinitesimal {x : ℚ*} (hx : InfinitePos x) :
     Infinitesimal x⁻¹ := by
   sorry
 
-/-- omega * epsilon = 1. -/
-theorem omega_mul_epsilon : ω * ε = 1 := by
-  sorry
+/-- omega * epsilon is infinitely close to 1.
+    Note: ω * ε ≠ 1 exactly since n/(n+1) ≠ 1, but n/(n+1) → 1. -/
+theorem omega_mul_epsilon_infClose : InfClose (ω * ε) 1 := by
+  -- ω * ε = ofSeq (fun n => n * (n+1)⁻¹) = ofSeq (fun n => n / (n+1))
+  -- 1 = ofRat 1 = ofSeq (fun _ => 1)
+  -- ω * ε - 1 = ofSeq (fun n => n/(n+1) - 1) = ofSeq (fun n => -1/(n+1))
+  -- This is infinitesimal
+  unfold InfClose Infinitesimal
+  intro q hq
+  -- Need: ofRat (-q) < ω * ε - 1 ∧ ω * ε - 1 < ofRat q
+  have heq : ω * ε - 1 = ofSeq (fun n => n * (Nat.succ n : ℚ)⁻¹ - 1) := rfl
+  rw [heq]
+  constructor
+  · -- ofRat (-q) < ofSeq (fun n => n/(n+1) - 1)
+    rw [ofRat, ofSeq_lt_ofSeq]
+    exact Eventually.of_forall fun n => by
+      -- n/(n+1) - 1 = -1/(n+1) > -q since 1/(n+1) < q for large n
+      have h1 : n * (Nat.succ n : ℚ)⁻¹ - 1 = -((Nat.succ n : ℚ)⁻¹) := by
+        field_simp
+        ring
+      rw [h1]
+      have h2 : 0 < (Nat.succ n : ℚ)⁻¹ := by positivity
+      linarith
+  · -- ofSeq (fun n => n/(n+1) - 1) < ofRat q
+    rw [ofRat, ofSeq_lt_ofSeq]
+    apply Nat.hyperfilter_le_atTop
+    apply eventually_atTop.mpr
+    obtain ⟨N, hN⟩ := exists_nat_gt q⁻¹
+    use N
+    intro n hn
+    have h1 : n * (Nat.succ n : ℚ)⁻¹ - 1 = -((Nat.succ n : ℚ)⁻¹) := by
+      field_simp
+      ring
+    rw [h1]
+    have hN1_pos : (0 : ℚ) < N + 1 := by positivity
+    have hn1_pos : (0 : ℚ) < n + 1 := by positivity
+    have hinv_le : (Nat.succ n : ℚ)⁻¹ ≤ (N + 1 : ℚ)⁻¹ := by
+      apply inv_anti₀ hN1_pos
+      simp only [Nat.succ_eq_add_one, Nat.cast_add, Nat.cast_one]
+      exact_mod_cast Nat.add_le_add_right hn 1
+    have hinv_lt : (N + 1 : ℚ)⁻¹ < q := by
+      rw [inv_lt_comm₀ hN1_pos hq]
+      calc q⁻¹ < N := hN
+        _ < N + 1 := by linarith
+    linarith
 
 /-- epsilon is infinitesimal. -/
 theorem infinitesimal_epsilon : Infinitesimal ε := by
@@ -721,7 +763,50 @@ theorem seqConvergesTo_implies_nsSeqConvergesTo {s : ℕ → ℚ} {L : ℚ}
 /-- Nonstandard convergence implies standard convergence. -/
 theorem nsSeqConvergesTo_implies_seqConvergesTo {s : ℕ → ℚ} {L : ℚ}
     (h : NSSeqConvergesTo s L) : SeqConvergesTo s L := by
-  sorry
+  -- By contraposition: if s does not converge to L, we construct an infinite N
+  -- such that s*(N) is not infinitely close to L
+  by_contra hbad
+  simp only [SeqConvergesTo, not_forall, not_exists, not_and, not_lt] at hbad
+  obtain ⟨eps, heps_pos, hbad'⟩ := hbad
+  -- For each k, pick n_k ≥ k with |s(n_k) - L| ≥ eps
+  have hex : ∀ k : ℕ, ∃ n : ℕ, k ≤ n ∧ eps ≤ |s n - L| := by
+    intro k
+    have := hbad' k
+    simp only [exists_prop] at this ⊢
+    obtain ⟨n, hn1, hn2⟩ := this
+    exact ⟨n, hn1, hn2⟩
+  choose f hf using hex
+  -- f is a sequence with f(k) ≥ k and |s(f(k)) - L| ≥ eps for all k
+  -- So N = ofSeq f is infinite
+  let N : Hypernatural := Hypernatural.ofSeq f
+  have hN_infinite : Hypernatural.Infinite N := by
+    intro k
+    rw [Hypernatural.ofSeq_lt_ofSeq]
+    exact Eventually.of_forall fun n => by
+      have := (hf n).1
+      omega
+  -- By nonstandard convergence, starSeq s N ≈ ofRat L
+  have hclose := h N hN_infinite
+  -- But |s(f(k)) - L| ≥ eps for all k, contradiction
+  unfold InfClose Infinitesimal at hclose
+  have h_half := hclose (eps / 2) (by linarith)
+  have hlo : ofRat (-(eps / 2)) < starSeq s N - ofRat L := h_half.1
+  have hhi : starSeq s N - ofRat L < ofRat (eps / 2) := h_half.2
+  change ofRat (-(eps / 2)) < ofSeq (s ∘ f) - ofRat L at hlo
+  change ofSeq (s ∘ f) - ofRat L < ofRat (eps / 2) at hhi
+  rw [show ofSeq (s ∘ f) - ofRat L = ofSeq (fun n => s (f n) - L) from rfl] at hlo hhi
+  rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
+  -- Get contradiction: we have |s(f(n)) - L| ≥ eps for all n
+  have h_all_bad : ∀ n, eps ≤ |s (f n) - L| := fun n => (hf n).2
+  have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+    filter_upwards [hlo, hhi] with n hlo_n hhi_n
+    have hge := h_all_bad n
+    have hbound : |s (f n) - L| < eps / 2 := by
+      rw [abs_lt]
+      constructor <;> linarith
+    have : eps / 2 < eps := by linarith
+    linarith
+  exact (Filter.eventually_const.mp hfalse : False)
 
 /-- Convergence characterization: standard ↔ nonstandard. -/
 theorem seqConvergesTo_iff_nsSeqConvergesTo (s : ℕ → ℚ) (L : ℚ) :
@@ -771,7 +856,57 @@ theorem isCauchy_implies_nsIsCauchy {s : ℕ → ℚ} (h : IsCauchy s) : NSIsCau
 
 /-- Nonstandard Cauchy implies standard Cauchy. -/
 theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCauchy s := by
-  sorry
+  -- By contraposition: if s is not Cauchy, we construct infinite M, N
+  -- such that s*(M) is not infinitely close to s*(N)
+  by_contra hbad
+  simp only [IsCauchy, not_forall, not_exists, not_and, not_lt] at hbad
+  obtain ⟨eps, heps_pos, hbad'⟩ := hbad
+  -- For each k, pick m_k, n_k ≥ k with |s(m_k) - s(n_k)| ≥ eps
+  have hex : ∀ k : ℕ, ∃ m n : ℕ, k ≤ m ∧ k ≤ n ∧ eps ≤ |s m - s n| := by
+    intro k
+    have := hbad' k
+    simp only [not_forall, not_lt] at this
+    obtain ⟨m, n, hm, hn, hmn⟩ := this
+    exact ⟨m, n, hm, hn, hmn⟩
+  choose f g hfg using hex
+  -- f, g are sequences with f(k), g(k) ≥ k and |s(f(k)) - s(g(k))| ≥ eps
+  -- So M = ofSeq f and N = ofSeq g are infinite
+  let M : Hypernatural := Hypernatural.ofSeq f
+  let N : Hypernatural := Hypernatural.ofSeq g
+  have hM_infinite : Hypernatural.Infinite M := by
+    intro k
+    rw [Hypernatural.ofSeq_lt_ofSeq]
+    exact Eventually.of_forall fun n => by
+      have := (hfg n).1
+      omega
+  have hN_infinite : Hypernatural.Infinite N := by
+    intro k
+    rw [Hypernatural.ofSeq_lt_ofSeq]
+    exact Eventually.of_forall fun n => by
+      have := (hfg n).2.1
+      omega
+  -- By nonstandard Cauchy, starSeq s M ≈ starSeq s N
+  have hclose := h M N hM_infinite hN_infinite
+  -- But |s(f(k)) - s(g(k))| ≥ eps for all k, contradiction
+  unfold InfClose Infinitesimal at hclose
+  have h_half := hclose (eps / 2) (by linarith)
+  have hlo : ofRat (-(eps / 2)) < starSeq s M - starSeq s N := h_half.1
+  have hhi : starSeq s M - starSeq s N < ofRat (eps / 2) := h_half.2
+  change ofRat (-(eps / 2)) < ofSeq (s ∘ f) - ofSeq (s ∘ g) at hlo
+  change ofSeq (s ∘ f) - ofSeq (s ∘ g) < ofRat (eps / 2) at hhi
+  rw [show ofSeq (s ∘ f) - ofSeq (s ∘ g) = ofSeq (fun n => s (f n) - s (g n)) from rfl] at hlo hhi
+  rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
+  -- Get contradiction: we have |s(f(n)) - s(g(n))| ≥ eps for all n
+  have h_all_bad : ∀ n, eps ≤ |s (f n) - s (g n)| := fun n => (hfg n).2.2
+  have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+    filter_upwards [hlo, hhi] with n hlo_n hhi_n
+    have hge := h_all_bad n
+    have hbound : |s (f n) - s (g n)| < eps / 2 := by
+      rw [abs_lt]
+      constructor <;> linarith
+    have : eps / 2 < eps := by linarith
+    linarith
+  exact (Filter.eventually_const.mp hfalse : False)
 
 /-- Cauchy characterization: standard ↔ nonstandard. -/
 theorem isCauchy_iff_nsIsCauchy (s : ℕ → ℚ) : IsCauchy s ↔ NSIsCauchy s :=
