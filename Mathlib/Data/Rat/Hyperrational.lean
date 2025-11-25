@@ -439,7 +439,33 @@ theorem hFinite_ofRat (q : ℚ) : HFinite (ofRat q) := by
 
 /-- Sum of HFinite is HFinite. -/
 theorem HFinite.add {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x + y) := by
-  sorry
+  intro hinf
+  -- hx : ¬Infinite x means ¬InfinitePos x ∧ ¬InfiniteNeg x
+  -- From ¬InfinitePos x we get ∃ qx, x ≤ ofRat qx
+  -- From ¬InfiniteNeg x we get ∃ qx', ofRat qx' ≤ x
+  simp only [HFinite, Infinite, not_or] at hx hy
+  obtain ⟨hx_not_pos, hx_not_neg⟩ := hx
+  obtain ⟨hy_not_pos, hy_not_neg⟩ := hy
+  simp only [InfinitePos, InfiniteNeg, not_forall, not_lt] at hx_not_pos hx_not_neg hy_not_pos hy_not_neg
+  obtain ⟨qx_hi, hx_hi⟩ := hx_not_pos
+  obtain ⟨qx_lo, hx_lo⟩ := hx_not_neg
+  obtain ⟨qy_hi, hy_hi⟩ := hy_not_pos
+  obtain ⟨qy_lo, hy_lo⟩ := hy_not_neg
+  rcases hinf with hpos | hneg
+  · -- InfinitePos (x + y), so for all q, ofRat q < x + y
+    have hbound : x + y ≤ ofRat (qx_hi + qy_hi) := by
+      have h1 : ofRat qx_hi + ofRat qy_hi = ofRat (qx_hi + qy_hi) := by rw [← ofRat_add]
+      rw [← h1]
+      exact add_le_add hx_hi hy_hi
+    have hcontra := hpos (qx_hi + qy_hi)
+    exact not_lt.mpr hbound hcontra
+  · -- InfiniteNeg (x + y), so for all q, x + y < ofRat q
+    have hbound : ofRat (qx_lo + qy_lo) ≤ x + y := by
+      have h1 : ofRat qx_lo + ofRat qy_lo = ofRat (qx_lo + qy_lo) := by rw [← ofRat_add]
+      rw [← h1]
+      exact add_le_add hx_lo hy_lo
+    have hcontra := hneg (qx_lo + qy_lo)
+    exact not_lt.mpr hbound hcontra
 
 /-- Negation of HFinite is HFinite. -/
 theorem HFinite.neg {x : ℚ*} (hx : HFinite x) : HFinite (-x) := by
@@ -459,7 +485,8 @@ theorem HFinite.neg {x : ℚ*} (hx : HFinite x) : HFinite (-x) := by
 
 /-- Difference of HFinite is HFinite. -/
 theorem HFinite.sub {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x - y) := by
-  sorry
+  rw [sub_eq_add_neg]
+  exact hx.add hy.neg
 
 /-- Product of HFinite is HFinite. -/
 theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x * y) := by
@@ -503,56 +530,104 @@ theorem omega_mul_epsilon : ω * ε = 1 := by
 
 /-- epsilon is infinitesimal. -/
 theorem infinitesimal_epsilon : Infinitesimal ε := by
-  sorry
+  intro q hq
+  -- ε = ofSeq (fun n => (n+1)⁻¹)
+  -- Need: ofRat (-q) < ε and ε < ofRat q
+  constructor
+  · -- ofRat (-q) < ε
+    rw [epsilon, ofRat, ofSeq_lt_ofSeq]
+    exact Eventually.of_forall fun n => by
+      have : 0 < (Nat.succ n : ℚ)⁻¹ := by positivity
+      linarith
+  · -- ε < ofRat q
+    -- Need to show: eventually (n+1)⁻¹ < q
+    -- This holds for n large enough that (n+1)⁻¹ < q, i.e., n+1 > q⁻¹
+    rw [epsilon, ofRat, ofSeq_lt_ofSeq]
+    apply Nat.hyperfilter_le_atTop
+    apply eventually_atTop.mpr
+    -- Find N such that (N+1)⁻¹ < q
+    obtain ⟨N, hN⟩ := exists_nat_gt q⁻¹
+    use N
+    intro n hn
+    have hN1_pos : (0 : ℚ) < N + 1 := by positivity
+    have hn1_pos : (0 : ℚ) < n + 1 := by positivity
+    calc (Nat.succ n : ℚ)⁻¹ = (n + 1 : ℚ)⁻¹ := by norm_cast
+      _ ≤ (N + 1 : ℚ)⁻¹ := by
+        apply inv_anti₀ hN1_pos
+        exact_mod_cast Nat.add_le_add_right hn 1
+      _ < q := by
+        rw [inv_lt_comm₀ hN1_pos hq]
+        calc q⁻¹ < N := hN
+          _ < N + 1 := by linarith
 
 /-! ## Star Function Properties -/
 
 /-- Star preserves addition. -/
 theorem star_add (f g : ℚ → ℚ) (x : ℚ*) :
     star (fun q => f q + g q) x = star f x + star g x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨s, rfl⟩
+  rfl
 
 /-- Star preserves multiplication. -/
 theorem star_mul (f g : ℚ → ℚ) (x : ℚ*) :
     star (fun q => f q * g q) x = star f x * star g x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨s, rfl⟩
+  rfl
 
 /-- Star preserves negation. -/
 theorem star_neg (f : ℚ → ℚ) (x : ℚ*) :
     star (fun q => -f q) x = -star f x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨s, rfl⟩
+  rfl
 
 /-- Star of identity is identity. -/
 theorem star_id (x : ℚ*) : star id x = x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨s, rfl⟩
+  rfl
 
 /-- Star of constant is constant. -/
 theorem star_const (c : ℚ) (x : ℚ*) : star (fun _ => c) x = ofRat c := by
-  sorry
+  rcases ofSeq_surjective x with ⟨s, rfl⟩
+  rfl
 
 /-! ## InfClose Properties -/
 
 /-- x ≈ y implies x + z ≈ y + z. -/
 theorem InfClose.add_right {x y : ℚ*} (h : InfClose x y) (z : ℚ*) : InfClose (x + z) (y + z) := by
-  sorry
+  unfold InfClose at h ⊢
+  have heq : (x + z) - (y + z) = x - y := by ring
+  rw [heq]
+  exact h
 
 /-- x ≈ y implies z + x ≈ z + y. -/
 theorem InfClose.add_left {x y : ℚ*} (h : InfClose x y) (z : ℚ*) : InfClose (z + x) (z + y) := by
-  sorry
+  unfold InfClose at h ⊢
+  have heq : (z + x) - (z + y) = x - y := by ring
+  rw [heq]
+  exact h
 
 /-- x ≈ y and z ≈ w implies x + z ≈ y + w. -/
 theorem InfClose.add {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w) :
     InfClose (x + z) (y + w) := by
-  sorry
+  unfold InfClose at hxy hzw ⊢
+  have heq : (x + z) - (y + w) = (x - y) + (z - w) := by ring
+  rw [heq]
+  exact hxy.add hzw
 
 /-- x ≈ y implies -x ≈ -y. -/
 theorem InfClose.neg {x y : ℚ*} (h : InfClose x y) : InfClose (-x) (-y) := by
-  sorry
+  unfold InfClose at h ⊢
+  have heq : (-x) - (-y) = -(x - y) := by ring
+  rw [heq]
+  exact h.neg
 
 /-- x ≈ y and z ≈ w implies x - z ≈ y - w. -/
 theorem InfClose.sub {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w) :
     InfClose (x - z) (y - w) := by
-  sorry
+  unfold InfClose at hxy hzw ⊢
+  have heq : (x - z) - (y - w) = (x - y) - (z - w) := by ring
+  rw [heq]
+  exact hxy.sub hzw
 
 /-- HFinite x ≈ y and HFinite z ≈ w implies x * z ≈ y * w. -/
 theorem InfClose.mul {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w)
@@ -577,7 +652,9 @@ noncomputable def starSeq (s : ℕ → ℚ) : Hypernatural → ℚ* :=
 
 @[simp]
 lemma starSeq_ofNat (s : ℕ → ℚ) (n : ℕ) : starSeq s (Hypernatural.ofNat n) = ofRat (s n) := by
-  sorry
+  -- Hypernatural.ofNat n = const n = Germ of (fun _ => n)
+  -- starSeq s (const n) = ofSeq (s ∘ (fun _ => n)) = ofSeq (fun _ => s n) = ofRat (s n)
+  rfl
 
 @[simp]
 lemma starSeq_ofSeq (s : ℕ → ℚ) (f : ℕ → ℕ) :
@@ -607,7 +684,39 @@ def NSIsCauchy (s : ℕ → ℚ) : Prop :=
 /-- Standard convergence implies nonstandard convergence. -/
 theorem seqConvergesTo_implies_nsSeqConvergesTo {s : ℕ → ℚ} {L : ℚ}
     (h : SeqConvergesTo s L) : NSSeqConvergesTo s L := by
-  sorry
+  intro N hN
+  -- N is infinite, need to show starSeq s N ≈ ofRat L
+  unfold InfClose Infinitesimal
+  intro eps heps
+  -- By convergence, ∃ N₀ such that ∀ n ≥ N₀, |s n - L| < eps
+  obtain ⟨N₀, hN₀⟩ := h eps heps
+  -- Since N is infinite, N > N₀, so eventually f(n) ≥ N₀
+  rcases Hypernatural.ofSeq_surjective N with ⟨f, rfl⟩
+  -- Eventually f(n) ≥ N₀ because N is infinite
+  have hf_large : ∀ᶠ n in hyperfilter ℕ, N₀ ≤ f n := by
+    have := hN N₀
+    rw [Hypernatural.ofSeq_lt_ofSeq] at this
+    filter_upwards [this] with n hn
+    omega
+  -- So eventually |s(f(n)) - L| < eps
+  have h_bound : ∀ᶠ n in hyperfilter ℕ, |s (f n) - L| < eps := by
+    filter_upwards [hf_large] with n hn
+    exact hN₀ (f n) hn
+  constructor
+  · -- ofRat (-eps) < starSeq s (ofSeq f) - ofRat L
+    change ofRat (-eps) < ofSeq (s ∘ f) - ofRat L
+    rw [show ofSeq (s ∘ f) - ofRat L = ofSeq (fun n => s (f n) - L) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [h_bound] with n hn
+    rw [abs_lt] at hn
+    linarith
+  · -- starSeq s (ofSeq f) - ofRat L < ofRat eps
+    change ofSeq (s ∘ f) - ofRat L < ofRat eps
+    rw [show ofSeq (s ∘ f) - ofRat L = ofSeq (fun n => s (f n) - L) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [h_bound] with n hn
+    rw [abs_lt] at hn
+    exact hn.2
 
 /-- Nonstandard convergence implies standard convergence. -/
 theorem nsSeqConvergesTo_implies_seqConvergesTo {s : ℕ → ℚ} {L : ℚ}
@@ -621,7 +730,44 @@ theorem seqConvergesTo_iff_nsSeqConvergesTo (s : ℕ → ℚ) (L : ℚ) :
 
 /-- Standard Cauchy implies nonstandard Cauchy. -/
 theorem isCauchy_implies_nsIsCauchy {s : ℕ → ℚ} (h : IsCauchy s) : NSIsCauchy s := by
-  sorry
+  intro M N hM hN
+  -- M and N are infinite, need to show starSeq s M ≈ starSeq s N
+  unfold InfClose Infinitesimal
+  intro eps heps
+  -- By Cauchy property, ∃ K such that ∀ m n ≥ K, |s m - s n| < eps
+  obtain ⟨K, hK⟩ := h eps heps
+  -- Since M and N are infinite, eventually f(n) ≥ K and g(n) ≥ K
+  rcases Hypernatural.ofSeq_surjective M with ⟨f, rfl⟩
+  rcases Hypernatural.ofSeq_surjective N with ⟨g, rfl⟩
+  have hf_large : ∀ᶠ n in hyperfilter ℕ, K ≤ f n := by
+    have := hM K
+    rw [Hypernatural.ofSeq_lt_ofSeq] at this
+    filter_upwards [this] with n hn
+    omega
+  have hg_large : ∀ᶠ n in hyperfilter ℕ, K ≤ g n := by
+    have := hN K
+    rw [Hypernatural.ofSeq_lt_ofSeq] at this
+    filter_upwards [this] with n hn
+    omega
+  -- So eventually |s(f(n)) - s(g(n))| < eps
+  have h_bound : ∀ᶠ n in hyperfilter ℕ, |s (f n) - s (g n)| < eps := by
+    filter_upwards [hf_large, hg_large] with n hfn hgn
+    exact hK (f n) (g n) hfn hgn
+  constructor
+  · -- ofRat (-eps) < starSeq s M - starSeq s N
+    change ofRat (-eps) < ofSeq (s ∘ f) - ofSeq (s ∘ g)
+    rw [show ofSeq (s ∘ f) - ofSeq (s ∘ g) = ofSeq (fun n => s (f n) - s (g n)) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [h_bound] with n hn
+    rw [abs_lt] at hn
+    linarith
+  · -- starSeq s M - starSeq s N < ofRat eps
+    change ofSeq (s ∘ f) - ofSeq (s ∘ g) < ofRat eps
+    rw [show ofSeq (s ∘ f) - ofSeq (s ∘ g) = ofSeq (fun n => s (f n) - s (g n)) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [h_bound] with n hn
+    rw [abs_lt] at hn
+    exact hn.2
 
 /-- Nonstandard Cauchy implies standard Cauchy. -/
 theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCauchy s := by
