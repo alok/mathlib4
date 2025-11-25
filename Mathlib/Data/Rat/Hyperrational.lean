@@ -522,7 +522,27 @@ theorem Infinitesimal.inv_infinite {x : ℚ*} (hx : Infinitesimal x) (hne : x �
 /-- Inverse of positive infinite is positive infinitesimal. -/
 theorem InfinitePos.inv_infinitesimal {x : ℚ*} (hx : InfinitePos x) :
     Infinitesimal x⁻¹ := by
-  sorry
+  -- For InfinitePos x: for all q, ofRat q < x
+  -- Need to show x⁻¹ is infinitesimal: for all q > 0, |x⁻¹| < ofRat q
+  intro q hq
+  have hx_pos := hx.pos
+  have hx_ne : x ≠ 0 := hx_pos.ne'
+  constructor
+  · -- ofRat (-q) < x⁻¹
+    -- Since x > 0, x⁻¹ > 0 > -q
+    have : (0 : ℚ*) < x⁻¹ := inv_pos_of_pos hx_pos
+    calc ofRat (-q) < 0 := by rw [ofRat_lt_ofRat]; linarith
+      _ < x⁻¹ := this
+  · -- x⁻¹ < ofRat q
+    -- Since x > ofRat (q⁻¹) and both positive, x⁻¹ < ofRat q
+    have hqinv : ofRat (q⁻¹) < x := hx (q⁻¹)
+    have hqinv_pos : (0 : ℚ*) < ofRat (q⁻¹) := by rw [ofRat_lt_ofRat]; positivity
+    -- x⁻¹ < (ofRat (q⁻¹))⁻¹ = ofRat q
+    have hinv : x⁻¹ < (ofRat (q⁻¹))⁻¹ := inv_lt_inv_of_lt hqinv_pos hqinv
+    simp only [ofRat] at hinv ⊢
+    convert hinv using 1
+    simp only [ofSeq_eq_ofSeq]
+    exact Eventually.of_forall fun _ => inv_inv q
 
 /-- omega * epsilon is infinitely close to 1.
     Note: ω * ε ≠ 1 exactly since n/(n+1) ≠ 1, but n/(n+1) → 1. -/
