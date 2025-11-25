@@ -379,17 +379,37 @@ theorem infinitesimal_zero : Infinitesimal 0 := by
 
 /-- Negation preserves infinitesimals. -/
 theorem Infinitesimal.neg {x : ℚ*} (hx : Infinitesimal x) : Infinitesimal (-x) := by
-  sorry
+  intro q hq
+  obtain ⟨hlo, hhi⟩ := hx q hq
+  constructor
+  · rw [ofRat_neg]
+    exact neg_lt_neg hhi
+  · have h := neg_lt_neg hlo
+    simp only [ofRat_neg, neg_neg] at h
+    exact h
 
 /-- Sum of infinitesimals is infinitesimal. -/
 theorem Infinitesimal.add {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
     Infinitesimal (x + y) := by
-  sorry
+  intro q hq
+  have hq2 : 0 < q / 2 := by linarith
+  obtain ⟨hxlo, hxhi⟩ := hx (q / 2) hq2
+  obtain ⟨hylo, hyhi⟩ := hy (q / 2) hq2
+  constructor
+  · have h1 : ofRat (-q) = ofRat (-(q/2)) + ofRat (-(q/2)) := by
+      rw [← ofRat_add]; congr 1; ring
+    rw [h1]
+    exact add_lt_add hxlo hylo
+  · have h2 : ofRat (q/2) + ofRat (q/2) = ofRat q := by
+      rw [← ofRat_add]; congr 1; ring
+    rw [← h2]
+    exact add_lt_add hxhi hyhi
 
 /-- Difference of infinitesimals is infinitesimal. -/
 theorem Infinitesimal.sub {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
     Infinitesimal (x - y) := by
-  sorry
+  rw [sub_eq_add_neg]
+  exact hx.add hy.neg
 
 /-- Product of infinitesimal and HFinite is infinitesimal. -/
 theorem Infinitesimal.mul_hFinite {x y : ℚ*} (hx : Infinitesimal x) (hy : HFinite y) :
