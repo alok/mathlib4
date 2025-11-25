@@ -430,7 +430,12 @@ theorem Infinitesimal.mul {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesima
 
 /-- Standard rationals are HFinite. -/
 theorem hFinite_ofRat (q : ℚ) : HFinite (ofRat q) := by
-  sorry
+  intro hinf
+  rcases hinf with hpos | hneg
+  · have := hpos q
+    simp at this
+  · have := hneg q
+    simp at this
 
 /-- Sum of HFinite is HFinite. -/
 theorem HFinite.add {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x + y) := by
@@ -438,7 +443,19 @@ theorem HFinite.add {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
 
 /-- Negation of HFinite is HFinite. -/
 theorem HFinite.neg {x : ℚ*} (hx : HFinite x) : HFinite (-x) := by
-  sorry
+  intro hinf
+  apply hx
+  rcases hinf with hpos | hneg
+  · right
+    intro q
+    have := hpos (-q)
+    simp only [ofRat_neg, neg_lt_neg_iff] at this
+    exact this
+  · left
+    intro q
+    have := hneg (-q)
+    simp only [ofRat_neg, neg_lt_neg_iff] at this
+    exact this
 
 /-- Difference of HFinite is HFinite. -/
 theorem HFinite.sub {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x - y) := by
@@ -450,7 +467,19 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
 
 /-- Infinitesimals are HFinite. -/
 theorem Infinitesimal.hFinite {x : ℚ*} (hx : Infinitesimal x) : HFinite x := by
-  sorry
+  intro hinf
+  rcases hinf with hpos | hneg
+  · -- InfinitePos x, so for all q, ofRat q < x
+    -- But x is infinitesimal, so x < ofRat 1
+    have h := (hx 1 one_pos).2
+    have hp := hpos 1
+    exact not_lt.mpr (le_of_lt h) hp
+  · -- InfiniteNeg x, so for all q, x < ofRat q
+    -- But x is infinitesimal, so ofRat (-1) < x
+    have h := (hx 1 one_pos).1
+    have hn := hneg (-1)
+    simp only [ofRat_neg] at h
+    exact not_lt.mpr (le_of_lt hn) h
 
 /-! ## Infinite Properties -/
 
