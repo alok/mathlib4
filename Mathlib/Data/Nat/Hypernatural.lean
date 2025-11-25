@@ -793,4 +793,358 @@ lemma standard_of_lt {x y : ℕ*} (hxy : x < y) (hy : y ∈ Standard) : x ∈ St
   have : (n : ℕ*) ≤ x := coe_le_of_infinite hx n
   exact (lt_irrefl x) (lt_of_lt_of_le hxy this)
 
+/-! ### Factorial -/
+
+/-- Hypernatural factorial: extension of factorial to hypernaturals. -/
+noncomputable def factorial (x : ℕ*) : ℕ* :=
+  Quot.liftOn x (fun f => ofSeq (fun n => Nat.factorial (f n)))
+    (fun f g hfg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hfg] with n hn
+      rw [hn])
+
+/-- Factorial of a standard natural. -/
+@[simp] lemma factorial_coe (n : ℕ) : factorial (n : ℕ*) = (Nat.factorial n : ℕ*) := rfl
+
+/-- Factorial of zero is one. -/
+@[simp] lemma factorial_zero : factorial (0 : ℕ*) = 1 := by rfl
+
+/-- Factorial of one is one. -/
+@[simp] lemma factorial_one : factorial (1 : ℕ*) = 1 := by rfl
+
+/-- Factorial is always positive. -/
+lemma factorial_pos (x : ℕ*) : 0 < factorial x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply (ofSeq_lt_ofSeq (f := fun _ => 0) (g := fun n => Nat.factorial (f n))).2
+  filter_upwards with n
+  exact Nat.factorial_pos (f n)
+
+/-- Factorial of omega is infinite. -/
+@[simp] lemma infinite_factorial_omega : Infinite (factorial ω) := by
+  intro m
+  simp only [omega, factorial]
+  apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun n => Nat.factorial n)).2
+  apply Nat.hyperfilter_le_atTop
+  filter_upwards [Filter.eventually_gt_atTop m] with i hi
+  calc m < i := hi
+       _ ≤ Nat.factorial i := Nat.self_le_factorial i
+
+/-- Factorial of an infinite hypernatural is infinite. -/
+lemma Infinite.factorial {x : ℕ*} (hx : Infinite x) : Infinite (factorial x) := by
+  intro m
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  change (m : ℕ*) < ofSeq (fun n => Nat.factorial (f n))
+  apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun n => Nat.factorial (f n))).2
+  have hf : ∀ᶠ n in hyperfilter ℕ, m < f n :=
+    (ofSeq_lt_ofSeq (f := fun _ => m) (g := f)).1 (hx m)
+  filter_upwards [hf] with n hn
+  calc m < f n := hn
+       _ ≤ Nat.factorial (f n) := Nat.self_le_factorial (f n)
+
+/-- Factorial is HFinite on HFinite inputs. -/
+lemma HFinite.factorial {x : ℕ*} (hx : HFinite x) : HFinite (factorial x) := by
+  rcases exists_st_of_not_infinite hx with ⟨n, hn⟩
+  subst hn
+  simp only [factorial_coe]
+  exact hFinite_coe _
+
+/-- Standard part of factorial. -/
+lemma st_factorial {x : ℕ*} (hx : HFinite x) : st (factorial x) = Nat.factorial (st x) := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  conv_lhs => rw [hx']
+  simp only [factorial_coe, st_coe]
+
+/-! ### Additional ordering lemmas -/
+
+/-- Strict monotonicity: x < y implies x + z < y + z for any z. -/
+lemma add_lt_add_right {x y z : ℕ*} (h : x < y) : x + z < y + z := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rcases ofSeq_surjective z with ⟨k, rfl⟩
+  simp only [ofSeq_add]
+  apply (ofSeq_lt_ofSeq (f := fun n => f n + k n) (g := fun n => g n + k n)).2
+  have hfg : ∀ᶠ n in hyperfilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp h
+  filter_upwards [hfg] with n hn
+  exact Nat.add_lt_add_right hn (k n)
+
+/-- Strict monotonicity: x < y implies z + x < z + y for any z. -/
+lemma add_lt_add_left {x y z : ℕ*} (h : x < y) : z + x < z + y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rcases ofSeq_surjective z with ⟨k, rfl⟩
+  simp only [ofSeq_add]
+  apply (ofSeq_lt_ofSeq (f := fun n => k n + f n) (g := fun n => k n + g n)).2
+  have hfg : ∀ᶠ n in hyperfilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp h
+  filter_upwards [hfg] with n hn
+  exact Nat.add_lt_add_left hn (k n)
+
+/-- Multiplication by positive preserves strict order. -/
+lemma mul_lt_mul_of_pos_right {x y z : ℕ*} (hxy : x < y) (hz : 0 < z) : x * z < y * z := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rcases ofSeq_surjective z with ⟨k, rfl⟩
+  simp only [ofSeq_mul]
+  apply (ofSeq_lt_ofSeq (f := fun n => f n * k n) (g := fun n => g n * k n)).2
+  have hfg : ∀ᶠ n in hyperfilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp hxy
+  have hk : ∀ᶠ n in hyperfilter ℕ, 0 < k n := ofSeq_lt_ofSeq.mp hz
+  filter_upwards [hfg, hk] with n hn hkn
+  exact Nat.mul_lt_mul_of_pos_right hn hkn
+
+/-- Nonnegativity: every hypernatural is nonnegative. -/
+@[simp] lemma zero_le (x : ℕ*) : 0 ≤ x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply (ofSeq_le_ofSeq (f := fun _ => 0) (g := f)).2
+  filter_upwards with n
+  exact Nat.zero_le (f n)
+
+/-- Not less than zero. -/
+@[simp] lemma not_lt_zero (x : ℕ*) : ¬ x < 0 := not_lt.mpr (zero_le x)
+
+/-! ### Conversion lemmas -/
+
+/-- A hypernatural equals a standard natural iff they're equal. -/
+lemma eq_coe_iff {x : ℕ*} {n : ℕ} : x = n ↔ ∃ m : ℕ, x = m ∧ m = n := by
+  constructor
+  · intro h; exact ⟨n, h, rfl⟩
+  · intro ⟨m, hx, hm⟩; rw [hx, hm]
+
+/-- Omega is not equal to any standard natural. -/
+lemma omega_ne_coe (n : ℕ) : ω ≠ n := by
+  intro h
+  have : Infinite ω := infinite_omega
+  rw [h] at this
+  exact (hFinite_coe n) this
+
+/-- No standard natural equals omega. -/
+lemma coe_ne_omega (n : ℕ) : (n : ℕ*) ≠ ω := (omega_ne_coe n).symm
+
+/-! ### Successor -/
+
+/-- Hypernatural successor: x + 1 -/
+noncomputable def succ (x : ℕ*) : ℕ* := x + 1
+
+/-- Successor preserves sequences. -/
+lemma succ_ofSeq (f : ℕ → ℕ) : succ (ofSeq f) = ofSeq (fun n => f n + 1) := rfl
+
+/-- Successor of a standard natural. -/
+@[simp] lemma succ_coe (n : ℕ) : succ (n : ℕ*) = (n + 1 : ℕ*) := rfl
+
+/-- succ is strictly increasing. -/
+lemma lt_succ_self (x : ℕ*) : x < succ x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [succ_ofSeq]
+  apply (ofSeq_lt_ofSeq (f := f) (g := fun n => f n + 1)).2
+  filter_upwards with n
+  exact Nat.lt_succ_self (f n)
+
+/-- succ is always positive. -/
+lemma succ_pos (x : ℕ*) : 0 < succ x := by
+  calc 0 ≤ x := zero_le x
+       _ < succ x := lt_succ_self x
+
+/-- Successor of omega is infinite. -/
+@[simp] lemma infinite_succ_omega : Infinite (succ ω) := Infinite.add_right infinite_omega 1
+
+/-- Successor of an infinite is infinite. -/
+lemma Infinite.succ {x : ℕ*} (hx : Infinite x) : Infinite (succ x) := Infinite.add_right hx 1
+
+/-- Successor of HFinite is HFinite. -/
+lemma HFinite.succ {x : ℕ*} (hx : HFinite x) : HFinite (succ x) := by
+  rcases exists_st_of_not_infinite hx with ⟨n, rfl⟩
+  change HFinite ((n : ℕ*) + 1)
+  rw [← Nat.cast_one, ← Nat.cast_add]
+  exact hFinite_coe _
+
+/-- Standard part of successor. -/
+lemma st_succ {x : ℕ*} (hx : HFinite x) : st (succ x) = st x + 1 := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  conv_lhs => rw [hx']
+  change st ((st x : ℕ*) + 1) = st x + 1
+  rw [← Nat.cast_one, ← Nat.cast_add, st_coe]
+
+/-- Injectivity of successor. -/
+lemma succ_inj {x y : ℕ*} : succ x = succ y ↔ x = y := by
+  constructor
+  · intro h
+    rcases ofSeq_surjective x with ⟨f, rfl⟩
+    rcases ofSeq_surjective y with ⟨g, rfl⟩
+    simp only [succ_ofSeq] at h
+    apply ofSeq_eq_ofSeq.mpr
+    have hfg := ofSeq_eq_ofSeq.mp h
+    filter_upwards [hfg] with n hn
+    omega
+  · intro h; rw [h]
+
+/-! ### Minimum and maximum -/
+
+/-- min ≤ left argument. -/
+lemma min_le_left (x y : ℕ*) : Min.min x y ≤ x := _root_.min_le_left x y
+
+/-- min ≤ right argument. -/
+lemma min_le_right (x y : ℕ*) : Min.min x y ≤ y := _root_.min_le_right x y
+
+/-- left argument ≤ max. -/
+lemma le_max_left (x y : ℕ*) : x ≤ Max.max x y := _root_.le_max_left x y
+
+/-- right argument ≤ max. -/
+lemma le_max_right (x y : ℕ*) : y ≤ Max.max x y := _root_.le_max_right x y
+
+/-- max of infinite and anything is infinite. -/
+lemma Infinite.max_left {x : ℕ*} (hx : Infinite x) (y : ℕ*) : Infinite (Max.max x y) := by
+  intro m
+  calc (m : ℕ*) < x := hx m
+       _ ≤ Max.max x y := le_max_left x y
+
+/-- max with infinite is infinite. -/
+lemma Infinite.max_right {y : ℕ*} (hy : Infinite y) (x : ℕ*) : Infinite (Max.max x y) := by
+  rw [_root_.max_comm]
+  exact hy.max_left x
+
+/-! ### GCD and LCM -/
+
+/-- Hypernatural GCD: lifted pointwise from naturals. -/
+noncomputable def gcd (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => Nat.gcd (f n) (g n)))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      rw [hfn, hgn])
+
+/-- Hypernatural LCM: lifted pointwise from naturals. -/
+noncomputable def lcm (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => Nat.lcm (f n) (g n)))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      rw [hfn, hgn])
+
+/-- GCD of standard naturals. -/
+@[simp] lemma gcd_coe (m n : ℕ) : gcd (m : ℕ*) (n : ℕ*) = (Nat.gcd m n : ℕ*) := rfl
+
+/-- LCM of standard naturals. -/
+@[simp] lemma lcm_coe (m n : ℕ) : lcm (m : ℕ*) (n : ℕ*) = (Nat.lcm m n : ℕ*) := rfl
+
+/-- gcd is commutative. -/
+lemma gcd_comm (x y : ℕ*) : gcd x y = gcd y x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.gcd_comm (f n) (g n)
+
+/-- lcm is commutative. -/
+lemma lcm_comm (x y : ℕ*) : lcm x y = lcm y x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.lcm_comm (f n) (g n)
+
+/-- GCD divides left argument. -/
+lemma gcd_dvd_left (x y : ℕ*) : gcd x y ∣ x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  use ofSeq (fun n => f n / Nat.gcd (f n) (g n))
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  rw [Nat.mul_comm]
+  exact (Nat.div_mul_cancel (Nat.gcd_dvd_left (f n) (g n))).symm
+
+/-- GCD divides right argument. -/
+lemma gcd_dvd_right (x y : ℕ*) : gcd x y ∣ y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  use ofSeq (fun n => g n / Nat.gcd (f n) (g n))
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  rw [Nat.mul_comm]
+  exact (Nat.div_mul_cancel (Nat.gcd_dvd_right (f n) (g n))).symm
+
+/-- GCD self is self. -/
+@[simp] lemma gcd_self (x : ℕ*) : gcd x x = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.gcd_self (f n)
+
+/-- GCD with zero. -/
+@[simp] lemma gcd_zero_right (x : ℕ*) : gcd x 0 = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.gcd_zero_right (f n)
+
+/-- GCD with zero. -/
+@[simp] lemma gcd_zero_left (x : ℕ*) : gcd 0 x = x := by
+  rw [gcd_comm, gcd_zero_right]
+
+/-- LCM with zero. -/
+@[simp] lemma lcm_zero_right (x : ℕ*) : lcm x 0 = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.lcm_zero_right (f n)
+
+/-- LCM with zero. -/
+@[simp] lemma lcm_zero_left (x : ℕ*) : lcm 0 x = 0 := by
+  rw [lcm_comm, lcm_zero_right]
+
+/-! ### Decidability and trichotomy -/
+
+/-- Trichotomy for hypernaturals: every hypernatural is either finite or infinite. -/
+lemma hFinite_or_infinite (x : ℕ*) : HFinite x ∨ Infinite x := by
+  by_cases h : Infinite x
+  · right; exact h
+  · left; exact h
+
+/-- Comparison with standard: either x < n or n ≤ x. -/
+lemma lt_coe_or_le_coe (x : ℕ*) (n : ℕ) : x < n ∨ n ≤ x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  have hU := Ultrafilter.em (hyperfilter ℕ) {m | f m < n}
+  cases hU with
+  | inl hlt =>
+    left
+    exact ofSeq_lt_ofSeq.mpr hlt
+  | inr hge =>
+    right
+    apply ofSeq_le_ofSeq.mpr
+    have : ∀ᶠ m in hyperfilter ℕ, n ≤ f m := by
+      convert hge using 1
+      ext m
+      constructor
+      · intro hle hlt; exact (not_le.mpr hlt) hle
+      · intro hne; exact le_of_not_lt hne
+    exact this
+
+/-- Every hypernatural is either zero or positive. -/
+lemma eq_zero_or_pos (x : ℕ*) : x = 0 ∨ 0 < x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  have hU := Ultrafilter.em (hyperfilter ℕ) {m | f m = 0}
+  cases hU with
+  | inl h =>
+    left
+    apply ofSeq_eq_ofSeq.mpr
+    convert h using 1
+  | inr h =>
+    right
+    apply (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).2
+    have : ∀ᶠ m in hyperfilter ℕ, 0 < f m := by
+      convert h using 1
+      ext m
+      constructor
+      · intro hpos heq; rw [heq] at hpos; exact (lt_irrefl 0) hpos
+      · intro hne; exact Nat.pos_of_ne_zero hne
+    exact this
+
+/-- A hypernatural is positive iff it's not zero. -/
+lemma pos_iff_ne_zero {x : ℕ*} : 0 < x ↔ x ≠ 0 := by
+  constructor
+  · intro h hx
+    rw [hx] at h
+    exact lt_irrefl 0 h
+  · intro h
+    cases eq_zero_or_pos x with
+    | inl hz => exact absurd hz h
+    | inr hp => exact hp
+
 end Hypernatural
