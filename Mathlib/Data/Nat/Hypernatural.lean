@@ -1,4 +1,3 @@
-
 /-
 Copyright (c) 2024 Alok Singh. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
@@ -7,6 +6,8 @@ Authors: Alok Singh
 import Mathlib.Order.Filter.FilterProduct
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Finset.Basic
+
+set_option linter.style.longFile 1800
 
 /-!
 # Hypernatural numbers
@@ -191,8 +192,7 @@ lemma exists_st_of_not_infinite {x : ℕ*} (hx : ¬ Infinite x) : ∃ r : ℕ, I
     intro s
     refine Finset.induction_on s ?base ?step
     · intro h
-      have : (∅ : Set ℕ) ∉ (u : Filter ℕ) := u.empty_notMem
-      exact (this (by simpa using h)).elim
+      simp at h
     · intro a s ha hs hmem
       have hmem' : {n | f n = a} ∪ ⋃ r ∈ s, {n | f n = r} ∈ (u : Filter ℕ) := by
         simpa [Finset.mem_insert, ha] using hmem
@@ -1113,7 +1113,7 @@ lemma lt_coe_or_le_coe (x : ℕ*) (n : ℕ) : x < n ∨ n ≤ x := by
       ext m
       constructor
       · intro hle hlt; exact (not_le.mpr hlt) hle
-      · intro hne; exact le_of_not_lt hne
+      · intro hne; exact le_of_not_gt hne
     exact this
 
 /-- Every hypernatural is either zero or positive. -/
@@ -1236,5 +1236,387 @@ theorem ofSeq_satisfies {P : ℕ → Prop} {f : ℕ → ℕ} (hP : ∀ n : ℕ, 
     ∀ᶠ n in hyperfilter ℕ, P (f n) := by
   filter_upwards with n
   exact hP n
+
+/-! ### Truncated subtraction -/
+
+/-- Truncated subtraction for hypernaturals: lifted pointwise from Nat.sub. -/
+noncomputable def tsub (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => f n - g n))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      rw [hfn, hgn])
+
+/-- Notation for truncated subtraction. -/
+noncomputable instance : Sub ℕ* := ⟨tsub⟩
+
+/-- Truncated subtraction of standard naturals. -/
+@[simp] lemma tsub_coe (m n : ℕ) : (m : ℕ*) - (n : ℕ*) = ((m - n : ℕ) : ℕ*) := rfl
+
+/-- Truncated subtraction preserves sequences. -/
+lemma tsub_ofSeq (f g : ℕ → ℕ) : ofSeq f - ofSeq g = ofSeq (fun n => f n - g n) := rfl
+
+/-- x - 0 = x. -/
+@[simp] lemma tsub_zero (x : ℕ*) : x - 0 = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.sub_zero (f n)
+
+/-- 0 - x = 0. -/
+@[simp] lemma zero_tsub (x : ℕ*) : 0 - x = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.zero_sub (f n)
+
+/-- x - x = 0. -/
+@[simp] lemma tsub_self (x : ℕ*) : x - x = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.sub_self (f n)
+
+/-- If x ≤ y, then x - y = 0. -/
+lemma tsub_eq_zero_of_le {x y : ℕ*} (h : x ≤ y) : x - y = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [tsub_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  have hle : ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
+  filter_upwards [hle] with n hn
+  exact Nat.sub_eq_zero_of_le hn
+
+/-- (x + y) - y = x. -/
+lemma add_tsub_cancel_right (x y : ℕ*) : (x + y) - y = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [ofSeq_add, tsub_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.add_sub_cancel (f n) (g n)
+
+/-- (x + y) - x = y. -/
+lemma add_tsub_cancel_left (x y : ℕ*) : (x + y) - x = y := by
+  rw [add_comm]
+  exact add_tsub_cancel_right y x
+
+/-- Truncated subtraction is monotone in the first argument. -/
+lemma tsub_le_tsub_right {x y : ℕ*} (h : x ≤ y) (z : ℕ*) : x - z ≤ y - z := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rcases ofSeq_surjective z with ⟨k, rfl⟩
+  simp only [tsub_ofSeq]
+  apply ofSeq_le_ofSeq.mpr
+  have hle : ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
+  filter_upwards [hle] with n hn
+  exact Nat.sub_le_sub_right hn (k n)
+
+/-- Truncated subtraction is antitone in the second argument. -/
+lemma tsub_le_tsub_left {y z : ℕ*} (h : y ≤ z) (x : ℕ*) : x - z ≤ x - y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rcases ofSeq_surjective z with ⟨k, rfl⟩
+  simp only [tsub_ofSeq]
+  apply ofSeq_le_ofSeq.mpr
+  have hle : ∀ᶠ n in hyperfilter ℕ, g n ≤ k n := ofSeq_le_ofSeq.mp h
+  filter_upwards [hle] with n hn
+  exact Nat.sub_le_sub_left hn (f n)
+
+/-- x - y ≤ x. -/
+lemma tsub_le_self (x y : ℕ*) : x - y ≤ x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [tsub_ofSeq]
+  apply ofSeq_le_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.sub_le (f n) (g n)
+
+/-- If y ≤ x, then x - y + y = x. -/
+lemma tsub_add_cancel_of_le {x y : ℕ*} (h : y ≤ x) : x - y + y = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [tsub_ofSeq, ofSeq_add]
+  apply ofSeq_eq_ofSeq.mpr
+  have hle : ∀ᶠ n in hyperfilter ℕ, g n ≤ f n := ofSeq_le_ofSeq.mp h
+  filter_upwards [hle] with n hn
+  exact Nat.sub_add_cancel hn
+
+/-- Standard part of tsub for HFinite numbers. -/
+lemma st_tsub {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x - y) = st x - st y := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  conv_lhs => rw [hx', hy']
+  simp only [tsub_coe, st_coe]
+
+/-- HFinite is closed under tsub. -/
+lemma HFinite.tsub {x y : ℕ*} (hx : HFinite x) (_hy : HFinite y) : HFinite (x - y) :=
+  HFinite.of_le (tsub_le_self x y) hx
+
+/-! ### Division and modulo -/
+
+/-- Hypernatural division: lifted pointwise from Nat.div. -/
+noncomputable def hdiv (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => f n / g n))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      rw [hfn, hgn])
+
+/-- Hypernatural modulo: lifted pointwise from Nat.mod. -/
+noncomputable def hmod (x y : ℕ*) : ℕ* :=
+  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => f n % g n))
+    (fun f₁ f₂ g₁ g₂ hf hg => by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards [hf, hg] with n hfn hgn
+      rw [hfn, hgn])
+
+noncomputable instance : Div ℕ* := ⟨hdiv⟩
+noncomputable instance : Mod ℕ* := ⟨hmod⟩
+
+/-- Division of standard naturals. -/
+@[simp] lemma hdiv_coe (m n : ℕ) : (m : ℕ*) / (n : ℕ*) = ((m / n : ℕ) : ℕ*) := rfl
+
+/-- Modulo of standard naturals. -/
+@[simp] lemma hmod_coe (m n : ℕ) : (m : ℕ*) % (n : ℕ*) = ((m % n : ℕ) : ℕ*) := rfl
+
+/-- Division preserves sequences. -/
+lemma hdiv_ofSeq (f g : ℕ → ℕ) : ofSeq f / ofSeq g = ofSeq (fun n => f n / g n) := rfl
+
+/-- Modulo preserves sequences. -/
+lemma hmod_ofSeq (f g : ℕ → ℕ) : ofSeq f % ofSeq g = ofSeq (fun n => f n % g n) := rfl
+
+/-- Division by 1 is identity. -/
+@[simp] lemma hdiv_one (x : ℕ*) : x / 1 = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.div_one (f n)
+
+/-- Division by itself gives 1 for nonzero. -/
+lemma hdiv_self {x : ℕ*} (hx : x ≠ 0) : x / x = 1 := by
+  have hpos : 0 < x := pos_iff_ne_zero.mpr hx
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  have hne : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hpos
+  filter_upwards [hne] with n hn
+  exact Nat.div_self hn
+
+/-- 0 / x = 0. -/
+@[simp] lemma zero_hdiv (x : ℕ*) : 0 / x = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.zero_div (f n)
+
+/-- x / 0 = 0. -/
+@[simp] lemma hdiv_zero (x : ℕ*) : x / 0 = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.div_zero (f n)
+
+/-- x % 1 = 0. -/
+@[simp] lemma hmod_one (x : ℕ*) : x % 1 = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.mod_one (f n)
+
+/-- x % x = 0 for nonzero x. -/
+lemma hmod_self {x : ℕ*} (hx : x ≠ 0) : x % x = 0 := by
+  have hpos : 0 < x := pos_iff_ne_zero.mpr hx
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  have hne : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hpos
+  filter_upwards [hne] with n _
+  exact Nat.mod_self (f n)
+
+/-- 0 % x = 0. -/
+@[simp] lemma zero_hmod (x : ℕ*) : 0 % x = 0 := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.zero_mod (f n)
+
+/-- Division-modulo identity: x = (x / y) * y + x % y. -/
+lemma hdiv_add_hmod (x y : ℕ*) : (x / y) * y + x % y = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hdiv_ofSeq, hmod_ofSeq, ofSeq_mul, ofSeq_add]
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  simp only [Pi.mul_apply, Pi.add_apply]
+  rw [mul_comm]
+  exact Nat.div_add_mod (f n) (g n)
+
+/-- x % y < y for positive y. -/
+lemma hmod_lt {x y : ℕ*} (hy : 0 < y) : x % y < y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hmod_ofSeq]
+  apply ofSeq_lt_ofSeq.mpr
+  have hpos : ∀ᶠ n in hyperfilter ℕ, 0 < g n := ofSeq_lt_ofSeq.mp hy
+  filter_upwards [hpos] with n hn
+  exact Nat.mod_lt (f n) hn
+
+/-- x / y ≤ x. -/
+lemma hdiv_le_self (x y : ℕ*) : x / y ≤ x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hdiv_ofSeq]
+  apply ofSeq_le_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.div_le_self (f n) (g n)
+
+/-- Standard part of division for HFinite numbers with nonzero divisor. -/
+lemma st_hdiv {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x / y) = st x / st y := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  conv_lhs => rw [hx', hy']
+  simp only [hdiv_coe, st_coe]
+
+/-- Standard part of modulo for HFinite numbers. -/
+lemma st_hmod {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x % y) = st x % st y := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  conv_lhs => rw [hx', hy']
+  simp only [hmod_coe, st_coe]
+
+/-- HFinite is closed under division. -/
+lemma HFinite.hdiv {x y : ℕ*} (hx : HFinite x) (_hy : HFinite y) : HFinite (x / y) :=
+  HFinite.of_le (hdiv_le_self x y) hx
+
+/-- HFinite is closed under modulo with positive divisor. -/
+lemma HFinite.hmod {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x % y) := by
+  by_cases h : y = 0
+  · subst h
+    rcases ofSeq_surjective x with ⟨f, rfl⟩
+    have h0 : (0 : ℕ*) = ofSeq (fun _ => 0) := rfl
+    rw [h0, hmod_ofSeq]
+    -- In Lean 4, n % 0 = n, so ofSeq (fun n => f n % 0) = ofSeq f
+    have : ofSeq (fun n => f n % 0) = ofSeq f := by
+      apply ofSeq_eq_ofSeq.mpr
+      filter_upwards with n
+      exact Nat.mod_zero (f n)
+    rw [this]
+    exact hx
+  · have hpos : 0 < y := pos_iff_ne_zero.mpr h
+    have hlt : x % y < y := hmod_lt hpos
+    exact HFinite.of_le' hy (le_of_lt hlt)
+
+/-! ### Additional comparison lemmas -/
+
+/-- If x < y + 1 then x ≤ y. -/
+lemma le_of_lt_succ {x y : ℕ*} (h : x < succ y) : x ≤ y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  apply ofSeq_le_ofSeq.mpr
+  have hlt : ∀ᶠ n in hyperfilter ℕ, f n < g n + 1 := ofSeq_lt_ofSeq.mp h
+  filter_upwards [hlt] with n hn
+  exact Nat.le_of_lt_succ hn
+
+/-- If x ≤ y then x < y + 1. -/
+lemma lt_succ_of_le {x y : ℕ*} (h : x ≤ y) : x < succ y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  apply ofSeq_lt_ofSeq.mpr
+  have hle : ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
+  filter_upwards [hle] with n hn
+  exact Nat.lt_succ_of_le hn
+
+/-- x ≤ y iff x < y + 1. -/
+lemma le_iff_lt_succ {x y : ℕ*} : x ≤ y ↔ x < succ y :=
+  ⟨lt_succ_of_le, le_of_lt_succ⟩
+
+/-- If 0 < x then there exists y with x = y + 1. -/
+lemma exists_eq_succ_of_pos {x : ℕ*} (hx : 0 < x) : ∃ y : ℕ*, x = succ y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  have hpos : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hx
+  use ofSeq (fun n => f n - 1)
+  rw [succ_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards [hpos] with n hn
+  exact (Nat.sub_add_cancel (Nat.one_le_of_lt hn)).symm
+
+/-- Predecessor function. -/
+noncomputable def pred (x : ℕ*) : ℕ* := x - 1
+
+/-- Predecessor preserves sequences. -/
+lemma pred_ofSeq (f : ℕ → ℕ) : pred (ofSeq f) = ofSeq (fun n => f n - 1) := rfl
+
+/-- Predecessor of standard natural. -/
+@[simp] lemma pred_coe (n : ℕ) : pred (n : ℕ*) = (n - 1 : ℕ*) := rfl
+
+/-- pred (succ x) = x. -/
+@[simp] lemma pred_succ (x : ℕ*) : pred (succ x) = x := by
+  simp only [pred, succ, add_tsub_cancel_right]
+
+/-- succ (pred x) = x for positive x. -/
+lemma succ_pred {x : ℕ*} (hx : 0 < x) : succ (pred x) = x := by
+  unfold pred succ
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  have h1 : (1 : ℕ*) = ofSeq (fun _ => 1) := rfl
+  rw [h1, tsub_ofSeq, ofSeq_add]
+  apply ofSeq_eq_ofSeq.mpr
+  have hpos : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hx
+  filter_upwards [hpos] with n hn
+  simp only [Pi.add_apply]
+  exact Nat.sub_add_cancel (Nat.one_le_of_lt hn)
+
+/-- pred 0 = 0. -/
+@[simp] lemma pred_zero : pred (0 : ℕ*) = 0 := by
+  simp only [pred]
+  exact zero_tsub 1
+
+/-- If x is infinite, pred x is infinite. -/
+lemma Infinite.pred {x : ℕ*} (hx : Infinite x) : Infinite (pred x) := by
+  intro n
+  have hn1 : ((n + 1) : ℕ*) < x := hx (n + 1)
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rw [pred_ofSeq]
+  apply ofSeq_lt_ofSeq.mpr
+  have hlt : ∀ᶠ i in hyperfilter ℕ, n + 1 < f i := ofSeq_lt_ofSeq.mp hn1
+  filter_upwards [hlt] with i hi
+  exact Nat.lt_sub_of_add_lt hi
+
+/-- pred of HFinite is HFinite. -/
+lemma HFinite.pred' {x : ℕ*} (hx : HFinite x) : HFinite (Hypernatural.pred x) := by
+  unfold Hypernatural.pred
+  exact hx.tsub hFinite_one
+
+/-- Standard part of pred. -/
+lemma st_pred {x : ℕ*} (hx : HFinite x) : st (pred x) = st x - 1 := by
+  simp only [pred, st_tsub hx hFinite_one, st_one]
+
+/-! ### Divisibility -/
+
+/-- Divisibility for hypernaturals: x ∣ y iff there exists z with y = x * z. -/
+lemma hdvd_def (x y : ℕ*) : x ∣ y ↔ ∃ z : ℕ*, y = x * z := Iff.rfl
+
+/-- Standard divisibility lifts to hypernaturals. -/
+lemma coe_dvd_coe_of_dvd {m n : ℕ} (h : m ∣ n) : (m : ℕ*) ∣ (n : ℕ*) := by
+  rcases h with ⟨k, hk⟩
+  use (k : ℕ*)
+  simp [hk]
+
+/-- Every hypernatural divides itself. -/
+@[simp] lemma dvd_refl (x : ℕ*) : x ∣ x := ⟨1, (mul_one x).symm⟩
+
+/-- 1 divides every hypernatural. -/
+@[simp] lemma one_dvd (x : ℕ*) : 1 ∣ x := ⟨x, (one_mul x).symm⟩
+
+/-- Every hypernatural divides 0. -/
+@[simp] lemma dvd_zero (x : ℕ*) : x ∣ 0 := ⟨0, (mul_zero x).symm⟩
+
+/-- 0 divides only 0. -/
+lemma zero_dvd {x : ℕ*} : 0 ∣ x ↔ x = 0 := by
+  constructor
+  · intro ⟨z, hz⟩
+    simp only [zero_mul] at hz
+    exact hz
+  · intro h
+    subst h
+    exact dvd_refl 0
 
 end Hypernatural
