@@ -154,14 +154,15 @@ lemma infinite_not_isSt {x : ℕ*} (hx : Infinite x) : ¬∃ r, IsSt x r := by
 /-- Standard-part respects addition when both summands are standard. -/
 lemma IsSt.add {x y : ℕ*} {r s : ℕ} (hx : IsSt x r) (hy : IsSt y s) : IsSt (x + y) (r + s) := by
   dsimp [IsSt] at hx hy ⊢
-  simpa [hx, hy]
+  simp [hx, hy]
 
 /-- Order is reflected to standard parts when both arguments are standard. -/
 lemma IsSt.le {x y : ℕ*} {r s : ℕ} (hx : IsSt x r) (hy : IsSt y s) (hxy : x ≤ y) : r ≤ s := by
   dsimp [IsSt] at hx hy
   subst hx; subst hy; simpa using hxy
 
-/-- If two hypernaturals have standard parts and those parts satisfy `r < s`, then the hypernaturals are ordered. -/
+/-- If two hypernaturals have standard parts and those parts satisfy `r < s`,
+then the hypernaturals are ordered. -/
 lemma IsSt.lt {x y : ℕ*} {r s : ℕ} (hx : IsSt x r) (hy : IsSt y s) (hrs : r < s) : x < y := by
   dsimp [IsSt] at hx hy
   subst hx; subst hy; simpa using hrs
@@ -245,7 +246,8 @@ lemma lt_of_st_lt {x y : ℕ*} (hx : ¬ Infinite x) (hy : ¬ Infinite y) (h : st
   (isSt_st_of_not_infinite (x := x) hx).lt (isSt_st_of_not_infinite (x := y) hy) h
 
 /-- Sums of finite hypernaturals are finite. -/
-theorem not_infinite_add {x y : ℕ*} (hx : ¬ Infinite x) (hy : ¬ Infinite y) : ¬ Infinite (x + y) := by
+theorem not_infinite_add {x y : ℕ*} (hx : ¬ Infinite x) (hy : ¬ Infinite y) :
+    ¬ Infinite (x + y) := by
   intro h
   rcases exists_st_of_not_infinite (x := x) hx with ⟨r, hr⟩
   rcases exists_st_of_not_infinite (x := y) hy with ⟨s, hs⟩
@@ -367,7 +369,7 @@ lemma st_add {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x + y) = st x 
   simp
 
 /-- HFinite is closed under min. -/
-lemma HFinite.min {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : HFinite (min x y) :=
+lemma HFinite.min {x y : ℕ*} (hx : HFinite x) (_hy : HFinite y) : HFinite (min x y) :=
   HFinite.of_le (min_le_left x y) hx
 
 /-- For HFinite x and y, if x < y then st x ≤ st y. -/
@@ -437,5 +439,169 @@ lemma hFinite_iff_exists_coe_ge {x : ℕ*} : HFinite x ↔ ∃ n : ℕ, x ≤ n 
   · intro ⟨n, hn⟩
     exact HFinite.of_le hn (hFinite_coe n)
 
+
+/-! ### Standard hypernaturals (Isabelle's Nats set) -/
+
+/-- The set of standard hypernaturals: those equal to some standard natural. -/
+def Standard : Set ℕ* := Set.range (ofNat)
+
+/-- Standard hypernaturals are exactly those with a standard part. -/
+lemma mem_standard_iff {x : ℕ*} : x ∈ Standard ↔ ∃ n : ℕ, x = n := by
+  constructor
+  · intro ⟨n, hn⟩; exact ⟨n, hn.symm⟩
+  · intro ⟨n, hn⟩; exact ⟨n, hn.symm⟩
+
+/-- A standard hypernatural is HFinite. -/
+lemma HFinite.of_mem_standard {x : ℕ*} (hx : x ∈ Standard) : HFinite x := by
+  rcases mem_standard_iff.mp hx with ⟨n, rfl⟩
+  exact hFinite_coe n
+
+/-- An infinite hypernatural is not standard. -/
+lemma Infinite.not_mem_standard {x : ℕ*} (hx : Infinite x) : x ∉ Standard := by
+  intro hmem
+  rcases mem_standard_iff.mp hmem with ⟨n, rfl⟩
+  exact (hFinite_coe n) hx
+
+/-- Not standard iff infinite (alternative characterization). -/
+lemma not_mem_standard_iff_infinite {x : ℕ*} : x ∉ Standard ↔ Infinite x := by
+  constructor
+  · intro hnot
+    by_contra hfin
+    rcases exists_st_of_not_infinite hfin with ⟨n, hn⟩
+    exact hnot ⟨n, hn.symm⟩
+  · exact Infinite.not_mem_standard
+
+/-- Standard hypernaturals are downward closed: if x is standard and y ≤ x, then y is standard. -/
+lemma Standard.downward_closed {x y : ℕ*} (hx : x ∈ Standard) (hle : y ≤ x) : y ∈ Standard := by
+  by_contra hy
+  rw [not_mem_standard_iff_infinite] at hy
+  rcases mem_standard_iff.mp hx with ⟨n, rfl⟩
+  have : (n : ℕ*) < y := hy n
+  exact (not_lt.mpr hle) this
+
+/-- Zero is standard. -/
+@[simp] lemma zero_mem_standard : (0 : ℕ*) ∈ Standard := ⟨0, rfl⟩
+
+/-- One is standard. -/
+@[simp] lemma one_mem_standard : (1 : ℕ*) ∈ Standard := ⟨1, rfl⟩
+
+/-- A coerced natural is standard. -/
+@[simp] lemma coe_mem_standard (n : ℕ) : (n : ℕ*) ∈ Standard := ⟨n, rfl⟩
+
+/-- Omega is not standard. -/
+lemma omega_not_mem_standard : ω ∉ Standard := Infinite.not_mem_standard infinite_omega
+
+/-! ### Closure properties for Infinite -/
+
+/-- Adding anything to an infinite hypernatural gives an infinite result. -/
+lemma Infinite.add_right {x : ℕ*} (hx : Infinite x) (y : ℕ*) : Infinite (x + y) := by
+  intro n
+  have h1 : (n : ℕ*) < x := hx n
+  have h2 : x ≤ x + y := by
+    rcases ofSeq_surjective x with ⟨f, rfl⟩
+    rcases ofSeq_surjective y with ⟨g, rfl⟩
+    apply (ofSeq_le_ofSeq (f := f) (g := fun i => f i + g i)).2
+    filter_upwards with i
+    exact Nat.le_add_right (f i) (g i)
+  exact lt_of_lt_of_le h1 h2
+
+/-- Adding an infinite hypernatural on the left gives an infinite result. -/
+lemma Infinite.add_left {y : ℕ*} (hy : Infinite y) (x : ℕ*) : Infinite (x + y) := by
+  rw [add_comm]
+  exact hy.add_right x
+
+/-- Adding omega on the right is infinite. -/
+@[simp] lemma infinite_add_omega (x : ℕ*) : Infinite (x + ω) := infinite_omega.add_left x
+
+/-- Adding omega on the left is infinite. -/
+@[simp] lemma infinite_omega_add (x : ℕ*) : Infinite (ω + x) := infinite_omega.add_right x
+
+/-- Multiplying a positive infinite by a positive hypernatural gives infinite. -/
+lemma Infinite.mul_pos {x y : ℕ*} (hx : Infinite x) (hy : 0 < y) : Infinite (x * y) := by
+  intro n
+  rcases ofSeq_surjective y with ⟨f, rfl⟩
+  rcases ofSeq_surjective x with ⟨g, rfl⟩
+  have hy' : ∀ᶠ i in hyperfilter ℕ, 0 < f i :=
+    (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).1 (by simpa [ofSeq_const] using hy)
+  have hx' : ∀ᶠ i in hyperfilter ℕ, n < g i :=
+    (ofSeq_lt_ofSeq (f := fun _ => n) (g := g)).1 (by simpa [ofSeq_const] using hx n)
+  apply (ofSeq_lt_ofSeq (f := fun _ => n) (g := fun i => g i * f i)).2
+  filter_upwards [hx', hy'] with i hni hfi
+  have hfi1 : 1 ≤ f i := Nat.one_le_iff_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hfi)
+  calc n = n * 1 := (Nat.mul_one n).symm
+       _ ≤ n * f i := Nat.mul_le_mul_left n hfi1
+       _ < g i * f i := Nat.mul_lt_mul_of_pos_right hni hfi
+
+/-- ω * ω is infinite. -/
+@[simp] lemma infinite_omega_mul_omega : Infinite (ω * ω) := infinite_omega.mul_pos omega_pos
+
+/-! ### More omega lemmas -/
+
+/-- Any standard natural is less than omega. -/
+@[simp] lemma coe_lt_omega (n : ℕ) : (n : ℕ*) < ω := infinite_omega n
+
+/-- Any standard natural is at most omega. -/
+@[simp] lemma coe_le_omega (n : ℕ) : (n : ℕ*) ≤ ω := le_of_lt (coe_lt_omega n)
+
+/-- Zero is less than omega. -/
+@[simp] lemma zero_lt_omega : (0 : ℕ*) < ω := omega_pos
+
+/-- One is less than omega. -/
+@[simp] lemma one_lt_omega : (1 : ℕ*) < ω := coe_lt_omega 1
+
+/-- One is at most omega. -/
+@[simp] lemma one_le_omega : (1 : ℕ*) ≤ ω := coe_le_omega 1
+
+/-- hSuc of omega is infinite. -/
+@[simp] lemma infinite_hSuc_omega : Infinite (hSuc ω) := by
+  rw [hSuc_eq_add_one]
+  exact infinite_omega.add_right 1
+
+/-- Omega is positive. -/
+lemma omega_pos' : ω > 0 := omega_pos
+
+/-- Standard naturals are less than any infinite hypernatural. -/
+lemma coe_lt_of_infinite {x : ℕ*} (hx : Infinite x) (n : ℕ) : (n : ℕ*) < x := hx n
+
+/-- Standard naturals are at most any infinite hypernatural. -/
+lemma coe_le_of_infinite {x : ℕ*} (hx : Infinite x) (n : ℕ) : (n : ℕ*) ≤ x :=
+  le_of_lt (coe_lt_of_infinite hx n)
+
+/-! ### HNatInfinite characterization (Isabelle style) -/
+
+/-- Characterization: x is infinite iff no standard natural equals it. -/
+lemma infinite_iff_ne_coe {x : ℕ*} : Infinite x ↔ ∀ n : ℕ, x ≠ n := by
+  constructor
+  · intro hx n heq
+    have : (n : ℕ*) < x := hx n
+    rw [heq] at this
+    exact lt_irrefl _ this
+  · intro hne
+    by_contra hfin
+    rcases exists_st_of_not_infinite hfin with ⟨n, hn⟩
+    exact hne n hn
+
+/-- Characterization: x is HFinite iff it equals some standard natural. -/
+lemma hFinite_iff_eq_coe {x : ℕ*} : HFinite x ↔ ∃ n : ℕ, x = n := by
+  simp [HFinite, infinite_iff_ne_coe, not_forall]
+
+/-- An infinite hypernatural can be written as y + 1 for some y. -/
+lemma Infinite.exists_pred {x : ℕ*} (hx : Infinite x) : ∃ y : ℕ*, x = y + 1 := by
+  have h0 : 0 < x := hx 0
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  have hf : ∀ᶠ i in hyperfilter ℕ, 0 < f i := (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).1
+    (by simpa [ofSeq_const] using h0)
+  use ofSeq (fun i => f i - 1)
+  apply (ofSeq_eq_ofSeq (f := f) (g := fun i => (f i - 1) + 1)).2
+  filter_upwards [hf] with i hi
+  exact (Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hi))).symm
+
+/-- Standard part of multiplication for HFinite numbers. -/
+lemma st_mul {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x * y) = st x * st y := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  conv_lhs => rw [hx', hy']
+  rw [← coe_mul]
+  exact st_coe _
 
 end Hypernatural
