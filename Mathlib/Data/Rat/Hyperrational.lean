@@ -238,10 +238,34 @@ theorem continuousAt_implies_nsContinuousAt {f : ℚ → ℚ} {a : ℚ}
   intro eps heps
   obtain ⟨delta, hdelta_pos, hdelta⟩ := hf eps heps
   have hx_close := hx delta hdelta_pos
-  -- The key insight: x - ofRat a is infinitesimal, so for any standard delta,
-  -- |x - a| < delta holds ultrafilter-almost-everywhere.
-  -- By epsilon-delta continuity, |f(x) - f(a)| < eps ultrafilter-almost-everywhere.
-  sorry
+  -- x - ofRat a is infinitesimal, so |x - a| < delta ultrafilter-almost-everywhere.
+  rcases ofSeq_surjective x with ⟨s, rfl⟩
+  -- Convert hyperrational bounds to sequence bounds
+  have hlo : ofRat (-delta) < ofSeq s - ofRat a := hx_close.1
+  have hhi : ofSeq s - ofRat a < ofRat delta := hx_close.2
+  rw [show ofSeq s - ofRat a = ofSeq (fun n => s n - a) from rfl] at hlo hhi
+  rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
+  -- Eventually |s_n - a| < delta
+  have h_abs_bound : ∀ᶠ n in hyperfilter ℕ, |s n - a| < delta := by
+    filter_upwards [hlo, hhi] with n hlo_n hhi_n
+    rw [abs_lt]
+    exact ⟨hlo_n, hhi_n⟩
+  -- By epsilon-delta continuity, eventually |f(s_n) - f(a)| < eps
+  have h_f_bound : ∀ᶠ n in hyperfilter ℕ, |f (s n) - f a| < eps := by
+    filter_upwards [h_abs_bound] with n hn
+    exact hdelta (s n) hn
+  -- Convert back to hyperrational inequalities
+  constructor
+  · rw [show star f (ofSeq s) - ofRat (f a) = ofSeq (fun n => f (s n) - f a) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [h_f_bound] with n hn
+    rw [abs_lt] at hn
+    linarith
+  · rw [show star f (ofSeq s) - ofRat (f a) = ofSeq (fun n => f (s n) - f a) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [h_f_bound] with n hn
+    rw [abs_lt] at hn
+    exact hn.2
 
 /-- Nonstandard continuity implies epsilon-delta continuity.
 
@@ -269,15 +293,70 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
     unfold InfClose Infinitesimal
     intro q hq
     -- Need to show |x - a| < q, i.e., eventually |s_n - a| < q
-    -- This follows because |s_n - a| < 1/(n+1) and 1/(n+1) → 0
-    sorry
+    -- Since |s_n - a| < 1/(n+1) and 1/(n+1) → 0, this holds for large n
+    -- Find N such that 1/(N+1) < q
+    have harch : ∃ N : ℕ, (N + 1 : ℚ)⁻¹ < q := by
+      obtain ⟨N, hN⟩ := exists_nat_gt q⁻¹
+      use N
+      have hN1_pos : (0 : ℚ) < N + 1 := by positivity
+      rw [inv_lt_comm₀ hN1_pos hq]
+      calc q⁻¹ < N := hN
+        _ < N + 1 := by linarith
+    obtain ⟨N, hN⟩ := harch
+    constructor
+    · rw [show (x : ℚ*) - ofRat a = ofSeq (fun n => s n - a) from rfl]
+      rw [ofRat, ofSeq_lt_ofSeq]
+      apply Nat.hyperfilter_le_atTop
+      apply eventually_atTop.mpr
+      use N
+      intro n hn
+      have hs_n := (hs n).1
+      rw [abs_lt] at hs_n
+      have hN1_pos : (0 : ℚ) < N + 1 := by positivity
+      have hn1_pos : (0 : ℚ) < n + 1 := by positivity
+      have hinv_mono : (n + 1 : ℚ)⁻¹ ≤ (N + 1 : ℚ)⁻¹ := by
+        apply inv_anti₀ hN1_pos
+        exact_mod_cast Nat.add_le_add_right hn 1
+      linarith
+    · rw [show (x : ℚ*) - ofRat a = ofSeq (fun n => s n - a) from rfl]
+      rw [ofRat, ofSeq_lt_ofSeq]
+      apply Nat.hyperfilter_le_atTop
+      apply eventually_atTop.mpr
+      use N
+      intro n hn
+      have hs_n := (hs n).1
+      rw [abs_lt] at hs_n
+      have hN1_pos : (0 : ℚ) < N + 1 := by positivity
+      have hn1_pos : (0 : ℚ) < n + 1 := by positivity
+      have hinv_mono : (n + 1 : ℚ)⁻¹ ≤ (N + 1 : ℚ)⁻¹ := by
+        apply inv_anti₀ hN1_pos
+        exact_mod_cast Nat.add_le_add_right hn 1
+      linarith
   -- By nonstandard continuity, f*(x) should be infinitely close to f(a)
   have hfx_close := hf x hx_close
   -- But by construction, |f(s_n) - f(a)| ≥ eps for all n, contradiction
   unfold InfClose Infinitesimal at hfx_close
   have h_half := hfx_close (eps / 2) (by linarith)
-  -- The contradiction: f*(x) - f(a) is both < eps/2 and ≥ eps ultrafilter-a.e.
-  sorry
+  -- The contradiction: f*(x) - f(a) is both in (-eps/2, eps/2) and has |·| ≥ eps
+  have hlo : ofRat (-(eps / 2)) < star f x - ofRat (f a) := h_half.1
+  have hhi : star f x - ofRat (f a) < ofRat (eps / 2) := h_half.2
+  rw [show star f x - ofRat (f a) = ofSeq (fun n => f (s n) - f a) from rfl] at hlo hhi
+  rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
+  -- But for ALL n, |f(s_n) - f(a)| ≥ eps, contradicting the bounds
+  have h_all_bad : ∀ n, eps ≤ |f (s n) - f a| := fun n => (hs n).2
+  -- Get the contradiction
+  have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+    filter_upwards [hlo, hhi] with n hlo_n hhi_n
+    have hge := h_all_bad n
+    -- |f(s n) - f a| ≥ eps means f(s n) - f a ≥ eps or f(s n) - f a ≤ -eps
+    -- But we have -(eps/2) < f(s n) - f a < eps/2
+    -- Since eps > 0, we have eps > eps/2 and -eps < -(eps/2)
+    have hbound : |f (s n) - f a| < eps / 2 := by
+      rw [abs_lt]
+      constructor <;> linarith
+    have : eps / 2 < eps := by linarith
+    linarith
+  exact (Filter.eventually_const.mp hfalse : False)
 
 /-- The main equivalence: epsilon-delta continuity iff nonstandard continuity. -/
 theorem continuousAt_iff_nsContinuousAt (f : ℚ → ℚ) (a : ℚ) :
