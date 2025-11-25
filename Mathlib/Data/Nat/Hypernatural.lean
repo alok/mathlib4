@@ -1147,4 +1147,94 @@ lemma pos_iff_ne_zero {x : ℕ*} : 0 < x ↔ x ≠ 0 := by
     | inl hz => exact absurd hz h
     | inr hp => exact hp
 
+/-! ### Induction principles -/
+
+/-- Induction for HFinite hypernaturals: standard induction works. -/
+theorem hFinite_induction {P : ℕ* → Prop}
+    (h0 : P 0)
+    (hsucc : ∀ n : ℕ, P n → P (n + 1))
+    {x : ℕ*} (hx : HFinite x) : P x := by
+  rcases exists_st_of_not_infinite hx with ⟨m, rfl⟩
+  induction m with
+  | zero => exact h0
+  | succ k ih => exact hsucc k (ih (hFinite_coe k))
+
+/-- Strong induction for HFinite hypernaturals. -/
+theorem hFinite_strong_induction {P : ℕ* → Prop}
+    (hind : ∀ n : ℕ, (∀ m : ℕ, m < n → P m) → P n)
+    {x : ℕ*} (hx : HFinite x) : P x := by
+  rcases exists_st_of_not_infinite hx with ⟨m, rfl⟩
+  let P' : ℕ → Prop := fun n => P n
+  have hind' : ∀ n : ℕ, (∀ m : ℕ, m < n → P' m) → P' n := hind
+  exact Nat.strong_induction_on m hind'
+
+/-- If a property holds for all standard naturals, it holds for all HFinite hypernaturals. -/
+theorem forall_standard_of_forall_nat {P : ℕ* → Prop}
+    (h : ∀ n : ℕ, P n)
+    {x : ℕ*} (hx : HFinite x) : P x := by
+  rcases exists_st_of_not_infinite hx with ⟨m, rfl⟩
+  exact h m
+
+/-! ### Internal sets and transfer -/
+
+/-- An internal subset of ℕ* is one that can be represented by a sequence of subsets of ℕ. -/
+def InternalSet (S : Set ℕ*) : Prop :=
+  ∃ A : ℕ → Set ℕ, S = {x | ∃ f, x = ofSeq f ∧ ∀ᶠ n in hyperfilter ℕ, f n ∈ A n}
+
+/-- The set of all hypernaturals is internal. -/
+lemma internal_univ : InternalSet (Set.univ : Set ℕ*) := by
+  use fun _ => Set.univ
+  ext x
+  simp only [Set.mem_univ, true_iff, Set.mem_setOf_eq]
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  use f
+  constructor
+  · rfl
+  · filter_upwards with n; exact Set.mem_univ (f n)
+
+/-- The empty set is internal. -/
+lemma internal_empty : InternalSet (∅ : Set ℕ*) := by
+  use fun _ => ∅
+  ext x
+  simp only [Set.mem_empty_iff_false, false_iff, Set.mem_setOf_eq, not_exists]
+  intro f ⟨_, hf⟩
+  have : ∀ᶠ n in hyperfilter ℕ, f n ∈ (∅ : Set ℕ) := hf
+  simp only [Set.mem_empty_iff_false, Filter.eventually_false_iff_eq_bot] at this
+  exact Filter.NeBot.ne (hyperfilter ℕ).neBot this
+
+/-- Singleton sets of standard naturals are internal. -/
+lemma internal_singleton (m : ℕ) : InternalSet ({(m : ℕ*)} : Set ℕ*) := by
+  use fun _ => {m}
+  ext x
+  constructor
+  · intro hx
+    simp only [Set.mem_singleton_iff] at hx
+    subst hx
+    use fun _ => m
+    constructor
+    · rfl
+    · filter_upwards with n; exact Set.mem_singleton m
+  · intro ⟨f, hfx, hf⟩
+    simp only [Set.mem_singleton_iff]
+    rw [hfx]
+    apply ofSeq_eq_ofSeq.mpr
+    simp only [Set.mem_singleton_iff] at hf
+    exact hf
+
+/-! ### Overflow and underspill principles -/
+
+/-- Simplified overflow: omega satisfies any property that holds for all standard naturals,
+    provided the property is suitably internal. -/
+theorem overflow_omega {P : ℕ → Prop} (hP : ∀ n : ℕ, P n) :
+    ∀ᶠ n in hyperfilter ℕ, P n := by
+  filter_upwards with n
+  exact hP n
+
+/-- For sequence-based properties: if P(f(n)) holds for all n, then P holds
+    for the hypernatural represented by f. -/
+theorem ofSeq_satisfies {P : ℕ → Prop} {f : ℕ → ℕ} (hP : ∀ n : ℕ, P (f n)) :
+    ∀ᶠ n in hyperfilter ℕ, P (f n) := by
+  filter_upwards with n
+  exact hP n
+
 end Hypernatural
