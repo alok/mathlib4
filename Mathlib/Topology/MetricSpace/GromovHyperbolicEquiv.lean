@@ -87,7 +87,7 @@ theorem gromovProdProperty_iff_GromovProductProperty {δ : ℝ} :
     exact h x z y w
 
 /-- The pasted version implies the original version. -/
-theorem pasted_implies_original {δ : ℝ} (hδ : δ ≥ 0)
+theorem pasted_implies_original {δ : ℝ}
     (h : Pasted.FourPoint (X := X) δ → Pasted.GromovProdProperty (X := X) δ) :
     FourPointCondition (X := X) δ → GromovProductProperty (X := X) δ := by
   intro h_four
@@ -96,7 +96,7 @@ theorem pasted_implies_original {δ : ℝ} (hδ : δ ≥ 0)
   rwa [← fourPoint_iff_FourPointCondition] at h_four
 
 /-- The original version implies the pasted version (for δ ≥ 0). -/
-theorem original_implies_pasted {δ : ℝ} (hδ : δ ≥ 0)
+theorem original_implies_pasted {δ : ℝ}
     (h : FourPointCondition (X := X) δ → GromovProductProperty (X := X) δ) :
     Pasted.FourPoint (X := X) δ → Pasted.GromovProdProperty (X := X) δ := by
   intro h_four

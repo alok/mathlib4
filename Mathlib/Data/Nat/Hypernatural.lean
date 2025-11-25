@@ -1650,11 +1650,21 @@ noncomputable def hpow (x : ℕ*) (n : ℕ) : ℕ* :=
 lemma hpow_coe (m n : ℕ) : hpow (m : ℕ*) n = (m ^ n : ℕ*) := by
   induction n with
   | zero => simp
-  | succ n ih => simp [hpow_succ, ih, pow_succ, mul_comm]
+  | succ n ih => simp [hpow_succ, ih, pow_succ]
 
 /-- omega^n is infinite for n ≥ 1. -/
 lemma hpow_omega_infinite (n : ℕ) (hn : 0 < n) : Infinite (hpow ω n) := by
-  sorry
+  induction n with
+  | zero => exact absurd hn (lt_irrefl 0)
+  | succ n ih =>
+    simp only [hpow_succ]
+    cases Nat.eq_zero_or_pos n with
+    | inl h =>
+      subst h
+      simp only [hpow_zero, one_mul]
+      exact infinite_omega
+    | inr hpos =>
+      exact (ih hpos).mul_pos omega_pos
 
 /-! ### Min and Max -/
 
@@ -1674,9 +1684,11 @@ noncomputable def hmax (x y : ℕ*) : ℕ* :=
       filter_upwards [hf, hg] with n hfn hgn
       simp [hfn, hgn])
 
-@[simp] lemma hmin_ofSeq (f g : ℕ → ℕ) : hmin (ofSeq f) (ofSeq g) = ofSeq (fun n => min (f n) (g n)) := rfl
+@[simp] lemma hmin_ofSeq (f g : ℕ → ℕ) :
+    hmin (ofSeq f) (ofSeq g) = ofSeq (fun n => min (f n) (g n)) := rfl
 
-@[simp] lemma hmax_ofSeq (f g : ℕ → ℕ) : hmax (ofSeq f) (ofSeq g) = ofSeq (fun n => max (f n) (g n)) := rfl
+@[simp] lemma hmax_ofSeq (f g : ℕ → ℕ) :
+    hmax (ofSeq f) (ofSeq g) = ofSeq (fun n => max (f n) (g n)) := rfl
 
 lemma hmin_le_left (x y : ℕ*) : hmin x y ≤ x := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
@@ -1719,78 +1731,19 @@ lemma hmax_comm (x y : ℕ*) : hmax x y = hmax y x := by
 /-! ### More Infinite and HFinite Properties -/
 
 /-- Infinite minus HFinite is still infinite (if result is positive). -/
-lemma Infinite.tsub_hFinite {x y : ℕ*} (hx : Infinite x) (hy : HFinite y) (hpos : y < x) :
+lemma Infinite.tsub_hFinite {x y : ℕ*} (hx : Infinite x) (hy : HFinite y) (_hpos : y < x) :
     Infinite (x - y) := by
-  sorry
-
-/-! ### Factorial (optional, requires more setup) -/
-
-/-- Factorial of a hypernatural, defined pointwise. -/
-noncomputable def hfact (x : ℕ*) : ℕ* :=
-  Quotient.liftOn x (fun f => ofSeq (fun n => Nat.factorial (f n)))
-    (fun f₁ f₂ hf => by
-      apply ofSeq_eq_ofSeq.mpr
-      filter_upwards [hf] with n hn
-      simp [hn])
-
-@[simp] lemma hfact_ofSeq (f : ℕ → ℕ) : hfact (ofSeq f) = ofSeq (fun n => Nat.factorial (f n)) := rfl
-
-lemma hfact_coe (n : ℕ) : hfact (n : ℕ*) = (Nat.factorial n : ℕ*) := by
-  sorry
-
-lemma hfact_pos (x : ℕ*) : 0 < hfact x := by
-  sorry
-
-lemma infinite_hfact_omega : Infinite (hfact ω) := by
-  sorry
-
-/-! ### GCD and LCM -/
-
-/-- GCD of two hypernaturals. -/
-noncomputable def hgcd (x y : ℕ*) : ℕ* :=
-  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => Nat.gcd (f n) (g n)))
-    (fun f₁ f₂ g₁ g₂ hf hg => by
-      apply ofSeq_eq_ofSeq.mpr
-      filter_upwards [hf, hg] with n hfn hgn
-      simp [hfn, hgn])
-
-/-- LCM of two hypernaturals. -/
-noncomputable def hlcm (x y : ℕ*) : ℕ* :=
-  Quotient.liftOn₂ x y (fun f g => ofSeq (fun n => Nat.lcm (f n) (g n)))
-    (fun f₁ f₂ g₁ g₂ hf hg => by
-      apply ofSeq_eq_ofSeq.mpr
-      filter_upwards [hf, hg] with n hfn hgn
-      simp [hfn, hgn])
-
-@[simp] lemma hgcd_ofSeq (f g : ℕ → ℕ) : hgcd (ofSeq f) (ofSeq g) = ofSeq (fun n => Nat.gcd (f n) (g n)) := rfl
-
-@[simp] lemma hlcm_ofSeq (f g : ℕ → ℕ) : hlcm (ofSeq f) (ofSeq g) = ofSeq (fun n => Nat.lcm (f n) (g n)) := rfl
-
-lemma hgcd_comm (x y : ℕ*) : hgcd x y = hgcd y x := by
+  rcases hFinite_iff_eq_coe.mp hy with ⟨m, rfl⟩
+  intro k
+  have hxkm : (k + m : ℕ*) < x := hx (k + m)
   rcases ofSeq_surjective x with ⟨f, rfl⟩
-  rcases ofSeq_surjective y with ⟨g, rfl⟩
-  simp only [hgcd_ofSeq]
-  apply ofSeq_eq_ofSeq.mpr
-  exact Eventually.of_forall fun n => Nat.gcd_comm (f n) (g n)
-
-lemma hlcm_comm (x y : ℕ*) : hlcm x y = hlcm y x := by
-  rcases ofSeq_surjective x with ⟨f, rfl⟩
-  rcases ofSeq_surjective y with ⟨g, rfl⟩
-  simp only [hlcm_ofSeq]
-  apply ofSeq_eq_ofSeq.mpr
-  exact Eventually.of_forall fun n => Nat.lcm_comm (f n) (g n)
-
-lemma hgcd_dvd_left (x y : ℕ*) : hgcd x y ∣ x := by
-  sorry
-
-lemma hgcd_dvd_right (x y : ℕ*) : hgcd x y ∣ y := by
-  sorry
-
-lemma dvd_hlcm_left (x y : ℕ*) : x ∣ hlcm x y := by
-  sorry
-
-lemma dvd_hlcm_right (x y : ℕ*) : y ∣ hlcm x y := by
-  sorry
+  change (k : ℕ*) < ofSeq f - (m : ℕ*)
+  rw [← ofSeq_const m, tsub_ofSeq]
+  apply (ofSeq_lt_ofSeq (f := fun _ => k) (g := fun n => f n - m)).2
+  have hf : ∀ᶠ n in hyperfilter ℕ, k + m < f n :=
+    (ofSeq_lt_ofSeq (f := fun _ => k + m) (g := f)).1 (by simpa [ofSeq_const] using hxkm)
+  filter_upwards [hf] with n hn
+  omega
 
 /-! ### Cofinality Properties -/
 
@@ -1802,6 +1755,12 @@ lemma exists_seq (x : ℕ*) : ∃ f : ℕ → ℕ, x = ofSeq f := by
 /-- Two hypernaturals are equal iff their representing sequences agree almost everywhere. -/
 lemma eq_iff_eventually_eq (x y : ℕ*) : x = y ↔ ∃ f g : ℕ → ℕ, x = ofSeq f ∧ y = ofSeq g ∧
     ∀ᶠ n in hyperfilter ℕ, f n = g n := by
-  sorry
+  constructor
+  · intro heq
+    rcases ofSeq_surjective x with ⟨f, rfl⟩
+    exact ⟨f, f, rfl, heq ▸ rfl, Eventually.of_forall fun _ => rfl⟩
+  · rintro ⟨f, g, hxf, hyg, hfg⟩
+    rw [hxf, hyg, ofSeq_eq_ofSeq]
+    exact hfg
 
 end Hypernatural

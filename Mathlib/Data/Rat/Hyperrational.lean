@@ -368,7 +368,14 @@ theorem continuousAt_iff_nsContinuousAt (f : ℚ → ℚ) (a : ℚ) :
 
 /-- Zero is infinitesimal. -/
 theorem infinitesimal_zero : Infinitesimal 0 := by
-  sorry
+  intro q hq
+  constructor
+  · have h : ofRat (-q) < ofRat 0 := by rw [ofRat_lt_ofRat]; linarith
+    simp only [ofRat] at h ⊢
+    convert h using 1
+  · have h : ofRat 0 < ofRat q := by rw [ofRat_lt_ofRat]; exact hq
+    simp only [ofRat] at h ⊢
+    convert h using 1
 
 /-- Negation preserves infinitesimals. -/
 theorem Infinitesimal.neg {x : ℚ*} (hx : Infinitesimal x) : Infinitesimal (-x) := by

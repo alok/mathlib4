@@ -141,3 +141,46 @@ theorem fourPoint_implies_gromovProduct {δ : ℝ} (hδ : δ ≥ 0) (h : FourPoi
       _ ≥ min ((dist x w + dist z w - dist x z) / 2) ((dist z w + dist y w - dist z y) / 2) - δ :=
           by linarith [min_le_left ((dist x w + dist z w - dist x z) / 2)
                                     ((dist z w + dist y w - dist z y) / 2)]
+
+
+noncomputable section
+
+
+variable {X : Type*} [PseudoMetricSpace X]
+
+
+/-- Gromov product with basepoint `z`. -/
+def gromovProd (x y z : X) : ℝ :=
+  (dist z x + dist z y - dist x y) / 2
+
+
+/-- Four-point condition with constant `δ`. -/
+def FourPoint (δ : ℝ) : Prop :=
+  ∀ x y z w : X,
+    dist x z + dist y w ≤
+      max (dist x y + dist z w) (dist x w + dist y z) + 2 * δ
+
+
+/-- Gromov-product formulation of δ-hyperbolicity. -/
+def GromovProdProperty (δ : ℝ) : Prop :=
+  ∀ x y z w : X,
+    gromovProd x z w ≥
+      min (gromovProd x y w) (gromovProd y z w) - δ
+
+
+theorem fourPoint_implies_gromovProd {δ : ℝ}
+    (hδ : FourPoint (X := X) δ) :
+    GromovProdProperty (X := X) δ := by
+  intro x y z w
+  -- Rewrite goal into a disjunction of linear inequalities
+  rw [ge_iff_le, sub_le_iff_le_add, min_le_iff]
+  -- Use the four-point condition and split the `max`
+  have h := hδ x y z w
+  rw [← sub_le_iff_le_add, le_max_iff] at h
+  -- Normalize distances and expand gromov products
+  simp [gromovProd, dist_comm] at h ⊢
+  -- Each branch is now a linear inequality in ℝ
+  rcases h with h | h
+  · left; linarith
+  · right; linarith
+
