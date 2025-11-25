@@ -1623,11 +1623,19 @@ lemma zero_dvd {x : ℕ*} : 0 ∣ x ↔ x = 0 := by
 
 /-- Multiplication by successor. -/
 lemma mul_succ (x y : ℕ*) : x * succ y = x * y + x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [succ_ofSeq, ofSeq_mul, ofSeq_add]
+  apply ofSeq_eq_ofSeq.mpr
+  exact Eventually.of_forall fun n => Nat.mul_succ (f n) (g n)
 
 /-- Successor times x. -/
 lemma succ_mul (x y : ℕ*) : succ x * y = x * y + y := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [succ_ofSeq, ofSeq_mul, ofSeq_add]
+  apply ofSeq_eq_ofSeq.mpr
+  exact Eventually.of_forall fun n => Nat.succ_mul (f n) (g n)
 
 /-- Power of hypernatural. -/
 noncomputable def hpow (x : ℕ*) (n : ℕ) : ℕ* :=
@@ -1640,7 +1648,9 @@ noncomputable def hpow (x : ℕ*) (n : ℕ) : ℕ* :=
 
 /-- Power preserves standard naturals. -/
 lemma hpow_coe (m n : ℕ) : hpow (m : ℕ*) n = (m ^ n : ℕ*) := by
-  sorry
+  induction n with
+  | zero => simp
+  | succ n ih => simp [hpow_succ, ih, pow_succ, mul_comm]
 
 /-- omega^n is infinite for n ≥ 1. -/
 lemma hpow_omega_infinite (n : ℕ) (hn : 0 < n) : Infinite (hpow ω n) := by
@@ -1669,22 +1679,42 @@ noncomputable def hmax (x y : ℕ*) : ℕ* :=
 @[simp] lemma hmax_ofSeq (f g : ℕ → ℕ) : hmax (ofSeq f) (ofSeq g) = ofSeq (fun n => max (f n) (g n)) := rfl
 
 lemma hmin_le_left (x y : ℕ*) : hmin x y ≤ x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rw [hmin_ofSeq, ofSeq_le_ofSeq]
+  exact Eventually.of_forall fun n => Nat.min_le_left (f n) (g n)
 
 lemma hmin_le_right (x y : ℕ*) : hmin x y ≤ y := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rw [hmin_ofSeq, ofSeq_le_ofSeq]
+  exact Eventually.of_forall fun n => Nat.min_le_right (f n) (g n)
 
 lemma le_hmax_left (x y : ℕ*) : x ≤ hmax x y := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rw [hmax_ofSeq, ofSeq_le_ofSeq]
+  exact Eventually.of_forall fun n => Nat.le_max_left (f n) (g n)
 
 lemma le_hmax_right (x y : ℕ*) : y ≤ hmax x y := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rw [hmax_ofSeq, ofSeq_le_ofSeq]
+  exact Eventually.of_forall fun n => Nat.le_max_right (f n) (g n)
 
 lemma hmin_comm (x y : ℕ*) : hmin x y = hmin y x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hmin_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  exact Eventually.of_forall fun n => Nat.min_comm (f n) (g n)
 
 lemma hmax_comm (x y : ℕ*) : hmax x y = hmax y x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hmax_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  exact Eventually.of_forall fun n => Nat.max_comm (f n) (g n)
 
 /-! ### More Infinite and HFinite Properties -/
 
@@ -1737,10 +1767,18 @@ noncomputable def hlcm (x y : ℕ*) : ℕ* :=
 @[simp] lemma hlcm_ofSeq (f g : ℕ → ℕ) : hlcm (ofSeq f) (ofSeq g) = ofSeq (fun n => Nat.lcm (f n) (g n)) := rfl
 
 lemma hgcd_comm (x y : ℕ*) : hgcd x y = hgcd y x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hgcd_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  exact Eventually.of_forall fun n => Nat.gcd_comm (f n) (g n)
 
 lemma hlcm_comm (x y : ℕ*) : hlcm x y = hlcm y x := by
-  sorry
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  simp only [hlcm_ofSeq]
+  apply ofSeq_eq_ofSeq.mpr
+  exact Eventually.of_forall fun n => Nat.lcm_comm (f n) (g n)
 
 lemma hgcd_dvd_left (x y : ℕ*) : hgcd x y ∣ x := by
   sorry
