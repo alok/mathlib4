@@ -604,4 +604,43 @@ lemma st_mul {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x * y) = st x 
   rw [← coe_mul]
   exact st_coe _
 
+/-! ### Standard set closure properties -/
+
+/-- Sum of standard hypernaturals is standard. -/
+lemma Standard.add {x y : ℕ*} (hx : x ∈ Standard) (hy : y ∈ Standard) : x + y ∈ Standard := by
+  rcases mem_standard_iff.mp hx with ⟨m, rfl⟩
+  rcases mem_standard_iff.mp hy with ⟨n, rfl⟩
+  exact ⟨m + n, rfl⟩
+
+/-- Product of standard hypernaturals is standard. -/
+lemma Standard.mul {x y : ℕ*} (hx : x ∈ Standard) (hy : y ∈ Standard) : x * y ∈ Standard := by
+  rcases mem_standard_iff.mp hx with ⟨m, rfl⟩
+  rcases mem_standard_iff.mp hy with ⟨n, rfl⟩
+  exact ⟨m * n, rfl⟩
+
+/-- Standard hypernaturals are exactly HFinite ones. -/
+lemma mem_standard_iff_hFinite {x : ℕ*} : x ∈ Standard ↔ HFinite x := by
+  rw [mem_standard_iff, hFinite_iff_eq_coe]
+
+/-! ### Powers of omega -/
+
+/-- Power of an infinite hypernatural by a positive natural is infinite. -/
+lemma Infinite.pow {x : ℕ*} (hx : Infinite x) {n : ℕ} (hn : 0 < n) : Infinite (x ^ n) := by
+  induction n with
+  | zero => omega
+  | succ n ih =>
+    by_cases hn' : n = 0
+    · simp only [hn', zero_add, pow_one]
+      exact hx
+    · rw [pow_succ]
+      have hxn : Infinite (x ^ n) := ih (Nat.pos_of_ne_zero hn')
+      exact hxn.mul_pos (hx 0)
+
+/-- ω^n is infinite for any positive n. -/
+@[simp] lemma infinite_omega_pow {n : ℕ} (hn : 0 < n) : Infinite (ω ^ n) :=
+  infinite_omega.pow hn
+
+/-- ω² is infinite. -/
+@[simp] lemma infinite_omega_sq : Infinite (ω ^ 2) := infinite_omega_pow (by norm_num)
+
 end Hypernatural
