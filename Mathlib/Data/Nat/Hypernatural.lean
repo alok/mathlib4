@@ -7,7 +7,7 @@ import Mathlib.Order.Filter.FilterProduct
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Finset.Basic
 
-set_option linter.style.longFile 1800
+set_option linter.style.longFile 1900
 
 /-!
 # Hypernatural numbers
@@ -1107,6 +1107,36 @@ lemma dvd_lcm_left (x y : ℕ*) : x ∣ lcm x y := by
 lemma dvd_lcm_right (x y : ℕ*) : y ∣ lcm x y := by
   rw [lcm_comm]
   exact dvd_lcm_left y x
+
+/-- GCD of HFinite hypernaturals is HFinite. -/
+lemma HFinite.gcd {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : HFinite (gcd x y) := by
+  rcases hFinite_iff_eq_coe.mp hx with ⟨m, rfl⟩
+  rcases hFinite_iff_eq_coe.mp hy with ⟨n, rfl⟩
+  rw [gcd_coe]
+  exact hFinite_coe (Nat.gcd m n)
+
+/-- LCM of HFinite hypernaturals is HFinite. -/
+lemma HFinite.lcm {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : HFinite (lcm x y) := by
+  rcases hFinite_iff_eq_coe.mp hx with ⟨m, rfl⟩
+  rcases hFinite_iff_eq_coe.mp hy with ⟨n, rfl⟩
+  rw [lcm_coe]
+  exact hFinite_coe (Nat.lcm m n)
+
+/-- Standard part of GCD for HFinite hypernaturals. -/
+lemma st_gcd {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) :
+    st (gcd x y) = Nat.gcd (st x) (st y) := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  conv_lhs => rw [hx', hy']
+  simp only [gcd_coe, st_coe]
+
+/-- Standard part of LCM for HFinite hypernaturals. -/
+lemma st_lcm {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) :
+    st (lcm x y) = Nat.lcm (st x) (st y) := by
+  have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
+  have hy' : y = (st y : ℕ*) := isSt_st_of_not_infinite hy
+  conv_lhs => rw [hx', hy']
+  simp only [lcm_coe, st_coe]
 
 /-! ### Decidability and trichotomy -/
 
