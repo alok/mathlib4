@@ -72,6 +72,9 @@ lemma ofRat_neg (q : ℚ) : ofRat (-q) = -ofRat q := rfl
 @[simp]
 lemma ofRat_add (a b : ℚ) : ofRat (a + b) = ofRat a + ofRat b := rfl
 
+@[simp]
+lemma ofRat_inv (q : ℚ) : ofRat (q⁻¹) = (ofRat q)⁻¹ := rfl
+
 /-- A sample infinitesimal hyperrational. -/
 noncomputable def epsilon : ℚ* := ofSeq fun n => (Nat.succ n : ℚ)⁻¹
 
@@ -457,7 +460,7 @@ theorem Infinitesimal.mul_hFinite {x y : ℚ*} (hx : Infinitesimal x) (hy : HFin
     filter_upwards [hf_bound, hg_bound] with n hf hg
     have h1 : |f n * g n| = |f n| * |g n| := abs_mul (f n) (g n)
     have h2 : |f n| * |g n| < eps / (2 * B) * B := by
-      apply mul_lt_mul_of_pos_of_nonneg hf hg (abs_nonneg _)
+      apply mul_lt_mul_of_nonneg_of_pos hf hg (abs_nonneg _) hB_pos
     have h3 : eps / (2 * B) * B = eps / 2 := by field_simp
     have h4 : |f n * g n| < eps / 2 := by rw [h1]; linarith
     have h5 : -eps < -(eps / 2) := by linarith
@@ -469,7 +472,7 @@ theorem Infinitesimal.mul_hFinite {x y : ℚ*} (hx : Infinitesimal x) (hy : HFin
     filter_upwards [hf_bound, hg_bound] with n hf hg
     have h1 : |f n * g n| = |f n| * |g n| := abs_mul (f n) (g n)
     have h2 : |f n| * |g n| < eps / (2 * B) * B := by
-      apply mul_lt_mul_of_pos_of_nonneg hf hg (abs_nonneg _)
+      apply mul_lt_mul_of_nonneg_of_pos hf hg (abs_nonneg _) hB_pos
     have h3 : eps / (2 * B) * B = eps / 2 := by field_simp
     calc f n * g n ≤ |f n * g n| := le_abs_self _
       _ = |f n| * |g n| := h1
@@ -483,10 +486,26 @@ theorem HFinite.mul_infinitesimal {x y : ℚ*} (hx : HFinite x) (hy : Infinitesi
   rw [mul_comm]
   exact hy.mul_hFinite hx
 
+/-- Infinitesimals are HFinite. -/
+theorem Infinitesimal.hFinite {x : ℚ*} (hx : Infinitesimal x) : HFinite x := by
+  intro hinf
+  rcases hinf with hpos | hneg
+  · -- InfinitePos x, so for all q, ofRat q < x
+    -- But x is infinitesimal, so x < ofRat 1
+    have h := (hx 1 one_pos).2
+    have hp := hpos 1
+    exact not_lt.mpr (le_of_lt h) hp
+  · -- InfiniteNeg x, so for all q, x < ofRat q
+    -- But x is infinitesimal, so ofRat (-1) < x
+    have h := (hx 1 one_pos).1
+    have hn := hneg (-1)
+    simp only [ofRat_neg] at h
+    exact not_lt.mpr (le_of_lt hn) h
+
 /-- Product of two infinitesimals is infinitesimal. -/
 theorem Infinitesimal.mul {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
     Infinitesimal (x * y) := by
-  exact hx.mul_hFinite hy.hFinite
+  exact hx.mul_hFinite (Infinitesimal.hFinite hy)
 
 /-! ## HFinite Algebra -/
 
@@ -570,13 +589,9 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
   let Bx := max (|qx_lo|) (|qx_hi|) + 1
   let By := max (|qy_lo|) (|qy_hi|) + 1
   let B := Bx * By
-  have hB_pos : (0 : ℚ) < B := by
-    simp only [B, Bx, By]
-    have h1 := le_max_left |qx_lo| |qx_hi|
-    have h2 := le_max_left |qy_lo| |qy_hi|
-    have hBx : 0 < Bx := by linarith [abs_nonneg qx_lo]
-    have hBy : 0 < By := by linarith [abs_nonneg qy_lo]
-    positivity
+  have hBx_pos : (0 : ℚ) < Bx := by linarith [le_max_left |qx_lo| |qx_hi|, abs_nonneg qx_lo]
+  have hBy_pos : (0 : ℚ) < By := by linarith [le_max_left |qy_lo| |qy_hi|, abs_nonneg qy_lo]
+  have hB_pos : (0 : ℚ) < B := by positivity
   -- Eventually |f(n)| ≤ Bx and |g(n)| ≤ By
   have hf_bound : ∀ᶠ n in hyperfilter ℕ, |f n| < Bx := by
     filter_upwards [hx_lo, hx_hi] with n hlo hhi
@@ -602,10 +617,7 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
   have hprod_bound : ∀ᶠ n in hyperfilter ℕ, |f n * g n| < B := by
     filter_upwards [hf_bound, hg_bound] with n hf hg
     calc |f n * g n| = |f n| * |g n| := abs_mul _ _
-      _ < Bx * By := by
-        apply mul_lt_mul hf (le_of_lt hg) (abs_nonneg _)
-        have := le_max_left |qx_lo| |qx_hi|
-        linarith [abs_nonneg qx_lo]
+      _ < Bx * By := mul_lt_mul_of_nonneg_of_pos hf (le_of_lt hg) (abs_nonneg _) hBy_pos
       _ = B := rfl
   rcases hinf with hpos | hneg
   · -- InfinitePos (x * y)
@@ -625,22 +637,6 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
       linarith
     exact (Filter.eventually_const.mp hfalse : False)
 
-/-- Infinitesimals are HFinite. -/
-theorem Infinitesimal.hFinite {x : ℚ*} (hx : Infinitesimal x) : HFinite x := by
-  intro hinf
-  rcases hinf with hpos | hneg
-  · -- InfinitePos x, so for all q, ofRat q < x
-    -- But x is infinitesimal, so x < ofRat 1
-    have h := (hx 1 one_pos).2
-    have hp := hpos 1
-    exact not_lt.mpr (le_of_lt h) hp
-  · -- InfiniteNeg x, so for all q, x < ofRat q
-    -- But x is infinitesimal, so ofRat (-1) < x
-    have h := (hx 1 one_pos).1
-    have hn := hneg (-1)
-    simp only [ofRat_neg] at h
-    exact not_lt.mpr (le_of_lt hn) h
-
 /-! ## Infinite Properties -/
 
 /-- Infinite positives are positive. -/
@@ -650,7 +646,77 @@ theorem InfinitePos.ne_zero {x : ℚ*} (hx : InfinitePos x) : x ≠ 0 :=
 /-- Inverse of nonzero infinitesimal is infinite. -/
 theorem Infinitesimal.inv_infinite {x : ℚ*} (hx : Infinitesimal x) (hne : x ≠ 0) :
     Infinite x⁻¹ := by
-  sorry
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: show x⁻¹ is InfiniteNeg
+    right
+    intro q
+    by_cases hq : 0 ≤ q
+    · -- q ≥ 0: x⁻¹ < 0 ≤ q (since x < 0 implies x⁻¹ < 0)
+      have hinv_neg : x⁻¹ < 0 := by rw [inv_lt_zero]; exact hx_neg
+      calc x⁻¹ < 0 := hinv_neg
+        _ ≤ ofRat q := by
+          rw [show (0 : ℚ*) = ofRat 0 from rfl, ofRat_le_ofRat]
+          exact hq
+    · -- q < 0: need x⁻¹ < ofRat q
+      -- Choose r > 0 small enough that -(r⁻¹) < q
+      push_neg at hq
+      have hq_neg_pos : 0 < -q := neg_pos.mpr hq
+      have : ∃ r : ℚ, 0 < r ∧ -(r⁻¹) < q := by
+        use (-q)⁻¹ / 2
+        refine ⟨by positivity, ?_⟩
+        have h1 : ((-q)⁻¹ / 2)⁻¹ = 2 * (-q) := by field_simp
+        linarith
+      obtain ⟨r, hr_pos, hr⟩ := this
+      have hx_r := (hx r hr_pos).1  -- ofRat (-r) < x
+      -- ofRat (-r) < x < 0, so x⁻¹ < (ofRat (-r))⁻¹ (by inv_lt_inv₀ for negatives)
+      have hr_neg : ofRat (-r) < 0 := by
+        rw [show (0 : ℚ*) = ofRat 0 from rfl, ofRat_lt_ofRat]
+        linarith
+      -- For negatives a < b < 0, we have a⁻¹ > b⁻¹, so b⁻¹ < a⁻¹
+      -- i.e., x⁻¹ < (ofRat (-r))⁻¹
+      have hinv : x⁻¹ < (ofRat (-r))⁻¹ := by
+        rw [inv_lt_inv_of_neg hx_neg hr_neg]
+        exact hx_r
+      -- (ofRat (-r))⁻¹ = ofRat ((-r)⁻¹) = ofRat (-(r⁻¹))
+      have heq : (ofRat (-r))⁻¹ = ofRat (-(r⁻¹)) := by
+        simp only [ofRat_neg, ofRat_inv, neg_inv]
+      calc x⁻¹ < (ofRat (-r))⁻¹ := hinv
+        _ = ofRat (-(r⁻¹)) := heq
+        _ < ofRat q := by rw [ofRat_lt_ofRat]; linarith
+  · -- x = 0: contradiction
+    exact absurd hx_zero hne
+  · -- x > 0: show x⁻¹ is InfinitePos
+    left
+    intro q
+    by_cases hq : q ≤ 0
+    · -- q ≤ 0: x⁻¹ > 0 ≥ q (since x > 0 implies x⁻¹ > 0)
+      have hinv_pos : 0 < x⁻¹ := inv_pos_of_pos hx_pos
+      have hq_le : ofRat q ≤ 0 := by
+        rw [show (0 : ℚ*) = ofRat 0 from rfl, ofRat_le_ofRat]
+        exact hq
+      exact lt_of_le_of_lt hq_le hinv_pos
+    · -- q > 0: need ofRat q < x⁻¹
+      -- Choose r > 0 small enough that q < r⁻¹
+      push_neg at hq
+      have : ∃ r : ℚ, 0 < r ∧ q < r⁻¹ := by
+        use (q + 1)⁻¹
+        refine ⟨by positivity, ?_⟩
+        have h1 : ((q + 1)⁻¹)⁻¹ = q + 1 := by field_simp
+        linarith
+      obtain ⟨r, hr_pos, hr⟩ := this
+      have hx_r := (hx r hr_pos).2  -- x < ofRat r
+      -- 0 < x < ofRat r, so (ofRat r)⁻¹ < x⁻¹ (by inv_lt_inv₀)
+      have hr_pos_rat : 0 < ofRat r := by
+        rw [show (0 : ℚ*) = ofRat 0 from rfl, ofRat_lt_ofRat]
+        exact hr_pos
+      have hinv : (ofRat r)⁻¹ < x⁻¹ := by
+        rw [inv_lt_inv₀ hr_pos_rat hx_pos]
+        exact hx_r
+      -- (ofRat r)⁻¹ = ofRat (r⁻¹)
+      have heq : (ofRat r)⁻¹ = ofRat (r⁻¹) := (ofRat_inv r).symm
+      calc ofRat q < ofRat (r⁻¹) := by rw [ofRat_lt_ofRat]; exact hr
+        _ = (ofRat r)⁻¹ := heq.symm
+        _ < x⁻¹ := hinv
 
 /-- Inverse of positive infinite is positive infinitesimal. -/
 theorem InfinitePos.inv_infinitesimal {x : ℚ*} (hx : InfinitePos x) :
@@ -663,19 +729,21 @@ theorem InfinitePos.inv_infinitesimal {x : ℚ*} (hx : InfinitePos x) :
   constructor
   · -- ofRat (-q) < x⁻¹
     -- Since x > 0, x⁻¹ > 0 > -q
-    have : (0 : ℚ*) < x⁻¹ := inv_pos_of_pos hx_pos
-    calc ofRat (-q) < 0 := by rw [ofRat_lt_ofRat]; linarith
-      _ < x⁻¹ := this
+    have hinv_pos : (0 : ℚ*) < x⁻¹ := inv_pos_of_pos hx_pos
+    have hq_neg : ofRat (-q) < 0 := by
+      rw [show (0 : ℚ*) = ofRat 0 from rfl, ofRat_lt_ofRat]; linarith
+    exact lt_trans hq_neg hinv_pos
   · -- x⁻¹ < ofRat q
     -- Since x > ofRat (q⁻¹) and both positive, x⁻¹ < ofRat q
     have hqinv : ofRat (q⁻¹) < x := hx (q⁻¹)
-    have hqinv_pos : (0 : ℚ*) < ofRat (q⁻¹) := by rw [ofRat_lt_ofRat]; positivity
-    -- x⁻¹ < (ofRat (q⁻¹))⁻¹ = ofRat q
-    have hinv : x⁻¹ < (ofRat (q⁻¹))⁻¹ := inv_lt_inv_of_lt hqinv_pos hqinv
-    simp only [ofRat] at hinv ⊢
-    convert hinv using 1
-    simp only [ofSeq_eq_ofSeq]
-    exact Eventually.of_forall fun _ => inv_inv q
+    have hqinv_pos : (0 : ℚ*) < ofRat (q⁻¹) := by
+      rw [show (0 : ℚ*) = ofRat 0 from rfl, ofRat_lt_ofRat]; positivity
+    -- x⁻¹ < (ofRat (q⁻¹))⁻¹ = ofRat q (using inv_lt_inv₀)
+    have hinv : x⁻¹ < (ofRat (q⁻¹))⁻¹ := by
+      rw [inv_lt_inv₀ hx_pos hqinv_pos]
+      exact hqinv
+    rw [← ofRat_inv, inv_inv] at hinv
+    exact hinv
 
 /-- omega * epsilon is infinitely close to 1.
     Note: ω * ε ≠ 1 exactly since n/(n+1) ≠ 1, but n/(n+1) → 1. -/
@@ -690,17 +758,8 @@ theorem omega_mul_epsilon_infClose : InfClose (ω * ε) 1 := by
   have heq : ω * ε - 1 = ofSeq (fun n => n * (Nat.succ n : ℚ)⁻¹ - 1) := rfl
   rw [heq]
   constructor
-  · -- ofRat (-q) < ofSeq (fun n => n/(n+1) - 1)
-    rw [ofRat, ofSeq_lt_ofSeq]
-    exact Eventually.of_forall fun n => by
-      -- n/(n+1) - 1 = -1/(n+1) > -q since 1/(n+1) < q for large n
-      have h1 : n * (Nat.succ n : ℚ)⁻¹ - 1 = -((Nat.succ n : ℚ)⁻¹) := by
-        field_simp
-        ring
-      rw [h1]
-      have h2 : 0 < (Nat.succ n : ℚ)⁻¹ := by positivity
-      linarith
-  · -- ofSeq (fun n => n/(n+1) - 1) < ofRat q
+  · -- ofRat (-q) < ofSeq (fun n => n/(n+1) - 1) = ofSeq (fun n => -1/(n+1))
+    -- Need: -q < -1/(n+1) for large n, i.e., 1/(n+1) < q for large n
     rw [ofRat, ofSeq_lt_ofSeq]
     apply Nat.hyperfilter_le_atTop
     apply eventually_atTop.mpr
@@ -708,7 +767,9 @@ theorem omega_mul_epsilon_infClose : InfClose (ω * ε) 1 := by
     use N
     intro n hn
     have h1 : n * (Nat.succ n : ℚ)⁻¹ - 1 = -((Nat.succ n : ℚ)⁻¹) := by
+      have hn1_ne : (Nat.succ n : ℚ) ≠ 0 := Nat.cast_ne_zero.mpr (Nat.succ_ne_zero n)
       field_simp
+      simp only [Nat.succ_eq_add_one, Nat.cast_add, Nat.cast_one]
       ring
     rw [h1]
     have hN1_pos : (0 : ℚ) < N + 1 := by positivity
@@ -721,7 +782,20 @@ theorem omega_mul_epsilon_infClose : InfClose (ω * ε) 1 := by
       rw [inv_lt_comm₀ hN1_pos hq]
       calc q⁻¹ < N := hN
         _ < N + 1 := by linarith
+    -- -q < -(n+1)⁻¹ iff (n+1)⁻¹ < q
     linarith
+  · -- ofSeq (fun n => n/(n+1) - 1) < ofRat q
+    -- Need: -(n+1)⁻¹ < q for all n (always true since -(n+1)⁻¹ < 0 < q)
+    rw [ofRat, ofSeq_lt_ofSeq]
+    exact Eventually.of_forall fun n => by
+      have h1 : n * (Nat.succ n : ℚ)⁻¹ - 1 = -((Nat.succ n : ℚ)⁻¹) := by
+        have hn1_ne : (Nat.succ n : ℚ) ≠ 0 := Nat.cast_ne_zero.mpr (Nat.succ_ne_zero n)
+        field_simp
+        simp only [Nat.succ_eq_add_one, Nat.cast_add, Nat.cast_one]
+        ring
+      rw [h1]
+      have h2 : 0 < (Nat.succ n : ℚ)⁻¹ := by positivity
+      linarith
 
 /-- epsilon is infinitesimal. -/
 theorem infinitesimal_epsilon : Infinitesimal ε := by
@@ -908,8 +982,9 @@ theorem seqConvergesTo_implies_nsSeqConvergesTo {s : ℕ → ℚ} {L : ℚ}
   -- Eventually f(n) ≥ N₀ because N is infinite
   have hf_large : ∀ᶠ n in hyperfilter ℕ, N₀ ≤ f n := by
     have := hN N₀
-    rw [Hypernatural.ofSeq_lt_ofSeq] at this
-    filter_upwards [this] with n hn
+    have hlt := (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => N₀) (g := f)).1
+      (by simpa [Hypernatural.ofSeq_const] using this)
+    filter_upwards [hlt] with n hn
     omega
   -- So eventually |s(f(n)) - L| < eps
   have h_bound : ∀ᶠ n in hyperfilter ℕ, |s (f n) - L| < eps := by
@@ -952,10 +1027,13 @@ theorem nsSeqConvergesTo_implies_seqConvergesTo {s : ℕ → ℚ} {L : ℚ}
   let N : Hypernatural := Hypernatural.ofSeq f
   have hN_infinite : Hypernatural.Infinite N := by
     intro k
-    rw [Hypernatural.ofSeq_lt_ofSeq]
-    exact Eventually.of_forall fun n => by
-      have := (hf n).1
-      omega
+    apply (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => k) (g := f)).2
+    apply Nat.hyperfilter_le_atTop
+    apply eventually_atTop.mpr
+    use k + 1
+    intro n hn
+    have := (hf n).1
+    omega
   -- By nonstandard convergence, starSeq s N ≈ ofRat L
   have hclose := h N hN_infinite
   -- But |s(f(k)) - L| ≥ eps for all k, contradiction
@@ -997,13 +1075,15 @@ theorem isCauchy_implies_nsIsCauchy {s : ℕ → ℚ} (h : IsCauchy s) : NSIsCau
   rcases Hypernatural.ofSeq_surjective N with ⟨g, rfl⟩
   have hf_large : ∀ᶠ n in hyperfilter ℕ, K ≤ f n := by
     have := hM K
-    rw [Hypernatural.ofSeq_lt_ofSeq] at this
-    filter_upwards [this] with n hn
+    have hlt := (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => K) (g := f)).1
+      (by simpa [Hypernatural.ofSeq_const] using this)
+    filter_upwards [hlt] with n hn
     omega
   have hg_large : ∀ᶠ n in hyperfilter ℕ, K ≤ g n := by
     have := hN K
-    rw [Hypernatural.ofSeq_lt_ofSeq] at this
-    filter_upwards [this] with n hn
+    have hlt := (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => K) (g := g)).1
+      (by simpa [Hypernatural.ofSeq_const] using this)
+    filter_upwards [hlt] with n hn
     omega
   -- So eventually |s(f(n)) - s(g(n))| < eps
   have h_bound : ∀ᶠ n in hyperfilter ℕ, |s (f n) - s (g n)| < eps := by
@@ -1046,16 +1126,22 @@ theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCau
   let N : Hypernatural := Hypernatural.ofSeq g
   have hM_infinite : Hypernatural.Infinite M := by
     intro k
-    rw [Hypernatural.ofSeq_lt_ofSeq]
-    exact Eventually.of_forall fun n => by
-      have := (hfg n).1
-      omega
+    apply (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => k) (g := f)).2
+    apply Nat.hyperfilter_le_atTop
+    apply eventually_atTop.mpr
+    use k + 1
+    intro n hn
+    have := (hfg n).1
+    omega
   have hN_infinite : Hypernatural.Infinite N := by
     intro k
-    rw [Hypernatural.ofSeq_lt_ofSeq]
-    exact Eventually.of_forall fun n => by
-      have := (hfg n).2.1
-      omega
+    apply (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => k) (g := g)).2
+    apply Nat.hyperfilter_le_atTop
+    apply eventually_atTop.mpr
+    use k + 1
+    intro n hn
+    have := (hfg n).2.1
+    omega
   -- By nonstandard Cauchy, starSeq s M ≈ starSeq s N
   have hclose := h M N hM_infinite hN_infinite
   -- But |s(f(k)) - s(g(k))| ≥ eps for all k, contradiction
