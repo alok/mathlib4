@@ -18,7 +18,6 @@ the (non‑principal) `hyperfilter ℕ`, mirroring the construction of `ℝ*` in
 parallel to the hyperreal API where that makes sense for `ℕ`.
 -/
 
-open Classical
 open Filter Germ Topology
 
 /-- Hypernatural numbers on the ultrafilter extending the cofinite filter. -/
@@ -27,7 +26,6 @@ noncomputable def Hypernatural : Type :=
 
 namespace Hypernatural
 
-/-- Notation for hypernaturals. -/
 @[inherit_doc] notation "ℕ*" => Hypernatural
 
 noncomputable instance : Semiring ℕ* :=
@@ -131,16 +129,16 @@ lemma isSt_ofSeq_iff_eventually_eq {f : ℕ → ℕ} {r : ℕ} :
 lemma IsSt.unique {x : ℕ*} {r s : ℕ} (hr : IsSt x r) (hs : IsSt x s) : r = s := by
   simpa [IsSt] using (hr.symm.trans hs)
 
+open Classical in
 /-- Standard-part map: returns the `r : ℕ` witnessing `IsSt x r`, if any,
 and `0` otherwise. -/
-noncomputable def st (x : ℕ*) : ℕ := if h : ∃ r, IsSt x r then Classical.choose h else 0
+noncomputable def st (x : ℕ*) : ℕ := if h : ∃ r, IsSt x r then choose h else 0
 
 lemma IsSt.st_eq {x : ℕ*} {r : ℕ} (hx : IsSt x r) : st x = r := by
-  classical
   have h : ∃ r, IsSt x r := ⟨r, hx⟩
   have hchoose : IsSt x (Classical.choose h) := Classical.choose_spec h
   have hEq : Classical.choose h = r := (hx.unique hchoose).symm
-  simp [st, h, hEq]
+  simp only [st, dif_pos h, hEq]
 
 @[simp] lemma st_coe (r : ℕ) : st (r : ℕ*) = r := (IsSt.st_eq (x := (r : ℕ*)) (r := r) rfl)
 
@@ -217,10 +215,8 @@ lemma infinite_iff_not_exists_st {x : ℕ*} : Infinite x ↔ ¬∃ r : ℕ, IsSt
   constructor
   · intro hx; exact infinite_not_isSt hx
   · intro hnot
-    have : ¬¬ Infinite x := by
-      intro hfin
-      exact hnot (h.mpr hfin)
-    exact Classical.not_not.mp this
+    by_contra hfin
+    exact hnot (h.mpr hfin)
 
 lemma IsSt.isSt_st {x : ℕ*} {r : ℕ} (hx : IsSt x r) : IsSt x (st x) := by
   simpa [hx.st_eq] using hx
