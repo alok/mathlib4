@@ -1085,6 +1085,29 @@ lemma gcd_dvd_right (x y : ℕ*) : gcd x y ∣ y := by
 @[simp] lemma lcm_zero_left (x : ℕ*) : lcm 0 x = 0 := by
   rw [lcm_comm, lcm_zero_right]
 
+/-- LCM self is self. -/
+@[simp] lemma lcm_self (x : ℕ*) : lcm x x = x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  exact Nat.lcm_self (f n)
+
+/-- Left argument divides LCM. -/
+lemma dvd_lcm_left (x y : ℕ*) : x ∣ lcm x y := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  use ofSeq (fun n => Nat.lcm (f n) (g n) / f n)
+  apply ofSeq_eq_ofSeq.mpr
+  filter_upwards with n
+  have h : f n ∣ Nat.lcm (f n) (g n) := Nat.dvd_lcm_left (f n) (g n)
+  rw [mul_comm]
+  exact (Nat.div_mul_cancel h).symm
+
+/-- Right argument divides LCM. -/
+lemma dvd_lcm_right (x y : ℕ*) : y ∣ lcm x y := by
+  rw [lcm_comm]
+  exact dvd_lcm_left y x
+
 /-! ### Decidability and trichotomy -/
 
 /-- Trichotomy for hypernaturals: every hypernatural is either finite or infinite. -/
