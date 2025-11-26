@@ -6,8 +6,9 @@ Authors: Alok Singh
 import Mathlib.Order.Filter.FilterProduct
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Nat.Prime.Defs
 
-set_option linter.style.longFile 1900
+set_option linter.style.longFile 2100
 
 /-!
 # Hypernatural numbers
@@ -1811,5 +1812,159 @@ lemma eq_iff_eventually_eq (x y : ℕ*) : x = y ↔ ∃ f g : ℕ → ℕ, x = o
   · rintro ⟨f, g, hxf, hyg, hfg⟩
     rw [hxf, hyg, ofSeq_eq_ofSeq]
     exact hfg
+
+/-! ### Transfer Principle Lemmas
+
+These lemmas enable automatic transfer of first-order statements between ℕ and ℕ*.
+The key insight is that for ultrafilters, `∀ᶠ x, P x ∨ Q x ↔ (∀ᶠ x, P x) ∨ (∀ᶠ x, Q x)`
+and `∀ᶠ x, ¬P x ↔ ¬(∀ᶠ x, P x)`, which allows transfer of logical connectives.
+-/
+
+section Transfer
+
+open Germ Ultrafilter
+
+/-- Lift a predicate on ℕ to ℕ* via the hyperfilter. -/
+def liftPred (P : ℕ → Prop) (x : ℕ*) : Prop :=
+  Germ.LiftPred P x
+
+/-- Lift a binary relation on ℕ to ℕ* via the hyperfilter. -/
+def liftRel (R : ℕ → ℕ → Prop) (x y : ℕ*) : Prop :=
+  Germ.LiftRel R x y
+
+@[simp]
+theorem liftPred_ofSeq {P : ℕ → Prop} {f : ℕ → ℕ} :
+    liftPred P (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, P (f n) :=
+  Germ.liftPred_coe
+
+@[simp]
+theorem liftPred_coe {P : ℕ → Prop} {n : ℕ} :
+    liftPred P (n : ℕ*) ↔ P n :=
+  Germ.liftPred_const_iff
+
+@[simp]
+theorem liftRel_ofSeq {R : ℕ → ℕ → Prop} {f g : ℕ → ℕ} :
+    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ℕ, R (f n) (g n) :=
+  Germ.liftRel_coe
+
+@[simp]
+theorem liftRel_coe {R : ℕ → ℕ → Prop} {a b : ℕ} :
+    liftRel R (a : ℕ*) (b : ℕ*) ↔ R a b :=
+  Germ.liftRel_const_iff
+
+/-- Conjunction transfers: liftPred (P ∧ Q) ↔ liftPred P ∧ liftPred Q -/
+theorem liftPred_and {P Q : ℕ → Prop} {x : ℕ*} :
+    liftPred (fun n => P n ∧ Q n) x ↔ liftPred P x ∧ liftPred Q x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq, eventually_and]
+
+/-- Disjunction transfers for ultrafilters: liftPred (P ∨ Q) ↔ liftPred P ∨ liftPred Q -/
+theorem liftPred_or {P Q : ℕ → Prop} {x : ℕ*} :
+    liftPred (fun n => P n ∨ Q n) x ↔ liftPred P x ∨ liftPred Q x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_or
+
+/-- Negation transfers for ultrafilters: liftPred (¬P) ↔ ¬liftPred P -/
+theorem liftPred_not {P : ℕ → Prop} {x : ℕ*} :
+    liftPred (fun n => ¬P n) x ↔ ¬liftPred P x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_not
+
+/-- Implication transfers for ultrafilters. -/
+theorem liftPred_imp {P Q : ℕ → Prop} {x : ℕ*} :
+    liftPred (fun n => P n → Q n) x ↔ (liftPred P x → liftPred Q x) := by
+  simp only [imp_iff_not_or, liftPred_or, liftPred_not]
+
+/-- Transfer theorem: A predicate holds for all standard naturals iff
+    its lift holds for all hypernaturals. -/
+theorem forall_iff_forall_liftPred {P : ℕ → Prop} :
+    (∀ n : ℕ, P n) ↔ (∀ x : ℕ*, liftPred P x) := by
+  constructor
+  · intro hP x
+    rcases ofSeq_surjective x with ⟨f, rfl⟩
+    simp only [liftPred_ofSeq]
+    exact Eventually.of_forall (fun n => hP (f n))
+  · intro hP n
+    have := hP (n : ℕ*)
+    simp only [liftPred_coe] at this
+    exact this
+
+/-- Transfer theorem for existence: ∃ n, P n iff ∃ standard x, liftPred P x.
+    Note: This is weaker - existence in ℕ* doesn't imply existence in ℕ. -/
+theorem exists_implies_exists_liftPred {P : ℕ → Prop} :
+    (∃ n : ℕ, P n) → (∃ x : ℕ*, liftPred P x) := by
+  intro ⟨n, hn⟩
+  exact ⟨n, liftPred_coe.mpr hn⟩
+
+/-- For ultrafilters, ¬(∀ᶠ ¬P) implies ∃ x with liftPred P. -/
+theorem exists_liftPred_of_not_forall_not {P : ℕ → Prop}
+    (h : ¬∀ᶠ n in hyperfilter ℕ, ¬P n) : ∃ x : ℕ*, liftPred P x := by
+  -- If ¬(∀ᶠ ¬P), then by ultrafilter property, ∀ᶠ P
+  have : ∀ᶠ n in hyperfilter ℕ, P n := by
+    rw [← Ultrafilter.eventually_not] at h
+    push_neg at h
+    exact h
+  -- Take the germ of the identity function
+  exact ⟨ofSeq id, liftPred_ofSeq.mpr (this.mono fun n hn => hn)⟩
+
+/-- HyperPrime predicate: a hypernatural is hyperprime if its components are almost all prime. -/
+def HyperPrime (x : ℕ*) : Prop := liftPred Nat.Prime x
+
+theorem hyperPrime_ofSeq {f : ℕ → ℕ} :
+    HyperPrime (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, Nat.Prime (f n) :=
+  liftPred_ofSeq
+
+theorem hyperPrime_coe {n : ℕ} : HyperPrime (n : ℕ*) ↔ Nat.Prime n :=
+  liftPred_coe
+
+/-- Example: If every natural has a larger prime, then every hypernatural has a larger hyperprime.
+    This demonstrates the transfer principle for ∀∃ statements. -/
+theorem infinitely_many_primes_transfer
+    (h : ∀ n : ℕ, ∃ p : ℕ, Nat.Prime p ∧ p > n) :
+    ∀ x : ℕ*, ∃ p : ℕ*, HyperPrime p ∧ p > x := by
+  intro x
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  -- For each n, get a prime p_n > f n
+  choose g hprime hgt using fun n => h (f n)
+  -- The germ of g is our hyperprime
+  use ofSeq g
+  constructor
+  · exact hyperPrime_ofSeq.mpr (Eventually.of_forall hprime)
+  · exact ofSeq_lt_ofSeq.mpr (Eventually.of_forall hgt)
+
+/-- Nested quantifier transfer (one direction): ∀ in predicate lifts to ∀ outside.
+    Note: The reverse direction does not hold in general due to countable intersection issues. -/
+theorem liftPred_forall_mp {P : ℕ → ℕ → Prop} {x : ℕ*} :
+    liftPred (fun n => ∀ m, P n m) x → ∀ m, liftPred (fun n => P n m) x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq]
+  intro h m
+  exact h.mono fun n hn => hn m
+
+/-- For a finite set of predicates, we can pull ∀ outside the liftPred. -/
+theorem liftPred_forall_finset {P : ℕ → ℕ → Prop} {x : ℕ*} {s : Finset ℕ} :
+    liftPred (fun n => ∀ m ∈ s, P n m) x ↔ ∀ m ∈ s, liftPred (fun n => P n m) x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq]
+  constructor
+  · intro h m _hm
+    exact h.mono fun n hn => hn m (by assumption)
+  · -- Prove by Finset induction that finite ∀ eventually = eventually finite ∀
+    intro h
+    have aux : ∀ (t : Finset ℕ), (∀ m ∈ t, ∀ᶠ n in hyperfilter ℕ, P (f n) m) →
+        ∀ᶠ n in hyperfilter ℕ, ∀ m ∈ t, P (f n) m := fun t =>
+      Finset.induction_on t
+        (fun _ => Eventually.of_forall fun _ _ hm => (Finset.notMem_empty _ hm).elim)
+        (fun a t' _ha IH h' =>
+          have h1 : ∀ᶠ n in hyperfilter ℕ, P (f n) a := h' a (Finset.mem_insert_self _ _)
+          have h2 : ∀ᶠ n in hyperfilter ℕ, ∀ m ∈ t', P (f n) m :=
+            IH (fun m hm => h' m (Finset.mem_insert_of_mem hm))
+          h1.and h2 |>.mono fun n ⟨hn1, hn2⟩ m hm =>
+            (Finset.mem_insert.mp hm).elim (fun h => h ▸ hn1) (hn2 m))
+    exact aux s h
+
+end Transfer
 
 end Hypernatural
