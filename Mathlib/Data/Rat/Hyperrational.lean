@@ -104,11 +104,14 @@ def InfClose (x y : ℚ*) : Prop := Infinitesimal (x - y)
 
 @[inherit_doc] scoped infixl:50 " ≈ " => InfClose
 
-/-- Monad of a hyperrational. -/
+/-- Monad of a hyperrational: the set of all points infinitely close to x. -/
 def monad (x : ℚ*) : Set ℚ* := {y | x ≈ y}
 
-/-- Galaxy of a hyperrational. -/
+/-- Galaxy of a hyperrational: the set of all points at finite distance from x. -/
 def galaxy (x : ℚ*) : Set ℚ* := {y | HFinite (x - y)}
+
+@[inherit_doc monad] scoped prefix:max "μ " => monad
+@[inherit_doc galaxy] scoped prefix:max "𝓖 " => galaxy
 
 theorem omega_pos : 0 < ω := by
   rw [show (0 : ℚ*) = ofSeq (fun _ => (0 : ℚ)) from rfl, omega, ofSeq_lt_ofSeq]
@@ -947,6 +950,9 @@ lemma starSeq_ofNat (s : ℕ → ℚ) (n : ℕ) : starSeq s (Hypernatural.ofNat 
 lemma starSeq_ofSeq (s : ℕ → ℚ) (f : ℕ → ℕ) :
     starSeq s (Hypernatural.ofSeq f) = ofSeq (s ∘ f) := rfl
 
+/-- Notation for star extension: `s⋆` means `starSeq s`. -/
+@[inherit_doc starSeq] scoped postfix:max "⋆" => starSeq
+
 /-! ### Nonstandard Characterization of Convergence -/
 
 /-- Standard epsilon-delta definition of sequence convergence. -/
@@ -1184,5 +1190,160 @@ def NSSeriesConverges (s : ℕ → ℚ) : Prop := ∃ L, NSSeqConvergesTo (parti
 theorem seriesConverges_iff_nsSeriesConverges (s : ℕ → ℚ) :
     SeriesConverges s ↔ NSSeriesConverges s := by
   simp only [SeriesConverges, NSSeriesConverges, seqConvergesTo_iff_nsSeqConvergesTo]
+
+/-! ### Nonstandard Topology
+
+In nonstandard analysis, topological concepts have elegant characterizations using
+infinitesimals and monads. A set is open iff it contains the monad of each of its
+standard points; a set is closed iff it contains all standard points whose monad
+intersects the set.
+-/
+
+/-- Star extension of a set `S ⊆ ℚ` to `S* ⊆ ℚ*`.
+    Contains all hyperrationals that are "eventually in S". -/
+def starSet (S : Set ℚ) : Set ℚ* :=
+  {x | ∃ f : ℕ → ℚ, x = ofSeq f ∧ ∀ᶠ n in hyperfilter ℕ, f n ∈ S}
+
+@[inherit_doc starSet] scoped postfix:max "⁺" => starSet
+
+/-- Standard part of a set: standard rationals whose monad intersects S. -/
+def stdPart (S : Set ℚ*) : Set ℚ :=
+  {r : ℚ | ∃ x ∈ S, HFinite x ∧ InfClose x (ofRat r)}
+
+/-- A standard point is one that equals `ofRat r` for some `r : ℚ`. -/
+def IsStandard (x : ℚ*) : Prop := ∃ r : ℚ, x = ofRat r
+
+@[simp] lemma isStandard_ofRat (r : ℚ) : IsStandard (ofRat r) := ⟨r, rfl⟩
+
+/-- Nonstandard characterization of open sets:
+    A set is open iff every standard point in S has its monad contained in S*. -/
+def NSOpen (S : Set ℚ) : Prop :=
+  ∀ r : ℚ, r ∈ S → μ (ofRat r) ⊆ S⁺
+
+/-- Nonstandard characterization of closed sets:
+    A set is closed iff whenever a standard point's monad intersects S*, that point is in S. -/
+def NSClosed (S : Set ℚ) : Prop :=
+  ∀ r : ℚ, (μ (ofRat r) ∩ S⁺).Nonempty → r ∈ S
+
+/-- Nonstandard interior: points whose monad is contained in the star extension. -/
+def nsInterior (S : Set ℚ) : Set ℚ :=
+  {r : ℚ | μ (ofRat r) ⊆ S⁺}
+
+/-- Nonstandard closure: standard parts of points in the star extension. -/
+def nsClosure (S : Set ℚ) : Set ℚ :=
+  {r : ℚ | (μ (ofRat r) ∩ S⁺).Nonempty}
+
+/-- A set is open iff it equals its nonstandard interior. -/
+theorem nsOpen_iff_eq_nsInterior (S : Set ℚ) : NSOpen S ↔ S ⊆ nsInterior S := by
+  simp only [NSOpen, nsInterior, Set.subset_def, Set.mem_setOf_eq]
+
+/-- A set is closed iff it equals its nonstandard closure. -/
+theorem nsClosed_iff_nsClosure_subset (S : Set ℚ) : NSClosed S ↔ nsClosure S ⊆ S := by
+  simp only [NSClosed, nsClosure, Set.subset_def, Set.mem_setOf_eq]
+
+/-! ### Nonstandard Limits and Continuity -/
+
+/-- Nonstandard characterization of limit: `lim_{x→a} f(x) = L` iff
+    for all `x ≈ a` (with `x ≠ a`), we have `f*(x) ≈ L`. -/
+def NSLimit (f : ℚ → ℚ) (a L : ℚ) : Prop :=
+  ∀ x : ℚ*, InfClose x (ofRat a) → x ≠ ofRat a → InfClose (star f x) (ofRat L)
+
+/-- Nonstandard characterization of uniform continuity:
+    `f` is uniformly continuous iff `x ≈ y` implies `f*(x) ≈ f*(y)` for all x, y. -/
+def NSUniformlyContinuous (f : ℚ → ℚ) : Prop :=
+  ∀ x y : ℚ*, InfClose x y → InfClose (star f x) (star f y)
+
+/-- Standard ε-δ definition of limit. -/
+def LimitAt (f : ℚ → ℚ) (a L : ℚ) : Prop :=
+  ∀ eps > 0, ∃ delta > 0, ∀ x, 0 < |x - a| → |x - a| < delta → |f x - L| < eps
+
+/-- Standard ε-δ definition of uniform continuity. -/
+def UniformlyContinuous (f : ℚ → ℚ) : Prop :=
+  ∀ eps > 0, ∃ delta > 0, ∀ x y, |x - y| < delta → |f x - f y| < eps
+
+/-- Uniform continuity implies pointwise continuity. -/
+theorem NSUniformlyContinuous.nsContinuousAt {f : ℚ → ℚ} (hf : NSUniformlyContinuous f) (a : ℚ) :
+    NSContinuousAt f a := by
+  intro x hx
+  have h := hf x (ofRat a) hx
+  simp only [star_ofRat] at h
+  exact h
+
+/-! ### Bounded and Compact Sets -/
+
+/-- Nonstandard characterization of bounded sets:
+    A set is bounded iff its star extension contains only HFinite elements. -/
+def NSBounded (S : Set ℚ) : Prop :=
+  ∀ x ∈ S⁺, HFinite x
+
+/-- Standard definition of bounded set. -/
+def Bounded (S : Set ℚ) : Prop :=
+  ∃ M : ℚ, ∀ x ∈ S, |x| ≤ M
+
+/-- A sequence is bounded iff it has HFinite star extension at infinite indices. -/
+def SeqBounded (s : ℕ → ℚ) : Prop :=
+  ∃ M : ℚ, ∀ n, |s n| ≤ M
+
+/-- Nonstandard characterization of bounded sequences. -/
+def NSSeqBounded (s : ℕ → ℚ) : Prop :=
+  ∀ N : Hypernatural, Hypernatural.Infinite N → HFinite (s⋆ N)
+
+/-! ### Accumulation Points and Cluster Points -/
+
+/-- Nonstandard characterization of accumulation point:
+    `a` is an accumulation point of `S` iff there exists `x ∈ S*` with `x ≈ a` and `x ≠ a`. -/
+def NSAccumulationPoint (S : Set ℚ) (a : ℚ) : Prop :=
+  ∃ x ∈ S⁺, InfClose x (ofRat a) ∧ x ≠ ofRat a
+
+/-- Nonstandard characterization of cluster point of a sequence:
+    `L` is a cluster point of `s` iff there exists infinite `N` with `s*(N) ≈ L`. -/
+def NSClusterPoint (s : ℕ → ℚ) (L : ℚ) : Prop :=
+  ∃ N : Hypernatural, Hypernatural.Infinite N ∧ InfClose (s⋆ N) (ofRat L)
+
+/-- Standard definition of cluster point. -/
+def ClusterPoint (s : ℕ → ℚ) (L : ℚ) : Prop :=
+  ∀ eps > 0, ∀ N : ℕ, ∃ n ≥ N, |s n - L| < eps
+
+/-! ### Derivative (Nonstandard) -/
+
+/-- Nonstandard characterization of derivative:
+    `f'(a) = L` iff for all infinitesimal `dx ≠ 0`, `(f*(a + dx) - f(a)) / dx ≈ L`. -/
+def NSHasDerivAt (f : ℚ → ℚ) (a L : ℚ) : Prop :=
+  ∀ dx : ℚ*, Infinitesimal dx → dx ≠ 0 →
+    InfClose ((star f) (ofRat a + dx) - ofRat (f a)) (dx * ofRat L)
+
+/-- Standard definition of derivative. -/
+def HasDerivAt' (f : ℚ → ℚ) (a L : ℚ) : Prop :=
+  ∀ eps > 0, ∃ delta > 0, ∀ h, 0 < |h| → |h| < delta → |(f (a + h) - f a) / h - L| < eps
+
+/-! ### Monad Properties -/
+
+@[simp] lemma mem_monad_iff' {x y : ℚ*} : y ∈ μ x ↔ InfClose x y := Iff.rfl
+
+@[simp] lemma mem_galaxy_iff' {x y : ℚ*} : y ∈ 𝓖 x ↔ HFinite (x - y) := Iff.rfl
+
+lemma self_mem_monad (x : ℚ*) : x ∈ μ x := infClose_refl x
+
+lemma monad_eq_iff_infClose {x y : ℚ*} : μ x = μ y ↔ InfClose x y := by
+  constructor
+  · intro h
+    have : y ∈ μ x := by rw [h]; exact self_mem_monad y
+    exact this
+  · intro h
+    ext z
+    simp only [mem_monad_iff']
+    constructor
+    · exact fun hxz => infClose_trans (infClose_symm h) hxz
+    · exact fun hyz => infClose_trans h hyz
+
+/-- Two points are in the same monad iff they are infinitely close. -/
+lemma mem_monad_of_infClose {x y z : ℚ*} (hxy : InfClose x y) (hxz : z ∈ μ x) : z ∈ μ y :=
+  infClose_trans (infClose_symm hxy) hxz
+
+/-- Every HFinite hyperrational has a unique standard part in its monad.
+    TODO: This requires proving the standard part theorem for hyperrationals. -/
+lemma monad_inter_standard_unique {x : ℚ*} (hx : HFinite x) :
+    ∃! r : ℚ, ofRat r ∈ μ x := by
+  sorry
 
 end Hyperrational
