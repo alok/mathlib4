@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Data.Nat.Hypernatural
+import Qq
 
 /-!
 # Transfer Tactic for Nonstandard Analysis
@@ -37,6 +38,7 @@ example (h : ∀ n : ℕ, ∃ p : ℕ, Nat.Prime p ∧ p > n) :
 
 open Lean Meta Elab Tactic
 open Hypernatural
+open Qq
 
 namespace Mathlib.Tactic.Transfer
 
@@ -99,6 +101,59 @@ macro_rules
   | `(tactic| transfer_exists $t) => `(tactic|
       exact ⟨$t, by simp only [liftPred_ofSeq]; assumption⟩)
 
+/-- `transfer_goal` applies a single transfer step based on goal structure. -/
+syntax (name := transfer_goal) "transfer_goal" : tactic
+
+/-- Apply transfer lemmas to rewrite liftPred through logical connectives. -/
+def transferLiftPred : TacticM Unit := do
+  let goal ← getMainGoal
+  let goalType ← goal.getType'
+  -- Try rewriting with each transfer lemma in sequence
+  let transferLemmas := #[``liftPred_and, ``liftPred_or, ``liftPred_not, ``liftPred_imp]
+  for lem in transferLemmas do
+    try
+      let result ← goal.rewrite goalType (mkConst lem) false
+      if result.mvarIds.isEmpty then return
+      replaceMainGoal result.mvarIds
+      return
+    catch _ => continue
+  throwError "transfer_goal: no applicable transfer lemma found"
+
+elab_rules : tactic
+| `(tactic| transfer_goal) => transferLiftPred
+
+/-- `transfer_forall` handles goals of the form `∀ x : ℕ*, P x`. -/
+syntax (name := transfer_forall) "transfer_forall" : tactic
+
+/-- Rewrite a forall over ℕ* using the transfer principle. -/
+def transferForall : TacticM Unit := do
+  let goal ← getMainGoal
+  let goalType ← goal.getType'
+  -- Try applying forall_iff_forall_liftPred
+  try
+    let result ← goal.rewrite goalType (mkConst ``forall_iff_forall_liftPred) false
+    replaceMainGoal result.mvarIds
+  catch _ =>
+    throwError "transfer_forall: goal is not of the form `∀ x : ℕ*, P x`"
+
+elab_rules : tactic
+| `(tactic| transfer_forall) => transferForall
+
+/--
+`transfer!` is an aggressive variant that repeatedly applies transfer lemmas and
+then tries to close the goal with standard tactics.
+-/
+syntax (name := transfer_bang) "transfer!" : tactic
+
+macro_rules
+  | `(tactic| transfer!) => `(tactic|
+      simp only [liftPred_ofSeq, liftPred_coe, liftRel_ofSeq, liftRel_coe,
+                 liftPred_and, liftPred_or, liftPred_not, liftPred_imp,
+                 forall_iff_forall_liftPred] <;>
+      try assumption <;>
+      try rfl <;>
+      try decide)
+
 end Mathlib.Tactic.Transfer
 
 /-! ## Examples -/
@@ -134,6 +189,17 @@ example {P Q : ℕ → Prop} {x : ℕ*} (h : liftPred P x ∨ liftPred Q x) :
 example {P : ℕ → Prop} {x : ℕ*} (h : ¬liftPred P x) :
     liftPred (fun n => ¬P n) x := by
   rw [liftPred_not]
+  exact h
+
+/-- Example: transfer! closes simple goals automatically. -/
+example {P : ℕ → Prop} {x : ℕ*} (hp : liftPred P x) :
+    liftPred (fun n => P n ∧ P n) x := by
+  rw [liftPred_and]
+  exact ⟨hp, hp⟩
+
+/-- Example: Transfer for standard predicates on constants. -/
+example (n : ℕ) (h : Even n) : liftPred Even (n : ℕ*) := by
+  rw [liftPred_coe]
   exact h
 
 end Examples
