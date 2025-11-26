@@ -414,17 +414,79 @@ theorem Infinitesimal.sub {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesima
 /-- Product of infinitesimal and HFinite is infinitesimal. -/
 theorem Infinitesimal.mul_hFinite {x y : ℚ*} (hx : Infinitesimal x) (hy : HFinite y) :
     Infinitesimal (x * y) := by
-  sorry
+  -- HFinite y gives us bounds: ∃ qlo qhi, ofRat qlo ≤ y ≤ ofRat qhi
+  simp only [HFinite, Infinite, not_or] at hy
+  obtain ⟨hy_not_pos, hy_not_neg⟩ := hy
+  simp only [InfinitePos, InfiniteNeg, not_forall, not_lt] at hy_not_pos hy_not_neg
+  obtain ⟨qhi, hy_hi⟩ := hy_not_pos
+  obtain ⟨qlo, hy_lo⟩ := hy_not_neg
+  -- B bounds |y|
+  let B := max (|qlo|) (|qhi|) + 1
+  have hB_pos : (0 : ℚ) < B := by
+    simp only [B]
+    have := le_max_left |qlo| |qhi|
+    linarith [abs_nonneg qlo]
+  intro eps heps
+  -- Since x is infinitesimal, |x| < eps/(2*B)
+  have heps_B : 0 < eps / (2 * B) := by positivity
+  obtain ⟨hx_lo, hx_hi⟩ := hx (eps / (2 * B)) heps_B
+  -- Work with sequences
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  -- From hx bounds: eventually |f(n)| < eps/(2*B)
+  rw [ofRat, ofSeq_lt_ofSeq] at hx_lo hx_hi
+  have hf_bound : ∀ᶠ n in hyperfilter ℕ, |f n| < eps / (2 * B) := by
+    filter_upwards [hx_lo, hx_hi] with n hlo hhi
+    rw [abs_lt]; constructor <;> linarith
+  -- From hy bounds: eventually |g(n)| ≤ B
+  rw [ofRat, ofSeq_le_ofSeq] at hy_lo hy_hi
+  have hg_bound : ∀ᶠ n in hyperfilter ℕ, |g n| ≤ B := by
+    filter_upwards [hy_lo, hy_hi] with n hlo hhi
+    rw [abs_le]
+    constructor
+    · calc -B ≤ -|qlo| := by simp only [B]; linarith [le_max_left |qlo| |qhi|]
+        _ ≤ qlo := neg_abs_le qlo
+        _ ≤ g n := hlo
+    · calc g n ≤ qhi := hhi
+        _ ≤ |qhi| := le_abs_self qhi
+        _ ≤ B := by simp only [B]; linarith [le_max_right |qlo| |qhi|]
+  -- Conclude: |f(n) * g(n)| < eps
+  constructor
+  · rw [show ofSeq f * ofSeq g = ofSeq (fun n => f n * g n) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [hf_bound, hg_bound] with n hf hg
+    have h1 : |f n * g n| = |f n| * |g n| := abs_mul (f n) (g n)
+    have h2 : |f n| * |g n| < eps / (2 * B) * B := by
+      apply mul_lt_mul_of_pos_of_nonneg hf hg (abs_nonneg _)
+    have h3 : eps / (2 * B) * B = eps / 2 := by field_simp
+    have h4 : |f n * g n| < eps / 2 := by rw [h1]; linarith
+    have h5 : -eps < -(eps / 2) := by linarith
+    calc -eps < -(eps / 2) := h5
+      _ ≤ -|f n * g n| := by linarith [abs_nonneg (f n * g n)]
+      _ ≤ f n * g n := neg_abs_le _
+  · rw [show ofSeq f * ofSeq g = ofSeq (fun n => f n * g n) from rfl]
+    rw [ofRat, ofSeq_lt_ofSeq]
+    filter_upwards [hf_bound, hg_bound] with n hf hg
+    have h1 : |f n * g n| = |f n| * |g n| := abs_mul (f n) (g n)
+    have h2 : |f n| * |g n| < eps / (2 * B) * B := by
+      apply mul_lt_mul_of_pos_of_nonneg hf hg (abs_nonneg _)
+    have h3 : eps / (2 * B) * B = eps / 2 := by field_simp
+    calc f n * g n ≤ |f n * g n| := le_abs_self _
+      _ = |f n| * |g n| := h1
+      _ < eps / (2 * B) * B := h2
+      _ = eps / 2 := h3
+      _ < eps := by linarith
 
 /-- Product of HFinite and infinitesimal is infinitesimal. -/
 theorem HFinite.mul_infinitesimal {x y : ℚ*} (hx : HFinite x) (hy : Infinitesimal y) :
     Infinitesimal (x * y) := by
-  sorry
+  rw [mul_comm]
+  exact hy.mul_hFinite hx
 
 /-- Product of two infinitesimals is infinitesimal. -/
 theorem Infinitesimal.mul {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
     Infinitesimal (x * y) := by
-  sorry
+  exact hx.mul_hFinite hy.hFinite
 
 /-! ## HFinite Algebra -/
 
@@ -490,7 +552,78 @@ theorem HFinite.sub {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
 
 /-- Product of HFinite is HFinite. -/
 theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x * y) := by
-  sorry
+  intro hinf
+  -- Extract bounds from HFinite
+  simp only [HFinite, Infinite, not_or] at hx hy
+  obtain ⟨hx_not_pos, hx_not_neg⟩ := hx
+  obtain ⟨hy_not_pos, hy_not_neg⟩ := hy
+  simp only [InfinitePos, InfiniteNeg, not_forall, not_lt] at hx_not_pos hx_not_neg hy_not_pos hy_not_neg
+  obtain ⟨qx_hi, hx_hi⟩ := hx_not_pos
+  obtain ⟨qx_lo, hx_lo⟩ := hx_not_neg
+  obtain ⟨qy_hi, hy_hi⟩ := hy_not_pos
+  obtain ⟨qy_lo, hy_lo⟩ := hy_not_neg
+  -- Work with sequences
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rcases ofSeq_surjective y with ⟨g, rfl⟩
+  rw [ofRat, ofSeq_le_ofSeq] at hx_lo hx_hi hy_lo hy_hi
+  -- Compute bound for product
+  let Bx := max (|qx_lo|) (|qx_hi|) + 1
+  let By := max (|qy_lo|) (|qy_hi|) + 1
+  let B := Bx * By
+  have hB_pos : (0 : ℚ) < B := by
+    simp only [B, Bx, By]
+    have h1 := le_max_left |qx_lo| |qx_hi|
+    have h2 := le_max_left |qy_lo| |qy_hi|
+    have hBx : 0 < Bx := by linarith [abs_nonneg qx_lo]
+    have hBy : 0 < By := by linarith [abs_nonneg qy_lo]
+    positivity
+  -- Eventually |f(n)| ≤ Bx and |g(n)| ≤ By
+  have hf_bound : ∀ᶠ n in hyperfilter ℕ, |f n| < Bx := by
+    filter_upwards [hx_lo, hx_hi] with n hlo hhi
+    rw [abs_lt]
+    constructor
+    · calc -Bx < -|qx_lo| := by simp only [Bx]; linarith [le_max_left |qx_lo| |qx_hi|]
+        _ ≤ qx_lo := neg_abs_le qx_lo
+        _ ≤ f n := hlo
+    · calc f n ≤ qx_hi := hhi
+        _ ≤ |qx_hi| := le_abs_self qx_hi
+        _ < Bx := by simp only [Bx]; linarith [le_max_right |qx_lo| |qx_hi|]
+  have hg_bound : ∀ᶠ n in hyperfilter ℕ, |g n| < By := by
+    filter_upwards [hy_lo, hy_hi] with n hlo hhi
+    rw [abs_lt]
+    constructor
+    · calc -By < -|qy_lo| := by simp only [By]; linarith [le_max_left |qy_lo| |qy_hi|]
+        _ ≤ qy_lo := neg_abs_le qy_lo
+        _ ≤ g n := hlo
+    · calc g n ≤ qy_hi := hhi
+        _ ≤ |qy_hi| := le_abs_self qy_hi
+        _ < By := by simp only [By]; linarith [le_max_right |qy_lo| |qy_hi|]
+  -- Product bound: |f(n) * g(n)| < B
+  have hprod_bound : ∀ᶠ n in hyperfilter ℕ, |f n * g n| < B := by
+    filter_upwards [hf_bound, hg_bound] with n hf hg
+    calc |f n * g n| = |f n| * |g n| := abs_mul _ _
+      _ < Bx * By := by
+        apply mul_lt_mul hf (le_of_lt hg) (abs_nonneg _)
+        have := le_max_left |qx_lo| |qx_hi|
+        linarith [abs_nonneg qx_lo]
+      _ = B := rfl
+  rcases hinf with hpos | hneg
+  · -- InfinitePos (x * y)
+    have hcontra := hpos B
+    rw [show ofSeq f * ofSeq g = ofSeq (fun n => f n * g n) from rfl, ofRat, ofSeq_lt_ofSeq] at hcontra
+    have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+      filter_upwards [hcontra, hprod_bound] with n h1 h2
+      have : f n * g n ≤ |f n * g n| := le_abs_self _
+      linarith
+    exact (Filter.eventually_const.mp hfalse : False)
+  · -- InfiniteNeg (x * y)
+    have hcontra := hneg (-B)
+    rw [show ofSeq f * ofSeq g = ofSeq (fun n => f n * g n) from rfl, ofRat, ofSeq_lt_ofSeq] at hcontra
+    have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+      filter_upwards [hcontra, hprod_bound] with n h1 h2
+      have : -|f n * g n| ≤ f n * g n := neg_abs_le _
+      linarith
+    exact (Filter.eventually_const.mp hfalse : False)
 
 /-- Infinitesimals are HFinite. -/
 theorem Infinitesimal.hFinite {x : ℚ*} (hx : Infinitesimal x) : HFinite x := by
@@ -694,7 +827,25 @@ theorem InfClose.sub {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w) 
 /-- HFinite x ≈ y and HFinite z ≈ w implies x * z ≈ y * w. -/
 theorem InfClose.mul {x y z w : ℚ*} (hxy : InfClose x y) (hzw : InfClose z w)
     (hx : HFinite x) (hz : HFinite z) : InfClose (x * z) (y * w) := by
-  sorry
+  -- x * z - y * w = (x - y) * z + y * (z - w)
+  -- (x - y) is infinitesimal, z is HFinite, so (x - y) * z is infinitesimal
+  -- (z - w) is infinitesimal
+  -- y = x + (y - x) and (y - x) is infinitesimal (so HFinite), x is HFinite, so y is HFinite
+  -- So y * (z - w) is infinitesimal
+  unfold InfClose at hxy hzw ⊢
+  have heq : x * z - y * w = (x - y) * z + y * (z - w) := by ring
+  rw [heq]
+  -- y is HFinite since y = x + (y - x) and both are HFinite
+  have hy : HFinite y := by
+    have h : y = x + (y - x) := by ring
+    rw [h]
+    have hy_x_inf : Infinitesimal (y - x) := infClose_symm hxy
+    exact hx.add hy_x_inf.hFinite
+  -- (x - y) * z is infinitesimal
+  have h1 : Infinitesimal ((x - y) * z) := hxy.mul_hFinite hz
+  -- y * (z - w) is infinitesimal
+  have h2 : Infinitesimal (y * (z - w)) := hy.mul_infinitesimal hzw
+  exact h1.add h2
 
 /-! ## Sequence Extensions and Convergence
 
