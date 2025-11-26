@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Data.Nat.Hypernatural
+import Mathlib.Order.Filter.Germ.Product
 import Qq
 
 /-!
@@ -201,5 +202,11 @@ example {P : ℕ → Prop} {x : ℕ*} (hp : liftPred P x) :
 example (n : ℕ) (h : Even n) : liftPred Even (n : ℕ*) := by
   rw [liftPred_coe]
   exact h
+
+/-- The bridge connects any Germ type to the corresponding Product type.
+This allows connecting our hypernatural construction to the model-theoretic ultraproduct. -/
+def Hypernatural.germProductEquiv {l : Filter ℕ} :
+    Filter.Germ l ℕ ≃ Filter.Product l (fun _ => ℕ) :=
+  Filter.Germ.prodEquiv
 
 end Examples
