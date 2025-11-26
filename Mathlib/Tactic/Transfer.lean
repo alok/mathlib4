@@ -43,6 +43,42 @@ open Qq
 
 namespace Mathlib.Tactic.Transfer
 
+/-! ## Transferable Typeclass
+
+A typeclass for predicates that can be transferred between standard and nonstandard structures.
+-/
+
+/-- A predicate `P : α → Prop` is `TransferableNat` to ℕ* if there is a
+corresponding hyper-predicate and the transfer is compatible with the embedding. -/
+class TransferableNat (P : ℕ → Prop) where
+  /-- The lifted predicate on the hyperextension. -/
+  hyperPred : ℕ* → Prop
+  /-- Transfer for constants: P holds for a standard element iff hyperPred holds for its image. -/
+  transfer_const : ∀ n : ℕ, P n ↔ hyperPred (n : ℕ*)
+
+/-- The star extension of a predicate P on ℕ to ℕ*. -/
+def starNat (P : ℕ → Prop) [inst : TransferableNat P] : ℕ* → Prop :=
+  inst.hyperPred
+
+/-- Nat.Prime is transferable to ℕ*. -/
+instance : TransferableNat Nat.Prime where
+  hyperPred := HyperPrime
+  transfer_const := fun n => by rw [HyperPrime, liftPred_coe]
+
+/-- Even is transferable to ℕ*. -/
+instance : TransferableNat Even where
+  hyperPred := liftPred Even
+  transfer_const := fun _ => liftPred_coe.symm
+
+/-- Odd is transferable to ℕ*. -/
+instance : TransferableNat Odd where
+  hyperPred := liftPred Odd
+  transfer_const := fun _ => liftPred_coe.symm
+
+/-- The star of a transferable predicate agrees with liftPred for any predicate. -/
+theorem starNat_eq_liftPred (P : ℕ → Prop) [inst : TransferableNat P]
+    (h : inst.hyperPred = liftPred P) : starNat P = liftPred P := h
+
 /-- Simp lemmas for the transfer tactic. -/
 def transferSimpLemmas : Array Name := #[
   ``liftPred_ofSeq,
@@ -208,5 +244,13 @@ This allows connecting our hypernatural construction to the model-theoretic ultr
 def Hypernatural.germProductEquiv {l : Filter ℕ} :
     Filter.Germ l ℕ ≃ Filter.Product l (fun _ => ℕ) :=
   Filter.Germ.prodEquiv
+
+/-- Example: Using the TransferableNat typeclass to transfer Even. -/
+example (n : ℕ) (h : Even n) : starNat Even (n : ℕ*) := by
+  rw [starNat, ← TransferableNat.transfer_const]
+  exact h
+
+/-- Example: starNat gives the hyperextension of a predicate. -/
+example : starNat Nat.Prime = HyperPrime := rfl
 
 end Examples
