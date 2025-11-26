@@ -253,4 +253,16 @@ example (n : ℕ) (h : Even n) : starNat Even (n : ℕ*) := by
 /-- Example: starNat gives the hyperextension of a predicate. -/
 example : starNat Nat.Prime = HyperPrime := rfl
 
+/-! ### Transfer for Divisibility -/
+
+/-- Transfer lemma for divisibility: d | n in ℕ iff liftRel (· ∣ ·) holds in ℕ*. -/
+example (d n : ℕ) (h : d ∣ n) : liftRel (· ∣ ·) (d : ℕ*) (n : ℕ*) := by
+  rw [liftRel_coe]
+  exact h
+
+/-- All standard primes are HyperPrime. -/
+example (p : ℕ) (hp : Nat.Prime p) : HyperPrime (p : ℕ*) := by
+  rw [HyperPrime, liftPred_coe]
+  exact hp
+
 end Examples
