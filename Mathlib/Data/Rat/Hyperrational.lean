@@ -1346,4 +1346,95 @@ lemma monad_inter_standard_unique {x : ℚ*} (hx : HFinite x) :
     ∃! r : ℚ, ofRat r ∈ μ x := by
   sorry
 
+/-! ## Transfer Principle for Hyperrationals
+
+This section provides transfer lemmas that allow lifting predicates and relations
+from ℚ to ℚ* via the hyperfilter. These are analogous to the transfer lemmas
+for hypernaturals.
+-/
+
+section Transfer
+
+open Germ Ultrafilter
+
+/-- Lift a predicate on ℚ to ℚ* via the hyperfilter. -/
+def liftPred (P : ℚ → Prop) (x : ℚ*) : Prop :=
+  Germ.LiftPred P x
+
+/-- Lift a binary relation on ℚ to ℚ* via the hyperfilter. -/
+def liftRel (R : ℚ → ℚ → Prop) (x y : ℚ*) : Prop :=
+  Germ.LiftRel R x y
+
+theorem liftPred_ofSeq {P : ℚ → Prop} {f : ℕ → ℚ} :
+    liftPred P (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, P (f n) :=
+  Germ.liftPred_coe
+
+theorem liftPred_ofRat {P : ℚ → Prop} {q : ℚ} :
+    liftPred P (ofRat q) ↔ P q :=
+  Germ.liftPred_const_iff
+
+theorem liftRel_ofSeq {R : ℚ → ℚ → Prop} {f g : ℕ → ℚ} :
+    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ℕ, R (f n) (g n) :=
+  Germ.liftRel_coe
+
+theorem liftRel_ofRat {R : ℚ → ℚ → Prop} {a b : ℚ} :
+    liftRel R (ofRat a) (ofRat b) ↔ R a b :=
+  Germ.liftRel_const_iff
+
+/-- Conjunction transfers: P ∧ Q holds hyperfinitely iff both P and Q hold hyperfinitely. -/
+theorem liftPred_and {P Q : ℚ → Prop} {x : ℚ*} :
+    liftPred (fun q => P q ∧ Q q) x ↔ liftPred P x ∧ liftPred Q x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Filter.eventually_and
+
+/-- Disjunction transfers via ultrafilter property. -/
+theorem liftPred_or {P Q : ℚ → Prop} {x : ℚ*} :
+    liftPred (fun q => P q ∨ Q q) x ↔ liftPred P x ∨ liftPred Q x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_or
+
+/-- Negation transfers via ultrafilter property. -/
+theorem liftPred_not {P : ℚ → Prop} {x : ℚ*} :
+    liftPred (fun q => ¬P q) x ↔ ¬liftPred P x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_not
+
+/-- Implication transfers. -/
+theorem liftPred_imp {P Q : ℚ → Prop} {x : ℚ*} :
+    liftPred (fun q => P q → Q q) x ↔ (liftPred P x → liftPred Q x) := by
+  rw [show (fun q => P q → Q q) = (fun q => ¬P q ∨ Q q) by ext; simp [imp_iff_not_or]]
+  rw [liftPred_or, liftPred_not]
+  tauto
+
+/-- Universal transfer: ∀ q : ℚ, P q iff ∀ x : ℚ*, liftPred P x. -/
+theorem forall_iff_forall_liftPred {P : ℚ → Prop} :
+    (∀ q : ℚ, P q) ↔ (∀ x : ℚ*, liftPred P x) := by
+  constructor
+  · intro h x
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    simp only [liftPred_ofSeq]
+    exact Filter.Eventually.of_forall fun n => h (f n)
+  · intro h q
+    have := h (ofRat q)
+    rwa [liftPred_ofRat] at this
+
+/-- Existential transfer (one direction): ∃ q, P q implies ∃ x : ℚ*, liftPred P x. -/
+theorem exists_implies_exists_liftPred {P : ℚ → Prop} :
+    (∃ q : ℚ, P q) → (∃ x : ℚ*, liftPred P x) := by
+  intro ⟨q, hq⟩
+  exact ⟨ofRat q, liftPred_ofRat.mpr hq⟩
+
+/-- Transfer for universal quantifier over bounded predicates (mp direction). -/
+theorem liftPred_forall_mp {P : ℚ → ℚ → Prop} {x : ℚ*} :
+    liftPred (fun q => ∀ r : ℚ, P q r) x → ∀ r : ℚ, liftPred (fun q => P q r) x := by
+  intro h r
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq] at h ⊢
+  exact h.mono fun n hn => hn r
+
+end Transfer
+
 end Hyperrational
