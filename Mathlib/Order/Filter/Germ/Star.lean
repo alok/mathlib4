@@ -1,0 +1,501 @@
+/-
+Copyright (c) 2024 Alok Singh. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Alok Singh
+-/
+import Mathlib.Order.Filter.Germ.Basic
+import Mathlib.Order.Filter.Ultrafilter.Basic
+import Mathlib.Order.Interval.Finset.Defs
+
+/-!
+# The Hyper Operation for Nonstandard Extensions
+
+This file defines the hyper operation that maps standard objects to their nonstandard
+(hyper)extensions via ultraproducts.
+
+## Main definitions
+
+* `Hyper ι α` - The nonstandard extension of `α` over index type `ι`, defined as
+  `Filter.Germ (hyperfilter ι) α`
+* `Hyper.std` - The standard embedding `α → Hyper ι α`
+* `Hyper.lift` - Lifts a function `α → β` to `Hyper ι α → Hyper ι β`
+* `Hyper.lift₂` - Lifts a binary function
+* `Hyper.liftPred` - Lifts a predicate `α → Prop` to `Hyper ι α → Prop`
+* `Hyper.liftRel` - Lifts a relation `α → β → Prop`
+
+## The Transfer Principle
+
+The transfer principle states that first-order properties transfer between standard
+and nonstandard worlds. This is implemented via:
+
+* `Hyper.liftPred_std` : `liftPred P (std a) ↔ P a`
+* `Hyper.liftRel_std` : `liftRel R (std a) (std b) ↔ R a b`
+* `Hyper.forall_std_iff` : `(∀ a, P a) ↔ (∀ x, liftPred P x)`
+
+## References
+
+* Robinson, A. "Non-standard Analysis"
+* Nelson, E. "Internal Set Theory: A New Approach to Nonstandard Analysis"
+-/
+
+open Filter
+
+variable {ι : Type*} [Infinite ι] {α β γ : Type*}
+
+/-! ## The Hyper Type -/
+
+/-- The nonstandard extension of `α` over index type `ι`.
+This is the ultraproduct `∏_U α` where `U` is the hyperfilter on `ι`. -/
+def Hyper (ι : Type*) [Infinite ι] (α : Type*) : Type _ :=
+  Germ (hyperfilter ι : Filter ι) α
+
+namespace Hyper
+
+/-! ## Standard Embedding -/
+
+/-- The standard embedding of `α` into its nonstandard extension.
+Maps `a : α` to the constant germ `[n ↦ a]`. -/
+noncomputable def std (a : α) : Hyper ι α := Germ.const a
+
+/-- Coercion from α to its nonstandard extension. -/
+noncomputable instance : Coe α (Hyper ι α) where
+  coe := std
+
+theorem std_def (a : α) : (std a : Hyper ι α) = Germ.const a := rfl
+
+theorem std_injective : Function.Injective (std : α → Hyper ι α) :=
+  fun _ _ h => Germ.const_inj.mp h
+
+@[simp]
+theorem std_inj {a b : α} : (std a : Hyper ι α) = std b ↔ a = b := Germ.const_inj
+
+/-! ## Sequence Representation -/
+
+/-- Construct a nonstandard element from a sequence. -/
+noncomputable def ofSeq (f : ι → α) : Hyper ι α := Germ.ofFun f
+
+/-- Every nonstandard element can be represented by a sequence.
+This is the surjectivity of the quotient map. -/
+theorem ofSeq_surjective : Function.Surjective (ofSeq : (ι → α) → Hyper ι α) :=
+  Quot.exists_rep
+
+/-- Alias for the representation theorem. -/
+theorem exists_seq_rep (x : Hyper ι α) : ∃ f : ι → α, ofSeq f = x :=
+  ofSeq_surjective x
+
+/-- Two sequences give the same nonstandard element iff they agree almost everywhere. -/
+theorem ofSeq_eq_ofSeq {f g : ι → α} :
+    (ofSeq f : Hyper ι α) = ofSeq g ↔ ∀ᶠ n in hyperfilter ι, f n = g n :=
+  Germ.coe_eq
+
+/-- `std a` is the constant sequence `fun _ => a`. -/
+theorem std_eq_ofSeq_const (a : α) : (std a : Hyper ι α) = ofSeq (fun _ => a) := rfl
+
+/-! ## Lifting Functions -/
+
+/-- Lift a unary function to the nonstandard extension.
+`lift f` applies `f` pointwise to representatives. -/
+noncomputable def lift (f : α → β) : Hyper ι α → Hyper ι β := Germ.map f
+
+@[simp]
+theorem lift_std (f : α → β) (a : α) : lift f (std a : Hyper ι α) = std (f a) := by
+  simp [lift, std, Germ.map_const]
+
+theorem lift_ofSeq (f : α → β) (s : ι → α) : lift f (ofSeq s : Hyper ι α) = ofSeq (f ∘ s) :=
+  Germ.map_coe f s
+
+/-- `lift` respects function composition. -/
+@[simp]
+theorem lift_comp (f : β → γ) (g : α → β) :
+    lift f ∘ lift g = (lift (f ∘ g) : Hyper ι α → Hyper ι γ) := by
+  ext x
+  obtain ⟨s, rfl⟩ := ofSeq_surjective x
+  simp only [Function.comp_apply, lift_ofSeq]
+  rfl
+
+/-- `lift` on identity is identity. -/
+@[simp]
+theorem lift_id : lift id = (id : Hyper ι α → Hyper ι α) := Germ.map_id
+
+/-- Lift a binary function to the nonstandard extension. -/
+noncomputable def lift₂ (f : α → β → γ) : Hyper ι α → Hyper ι β → Hyper ι γ := Germ.map₂ f
+
+@[simp]
+theorem lift₂_std (f : α → β → γ) (a : α) (b : β) :
+    lift₂ f (std a : Hyper ι α) (std b) = std (f a b) := by
+  simp [lift₂, std, Germ.map₂_const]
+
+theorem lift₂_ofSeq (f : α → β → γ) (s : ι → α) (t : ι → β) :
+    lift₂ f (ofSeq s : Hyper ι α) (ofSeq t) = ofSeq (fun n => f (s n) (t n)) :=
+  Germ.map₂_coe f s t
+
+/-! ## Lifting Predicates and Relations -/
+
+/-- Lift a predicate to the nonstandard extension.
+`liftPred P x` holds if `P` holds for almost all representatives of `x`. -/
+def liftPred (P : α → Prop) : Hyper ι α → Prop := Germ.LiftPred P
+
+/-- The key transfer property: a standard predicate on a standard element
+equals the original predicate. -/
+@[simp]
+theorem liftPred_std (P : α → Prop) (a : α) : liftPred P (std a : Hyper ι α) ↔ P a :=
+  Germ.liftPred_const_iff
+
+theorem liftPred_ofSeq (P : α → Prop) (f : ι → α) :
+    liftPred P (ofSeq f : Hyper ι α) ↔ ∀ᶠ n in hyperfilter ι, P (f n) :=
+  Germ.liftPred_coe
+
+/-- Lift a binary relation to the nonstandard extension. -/
+def liftRel (R : α → β → Prop) : Hyper ι α → Hyper ι β → Prop := Germ.LiftRel R
+
+/-- Transfer for relations: on standard elements, the lifted relation equals the original. -/
+@[simp]
+theorem liftRel_std (R : α → β → Prop) (a : α) (b : β) :
+    liftRel R (std a : Hyper ι α) (std b) ↔ R a b :=
+  Germ.liftRel_const_iff
+
+theorem liftRel_ofSeq (R : α → β → Prop) (f : ι → α) (g : ι → β) :
+    liftRel R (ofSeq f : Hyper ι α) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ι, R (f n) (g n) :=
+  Germ.liftRel_coe
+
+/-! ## Transfer Principle -/
+
+/-- **Transfer Principle for Universal Quantification**:
+A predicate holds for all standard elements iff the lifted predicate holds for all
+nonstandard elements. -/
+theorem forall_std_iff (P : α → Prop) : (∀ a : α, P a) ↔ (∀ x : Hyper ι α, liftPred P x) := by
+  constructor
+  · intro h x
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    rw [liftPred_ofSeq]
+    exact Eventually.of_forall (fun n => h (f n))
+  · intro h a
+    simpa using h (std a)
+
+/-- **Transfer Principle for Existential Quantification** (forward direction):
+If a standard element satisfies `P`, then some nonstandard element satisfies `liftPred P`. -/
+theorem exists_star_of_exists (P : α → Prop) (h : ∃ a : α, P a) :
+    ∃ x : Hyper ι α, liftPred P x := by
+  obtain ⟨a, ha⟩ := h
+  exact ⟨std a, by simp [ha]⟩
+
+/-! ## Logical Connectives Transfer -/
+
+section LogicalConnectives
+
+variable {P Q : α → Prop}
+
+/-- Conjunction transfers through `liftPred`. -/
+theorem liftPred_and (x : Hyper ι α) :
+    liftPred (fun a => P a ∧ Q a) x ↔ liftPred P x ∧ liftPred Q x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact eventually_and
+
+/-- Disjunction transfers through `liftPred` (using ultrafilter property). -/
+theorem liftPred_or (x : Hyper ι α) :
+    liftPred (fun a => P a ∨ Q a) x ↔ liftPred P x ∨ liftPred Q x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_or
+
+/-- Negation transfers through `liftPred` (using ultrafilter property). -/
+theorem liftPred_not (x : Hyper ι α) :
+    liftPred (fun a => ¬P a) x ↔ ¬liftPred P x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_not
+
+/-- Implication transfers through `liftPred`. -/
+theorem liftPred_imp (x : Hyper ι α) :
+    liftPred (fun a => P a → Q a) x ↔ (liftPred P x → liftPred Q x) := by
+  rw [show (fun a => P a → Q a) = (fun a => ¬P a ∨ Q a) by ext; tauto]
+  rw [liftPred_or, liftPred_not]
+  tauto
+
+end LogicalConnectives
+
+/-! ## Algebraic Operations -/
+
+section Algebra
+
+noncomputable instance [Zero α] : Zero (Hyper ι α) := ⟨std 0⟩
+noncomputable instance [One α] : One (Hyper ι α) := ⟨std 1⟩
+noncomputable instance [Add α] : Add (Hyper ι α) := ⟨lift₂ (· + ·)⟩
+noncomputable instance [Mul α] : Mul (Hyper ι α) := ⟨lift₂ (· * ·)⟩
+noncomputable instance [Neg α] : Neg (Hyper ι α) := ⟨lift (- ·)⟩
+noncomputable instance [Sub α] : Sub (Hyper ι α) := ⟨lift₂ (· - ·)⟩
+noncomputable instance [Inv α] : Inv (Hyper ι α) := ⟨lift (·⁻¹)⟩
+noncomputable instance [Div α] : Div (Hyper ι α) := ⟨lift₂ (· / ·)⟩
+
+@[simp] theorem std_zero [Zero α] : (std 0 : Hyper ι α) = 0 := rfl
+@[simp] theorem std_one [One α] : (std 1 : Hyper ι α) = 1 := rfl
+
+@[simp]
+theorem std_add [Add α] (a b : α) : (std (a + b) : Hyper ι α) = std a + std b := by
+  simp [HAdd.hAdd, Add.add, lift₂_std]
+
+@[simp]
+theorem std_mul [Mul α] (a b : α) : (std (a * b) : Hyper ι α) = std a * std b := by
+  simp [HMul.hMul, Mul.mul, lift₂_std]
+
+@[simp]
+theorem std_neg [Neg α] (a : α) : (std (-a) : Hyper ι α) = -std a := by
+  simp [Neg.neg, lift_std]
+
+@[simp]
+theorem std_sub [Sub α] (a b : α) : (std (a - b) : Hyper ι α) = std a - std b := by
+  simp [HSub.hSub, Sub.sub, lift₂_std]
+
+@[simp]
+theorem std_inv [Inv α] (a : α) : (std a⁻¹ : Hyper ι α) = (std a)⁻¹ := by
+  simp [Inv.inv, lift_std]
+
+@[simp]
+theorem std_div [Div α] (a b : α) : (std (a / b) : Hyper ι α) = std a / std b := by
+  simp [HDiv.hDiv, Div.div, lift₂_std]
+
+end Algebra
+
+/-! ## Order Operations -/
+
+section Order
+
+noncomputable instance [LE α] : LE (Hyper ι α) := ⟨liftRel (· ≤ ·)⟩
+noncomputable instance [LT α] : LT (Hyper ι α) := ⟨liftRel (· < ·)⟩
+
+@[simp]
+theorem std_le [LE α] (a b : α) : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := liftRel_std _ _ _
+
+@[simp]
+theorem std_lt [LT α] (a b : α) : (std a : Hyper ι α) < std b ↔ a < b := liftRel_std _ _ _
+
+theorem ofSeq_le_ofSeq [LE α] {f g : ι → α} :
+    (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ι, f n ≤ g n :=
+  liftRel_ofSeq _ _ _
+
+theorem ofSeq_lt_ofSeq [LT α] {f g : ι → α} :
+    (ofSeq f : Hyper ι α) < ofSeq g ↔ ∀ᶠ n in hyperfilter ι, f n < g n :=
+  liftRel_ofSeq _ _ _
+
+/-- The `<` relation on `Hyper` is defined as `liftRel`. -/
+theorem lt_def [LT α] (x y : Hyper ι α) : x < y ↔ liftRel (· < ·) x y := Iff.rfl
+
+/-- `std a < ofSeq f` iff `a < f n` for almost all `n`. -/
+theorem std_lt_ofSeq [LT α] (a : α) (f : ι → α) :
+    (std a : Hyper ι α) < ofSeq f ↔ ∀ᶠ n in hyperfilter ι, a < f n := by
+  rw [lt_def, std_eq_ofSeq_const, liftRel_ofSeq]
+
+end Order
+
+/-! ## Internal Set Theory (IST) Axioms
+
+Edward Nelson's Internal Set Theory provides three axiom schemas:
+- **Transfer (T)**: First-order properties transfer between standard and nonstandard worlds
+- **Idealization (I)**: Saturation principle relating finite/standard quantification
+- **Standardization (S)**: Every internal set has a standard subset
+
+In our ultraproduct setting, we can prove versions of these principles.
+The key application is overflow/underflow for sequences.
+-/
+
+section IST
+
+/-! ### The Standard Predicate -/
+
+/-- An element of `Hyper ι α` is standard if it is in the range of `std`. -/
+def IsStandard (x : Hyper ι α) : Prop := ∃ a : α, Hyper.std a = x
+
+theorem IsStandard.of_std (a : α) : IsStandard (std a : Hyper ι α) := ⟨a, rfl⟩
+
+theorem IsStandard.exists_eq {x : Hyper ι α} (h : IsStandard x) : ∃ a : α, std a = x := h
+
+/-- A standard element equals its standard representative. -/
+theorem IsStandard.eq_std {x : Hyper ι α} (h : IsStandard x) : x = std h.choose :=
+  h.choose_spec.symm
+
+/-! ### Transfer Principle (T)
+
+The transfer principle states that first-order properties transfer between standard
+and nonstandard worlds. We already have `forall_std_iff` as the main transfer theorem.
+Here we add more variants. -/
+
+/-- **Transfer (T)**: Existential transfer (full version). -/
+theorem exists_std_iff (P : α → Prop) :
+    (∃ a : α, P a) ↔ (∃ x : Hyper ι α, IsStandard x ∧ liftPred P x) := by
+  constructor
+  · intro ⟨a, ha⟩
+    exact ⟨std a, IsStandard.of_std a, by simp [ha]⟩
+  · intro ⟨x, hstd, hP⟩
+    obtain ⟨a, rfl⟩ := hstd
+    exact ⟨a, by simpa using hP⟩
+
+/-- Transfer for binary relations. -/
+theorem forall_forall_std_iff (R : α → β → Prop) :
+    (∀ a : α, ∀ b : β, R a b) ↔ (∀ x : Hyper ι α, ∀ y : Hyper ι β, liftRel R x y) := by
+  constructor
+  · intro h x y
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    rw [liftRel_ofSeq]
+    exact Eventually.of_forall (fun n => h (f n) (g n))
+  · intro h a b
+    simpa using h (std a) (std b)
+
+/-! ### Idealization Principle (I) - Overflow and Underflow
+
+The Idealization axiom in IST states: For any internal formula φ,
+  (∀ finite F, ∃ y, ∀ x ∈ F, φ(x,y)) ↔ (∃ y, ∀ˢᵗ x, φ(x,y))
+
+In our ultraproduct setting, this manifests as overflow and underflow principles. -/
+
+/-- **Overflow Principle**: If a property holds for all standard naturals,
+there exists a nonstandard element for which it also holds.
+This is a key consequence of the ultrafilter being nonprincipal. -/
+theorem overflow {P : ℕ → Prop} (hP : ∀ n : ℕ, P n) :
+    ∀ x : Hyper ℕ ℕ, liftPred P x := by
+  rw [← forall_std_iff]
+  exact hP
+
+/-- **Existence of Infinite Elements**: There exist nonstandard elements
+greater than all standard elements. -/
+theorem exists_infinite_nat : ∃ ω : Hyper ℕ ℕ, ∀ n : ℕ, std n < ω := by
+  use ofSeq id
+  intro n
+  rw [std_lt_ofSeq]
+  apply Filter.mem_hyperfilter_of_finite_compl
+  simp only [Set.compl_setOf, not_lt]
+  exact Set.finite_le_nat n
+
+/-- An infinite hypernatural - the equivalence class of the identity sequence. -/
+noncomputable def omega : Hyper ℕ ℕ := ofSeq id
+
+theorem omega_gt_std (n : ℕ) : std n < omega := by
+  rw [omega, std_lt_ofSeq]
+  apply Filter.mem_hyperfilter_of_finite_compl
+  simp only [Set.compl_setOf, not_lt]
+  exact Set.finite_le_nat n
+
+/-- **Underflow Principle** (for predicates on sequences):
+If P holds for an infinite element, it holds for arbitrarily large standard elements.
+This is the contrapositive of: if P fails for all large enough n, it fails for infinite elements. -/
+theorem underflow {P : ℕ → Prop} {ω : Hyper ℕ ℕ} (hω : ∀ n : ℕ, std n < ω)
+    (hP : liftPred P ω) : ∀ n : ℕ, ∃ m : ℕ, m ≥ n ∧ P m := by
+  intro n
+  -- ω is represented by some sequence f
+  obtain ⟨f, rfl⟩ := ofSeq_surjective ω
+  -- P holds almost everywhere for f
+  rw [liftPred_ofSeq] at hP
+  -- f(k) > n for almost all k (since ω > std n)
+  have hgt : ∀ᶠ k in hyperfilter ℕ, n < f k := by
+    specialize hω n
+    rw [std_lt_ofSeq] at hω
+    exact hω
+  -- Both conditions hold eventually
+  have := hP.and hgt
+  obtain ⟨k, hPk, hgk⟩ := this.exists
+  exact ⟨f k, Nat.le_of_lt hgk, hPk⟩
+
+/-! ### Standardization Principle (S)
+
+The full Standardization axiom requires set-theoretic machinery.
+Here we provide a version for predicates on standard elements. -/
+
+/-- **Standardization for Predicates**: The standard part of a predicate on `Hyper ι α`
+restricted to standard elements can be pulled back to `α`. -/
+theorem standardization (P : Hyper ι α → Prop) :
+    ∃ Q : α → Prop, ∀ a : α, Q a ↔ P (std a) :=
+  ⟨fun a => P (std a), fun _ => Iff.rfl⟩
+
+/-- Standard part extraction for predicates. -/
+def standardPart (P : Hyper ι α → Prop) : α → Prop := fun a => P (std a)
+
+@[simp]
+theorem standardPart_apply (P : Hyper ι α → Prop) (a : α) :
+    standardPart P a = P (std a) := rfl
+
+theorem standardPart_liftPred (P : α → Prop) :
+    standardPart (liftPred P : Hyper ι α → Prop) = P := by
+  ext a
+  simp [standardPart, liftPred_std]
+
+/-! ### Generic Idealization (for any Infinite index type)
+
+The following principles work for any infinite index type `ι`, not just `ℕ`. -/
+
+/-- Generic overflow: if P holds for all standard elements, it holds for all hyper-elements. -/
+theorem overflow_generic {P : α → Prop} (hP : ∀ a : α, P a) :
+    ∀ x : Hyper ι α, liftPred P x := by
+  rw [← forall_std_iff]
+  exact hP
+
+/-- There exist nonstandard elements in `Hyper ι ι` greater than all standard elements.
+This is the generic version showing `Hyper ι ι` has "infinite" elements.
+Requires `LocallyFiniteOrderBot` to ensure `Set.Iic a` is finite. -/
+theorem exists_infinite [LinearOrder ι] [LocallyFiniteOrderBot ι] :
+    ∃ ω : Hyper ι ι, ∀ a : ι, std a < ω := by
+  use ofSeq id
+  intro a
+  rw [std_lt_ofSeq]
+  apply Filter.mem_hyperfilter_of_finite_compl
+  simp only [Set.compl_setOf, not_lt]
+  exact Set.finite_Iic a
+
+/-- The generic omega element for any linearly ordered infinite index type. -/
+noncomputable def omega' [LinearOrder ι] : Hyper ι ι := ofSeq id
+
+theorem omega'_gt_std [LinearOrder ι] [LocallyFiniteOrderBot ι] (a : ι) :
+    std a < (omega' : Hyper ι ι) := by
+  rw [omega', std_lt_ofSeq]
+  apply Filter.mem_hyperfilter_of_finite_compl
+  simp only [Set.compl_setOf, not_lt]
+  exact Set.finite_Iic a
+
+/-! ### Consequences of IST for Analysis
+
+These lemmas show how IST principles apply to analysis on `Hyper ι α`. -/
+
+/-- If a property holds "eventually" in the hyperfilter sense, it is consistent
+with the standard world. -/
+theorem liftPred_of_eventually {P : α → Prop} (f : ι → α) (h : ∀ᶠ n in hyperfilter ι, P (f n)) :
+    liftPred P (ofSeq f : Hyper ι α) := by
+  rw [liftPred_ofSeq]
+  exact h
+
+/-- The contrapositive of overflow: if not all hyper-elements satisfy P,
+then some standard element fails P. -/
+theorem not_forall_liftPred_iff {P : α → Prop} :
+    ¬(∀ x : Hyper ι α, liftPred P x) ↔ ∃ a : α, ¬P a := by
+  rw [← forall_std_iff]
+  push_neg
+  rfl
+
+end IST
+
+/-! ## Nonstandard Characterizations
+
+These definitions and lemmas provide the key nonstandard analysis concepts. -/
+
+section NonstandardAnalysis
+
+/-- An element is **finite** if it is bounded by some standard element.
+For ordered types, this means there exists `a : α` with `x ≤ std a`. -/
+def IsFinite [LE α] (x : Hyper ι α) : Prop :=
+  ∃ a : α, x ≤ std a
+
+/-- An element is **infinite** (in the sense of exceeding all standard bounds)
+if it is greater than all standard elements. -/
+def IsInfinite [LT α] (x : Hyper ι α) : Prop :=
+  ∀ a : α, std a < x
+
+/-- `omega` is infinite (greater than all standard naturals). -/
+theorem omega_isInfinite : IsInfinite (omega : Hyper ℕ ℕ) := omega_gt_std
+
+/-- Standard elements are finite. -/
+theorem IsFinite.std [Preorder α] (a : α) : IsFinite (std a : Hyper ι α) := by
+  use a
+  simp only [std_le, le_refl]
+
+end NonstandardAnalysis
+
+end Hyper
