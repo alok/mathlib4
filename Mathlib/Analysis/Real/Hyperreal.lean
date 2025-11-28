@@ -738,6 +738,227 @@ theorem infinite_mul_of_not_infinitesimal_infinite {x y : ℝ*} :
 theorem Infinite.mul {x y : ℝ*} : Infinite x → Infinite y → Infinite (x * y) := fun hx hy =>
   infinite_mul_of_infinite_not_infinitesimal hx hy.not_infinitesimal
 
+/-! ## InfClose: Infinitesimal Closeness
+
+Two hyperreals are infinitesimally close if their difference is infinitesimal.
+This is the key relation for nonstandard characterizations of continuity and derivatives. -/
+
+/-- Two hyperreals are infinitesimally close if their difference is infinitesimal. -/
+def InfClose (x y : ℝ*) : Prop := Infinitesimal (x - y)
+
+/-- Notation: `x ≈ y` means `InfClose x y`. -/
+scoped infixl:50 " ≈ " => InfClose
+
+theorem InfClose.refl (x : ℝ*) : x ≈ x := by
+  simp only [InfClose, sub_self]
+  exact infinitesimal_zero
+
+theorem InfClose.symm {x y : ℝ*} (h : x ≈ y) : y ≈ x := by
+  simp only [InfClose] at h ⊢
+  have : y - x = -(x - y) := by ring
+  rw [this, infinitesimal_neg]
+  exact h
+
+theorem InfClose.trans {x y z : ℝ*} (hxy : x ≈ y) (hyz : y ≈ z) : x ≈ z := by
+  simp only [InfClose] at hxy hyz ⊢
+  have : x - z = (x - y) + (y - z) := by ring
+  rw [this]
+  exact hxy.add hyz
+
+theorem InfClose.add {x₁ x₂ y₁ y₂ : ℝ*} (h₁ : x₁ ≈ y₁) (h₂ : x₂ ≈ y₂) :
+    x₁ + x₂ ≈ y₁ + y₂ := by
+  simp only [InfClose] at h₁ h₂ ⊢
+  have : (x₁ + x₂) - (y₁ + y₂) = (x₁ - y₁) + (x₂ - y₂) := by ring
+  rw [this]
+  exact h₁.add h₂
+
+theorem InfClose.neg {x y : ℝ*} (h : x ≈ y) : -x ≈ -y := by
+  simp only [InfClose] at h ⊢
+  have : -x - -y = -(x - y) := by ring
+  rw [this, infinitesimal_neg]
+  exact h
+
+theorem InfClose.sub {x₁ x₂ y₁ y₂ : ℝ*} (h₁ : x₁ ≈ y₁) (h₂ : x₂ ≈ y₂) :
+    x₁ - x₂ ≈ y₁ - y₂ := by
+  rw [sub_eq_add_neg, sub_eq_add_neg]
+  exact h₁.add h₂.neg
+
+/-- Multiplying infinitesimally close elements by each other preserves infinitesimal closeness
+when the elements are not infinite. -/
+theorem InfClose.mul {x₁ x₂ y₁ y₂ : ℝ*} (h₁ : x₁ ≈ y₁) (h₂ : x₂ ≈ y₂)
+    (hx : ¬Infinite x₁) (hy : ¬Infinite y₂) : x₁ * x₂ ≈ y₁ * y₂ := by
+  simp only [InfClose] at h₁ h₂ ⊢
+  -- x₁ * x₂ - y₁ * y₂ = (x₁ - y₁) * y₂ + x₁ * (x₂ - y₂)
+  have eq : x₁ * x₂ - y₁ * y₂ = (x₁ - y₁) * y₂ + x₁ * (x₂ - y₂) := by ring
+  rw [eq]
+  -- h₁ : Infinitesimal (x₁ - y₁), need IsSt for y₂
+  -- Use exists_st_of_not_infinite to get standard part witnesses
+  obtain ⟨s₂, hs₂⟩ := exists_st_of_not_infinite hy
+  obtain ⟨s₁, hs₁⟩ := exists_st_of_not_infinite hx
+  -- (x₁ - y₁) * y₂ is infinitesimal since x₁ - y₁ is infinitesimal and y₂ has standard part
+  have term1 : Infinitesimal ((x₁ - y₁) * y₂) := by
+    have := IsSt.mul h₁ hs₂
+    simp only [zero_mul] at this
+    exact this
+  -- x₁ * (x₂ - y₂) is infinitesimal since x₂ - y₂ is infinitesimal and x₁ has standard part
+  have term2 : Infinitesimal (x₁ * (x₂ - y₂)) := by
+    have := IsSt.mul hs₁ h₂
+    simp only [mul_zero] at this
+    exact this
+  exact term1.add term2
+
+/-- `IsSt x r` iff `x ≈ r`. -/
+theorem isSt_iff_infClose {x : ℝ*} {r : ℝ} : IsSt x r ↔ x ≈ (r : ℝ*) := by
+  -- InfClose x r = Infinitesimal (x - r) = IsSt (x - r) 0
+  -- IsSt x r means: ∀ δ > 0, r - δ < x < r + δ
+  -- IsSt (x - r) 0 means: ∀ δ > 0, -δ < x - r < δ
+  -- These are equivalent by shifting by r
+  constructor
+  · intro h δ hδ
+    specialize h δ hδ
+    simp only [coe_zero, zero_sub, zero_add]
+    constructor
+    · have h1 : (r : ℝ*) - δ < x := h.1
+      calc -↑δ = (r : ℝ*) - δ - r := by ring
+           _ < x - r := sub_lt_sub_right h1 r
+    · have h2 : x < (r : ℝ*) + δ := h.2
+      calc x - ↑r < (r : ℝ*) + δ - r := sub_lt_sub_right h2 r
+           _ = ↑δ := by ring
+  · intro h δ hδ
+    specialize h δ hδ
+    simp only [coe_zero, zero_sub, zero_add] at h
+    constructor
+    · have h1 : -↑δ < x - (r : ℝ*) := h.1
+      -- add_lt_add_right h1 r gives: r + (-δ) < r + (x - r)
+      have h1' : (r : ℝ*) + (-↑δ) < (r : ℝ*) + (x - r) := add_lt_add_right h1 r
+      calc (r : ℝ*) - ↑δ = (r : ℝ*) + (-↑δ) := by ring
+           _ < (r : ℝ*) + (x - r) := h1'
+           _ = x := by ring
+    · have h2 : x - (r : ℝ*) < ↑δ := h.2
+      have h2' : (r : ℝ*) + (x - r) < (r : ℝ*) + ↑δ := add_lt_add_right h2 r
+      calc x = (r : ℝ*) + (x - r) := by ring
+           _ < (r : ℝ*) + ↑δ := h2'
+
+/-- `IsSt x r` implies `x ≈ r`. -/
+theorem IsSt.infClose {x : ℝ*} {r : ℝ} (h : IsSt x r) : x ≈ (r : ℝ*) :=
+  isSt_iff_infClose.mp h
+
+/-- `x ≈ r` implies `IsSt x r`. -/
+theorem InfClose.isSt {x : ℝ*} {r : ℝ} (h : x ≈ (r : ℝ*)) : IsSt x r :=
+  isSt_iff_infClose.mpr h
+
+/-- Standard elements are infinitesimally close to themselves. -/
+theorem InfClose.of_eq {x y : ℝ*} (h : x = y) : x ≈ y := by rw [h]; exact InfClose.refl _
+
+/-- Multiplying infinitesimally close elements by a standard real on the right. -/
+theorem InfClose.mul_coe {x y : ℝ*} {r : ℝ} (h : x ≈ y) :
+    x * r ≈ y * r := by
+  simp only [InfClose] at h ⊢
+  have eq : x * r - y * r = (x - y) * r := by ring
+  rw [eq]
+  have := IsSt.mul h (isSt_refl_real r)
+  simp only [zero_mul] at this
+  exact this
+
+/-- Multiplying infinitesimally close elements by a standard real on the left. -/
+theorem InfClose.coe_mul {x y : ℝ*} {r : ℝ} (h : x ≈ y) :
+    (r : ℝ*) * x ≈ (r : ℝ*) * y := by
+  simp only [mul_comm (r : ℝ*)]
+  exact h.mul_coe
+
+/-- If `x` is finite and `x ≈ y`, then `y` is finite. -/
+theorem InfClose.not_infinite_right {x y : ℝ*} (h : x ≈ y) (hx : ¬Infinite x) : ¬Infinite y := by
+  -- y = x + (y - x), and y - x is infinitesimal hence finite
+  have hinf : ¬Infinite (y - x) := h.symm.not_infinite
+  have eq : y = x + (y - x) := by ring
+  rw [eq]
+  exact not_infinite_add hx hinf
+
+/-- If `y` is finite and `x ≈ y`, then `x` is finite. -/
+theorem InfClose.not_infinite_left {x y : ℝ*} (h : x ≈ y) (hy : ¬Infinite y) : ¬Infinite x :=
+  h.symm.not_infinite_right hy
+
+/-- **Standard parts of infinitesimally close finite hyperreals are equal.**
+This is a key theorem: distinct standard reals cannot be infinitesimally close. -/
+theorem InfClose.st_eq {x y : ℝ*} (h : x ≈ y) (hx : ¬Infinite x) : st x = st y := by
+  have hy : ¬Infinite y := h.not_infinite_right hx
+  -- We have IsSt x (st x) and IsSt y (st y)
+  -- From x ≈ y and IsSt x (st x), we get IsSt y (st x)
+  -- By uniqueness of standard parts, st x = st y
+  have hx_st : IsSt x (st x) := isSt_st' hx
+  have hy_st : IsSt y (st y) := isSt_st' hy
+  -- x ≈ (st x) and x ≈ y, so y ≈ (st x) by transitivity
+  have : y ≈ (st x : ℝ*) := h.symm.trans hx_st.infClose
+  -- So IsSt y (st x)
+  have hy_stx : IsSt y (st x) := this.isSt
+  -- By uniqueness
+  exact hy_stx.unique hy_st
+
+/-- Corollary: if two standard reals are infinitesimally close, they are equal. -/
+theorem InfClose.eq_of_real {r s : ℝ} (h : (r : ℝ*) ≈ (s : ℝ*)) : r = s := by
+  have hr : st (r : ℝ*) = r := st_id_real r
+  have hs : st (s : ℝ*) = s := st_id_real s
+  rw [← hr, ← hs]
+  exact h.st_eq (not_infinite_real r)
+
+/-- A finite hyperreal is infinitesimally close to its standard part. -/
+theorem infClose_st {x : ℝ*} (hx : ¬Infinite x) : x ≈ (st x : ℝ*) :=
+  (isSt_st' hx).infClose
+
+/-- `st x = r` iff `x ≈ r` for finite `x`. -/
+theorem st_eq_iff_infClose {x : ℝ*} {r : ℝ} (hx : ¬Infinite x) : st x = r ↔ x ≈ (r : ℝ*) := by
+  constructor
+  · intro h
+    rw [← h]
+    exact infClose_st hx
+  · intro h
+    have : st x = st (r : ℝ*) := h.st_eq hx
+    rw [st_id_real] at this
+    exact this
+
+/-! ## Nonstandard Characterizations of Continuity
+
+The fundamental theorem of NSA for continuity: a function is continuous at a point
+iff it preserves infinitesimal closeness at that point. -/
+
+/-- **Nonstandard characterization of continuity at a point** (forward direction):
+If `f` is continuous at `r` and `IsSt x r`, then `IsSt (x.map f) (f r)`.
+
+This uses the existing `IsSt.map` lemma. -/
+theorem InfClose.map_of_continuousAt {f : ℝ → ℝ} {x : ℝ*} {r : ℝ}
+    (hxr : x ≈ (r : ℝ*)) (hf : ContinuousAt f r) : x.map f ≈ (f r : ℝ*) :=
+  (hxr.isSt.map hf).infClose
+
+/-! ## Nonstandard Characterization of Sequence Limits
+
+The fundamental theorem relating sequence convergence to infinitesimals.
+
+**Key insight**: `ofSeq f` for `f : ℕ → ℝ` represents "the value of f at a generic
+infinite index" - the entire sequence encoded as a single hyperreal.
+
+**Important**: The equivalence is with convergence along `hyperfilter ℕ`, not `atTop`.
+- `Tendsto f atTop (𝓝 L)` implies `IsSt (ofSeq f) L` (and hence `ofSeq f ≈ L`)
+- The converse requires the stronger filter condition `Tendsto f (hyperfilter ℕ) (𝓝 L)`
+
+For most applications, the forward direction suffices: if a sequence converges in the
+usual sense, its hyperreal representation is infinitesimally close to the limit. -/
+
+/-- **Nonstandard characterization of sequence convergence** (forward direction):
+If `f(n) → L` in the standard sense, then `ofSeq f ≈ L`. -/
+theorem tendsto_atTop_infClose {f : ℕ → ℝ} {L : ℝ} (hf : Tendsto f atTop (𝓝 L)) :
+    (ofSeq f) ≈ (L : ℝ*) :=
+  (isSt_of_tendsto hf).infClose
+
+/-- Convergence along the hyperfilter is equivalent to infinitesimal closeness. -/
+theorem tendsto_hyperfilter_iff_infClose {f : ℕ → ℝ} {L : ℝ} :
+    Tendsto f (hyperfilter ℕ) (𝓝 L) ↔ (ofSeq f) ≈ (L : ℝ*) := by
+  rw [← isSt_ofSeq_iff_tendsto, isSt_iff_infClose]
+
+/-- Convergence along the hyperfilter is equivalent to having standard part `L`. -/
+theorem tendsto_hyperfilter_iff_isSt {f : ℕ → ℝ} {L : ℝ} :
+    Tendsto f (hyperfilter ℕ) (𝓝 L) ↔ IsSt (ofSeq f) L :=
+  isSt_ofSeq_iff_tendsto.symm
+
 end Hyperreal
 
 /-

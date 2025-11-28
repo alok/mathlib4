@@ -75,6 +75,16 @@ lemma ofRat_add (a b : ℚ) : ofRat (a + b) = ofRat a + ofRat b := rfl
 @[simp]
 lemma ofRat_inv (q : ℚ) : ofRat (q⁻¹) = (ofRat q)⁻¹ := rfl
 
+lemma ofRat_mul (a b : ℚ) : ofRat (a * b) = ofRat a * ofRat b := rfl
+
+lemma ofRat_sub (a b : ℚ) : ofRat (a - b) = ofRat a - ofRat b := rfl
+
+lemma ofRat_div (a b : ℚ) : ofRat (a / b) = ofRat a / ofRat b := rfl
+
+@[simp] lemma ofRat_zero : ofRat 0 = (0 : ℚ*) := rfl
+
+@[simp] lemma ofRat_one : ofRat 1 = (1 : ℚ*) := rfl
+
 /-- A sample infinitesimal hyperrational. -/
 noncomputable def epsilon : ℚ* := ofSeq fun n => (Nat.succ n : ℚ)⁻¹
 
@@ -509,6 +519,31 @@ theorem Infinitesimal.hFinite {x : ℚ*} (hx : Infinitesimal x) : HFinite x := b
 theorem Infinitesimal.mul {x y : ℚ*} (hx : Infinitesimal x) (hy : Infinitesimal y) :
     Infinitesimal (x * y) := by
   exact hx.mul_hFinite (Infinitesimal.hFinite hy)
+
+/-- A standard rational is infinitesimal iff it equals zero. -/
+theorem infinitesimal_ofRat_iff {q : ℚ} : Infinitesimal (ofRat q) ↔ q = 0 := by
+  constructor
+  · intro h
+    by_contra hne
+    have habs : 0 < |q| := abs_pos.mpr hne
+    obtain ⟨hlo, hhi⟩ := h |q| habs
+    rw [ofRat_lt_ofRat] at hlo hhi
+    -- We have -|q| < q < |q|
+    -- From hhi: q < |q|. If q ≥ 0, then |q| = q, contradiction.
+    -- From hlo: -|q| < q. If q ≤ 0, then |q| = -q, so q < q, contradiction.
+    rcases le_or_lt 0 q with hpos | hneg
+    · rw [abs_of_nonneg hpos] at hhi
+      exact lt_irrefl q hhi
+    · rw [abs_of_neg hneg] at hlo
+      linarith
+  · intro h
+    rw [h]
+    exact infinitesimal_zero
+
+/-- A nonzero standard rational is not infinitesimal. -/
+theorem not_infinitesimal_ofRat {q : ℚ} (hq : q ≠ 0) : ¬Infinitesimal (ofRat q) := by
+  rw [infinitesimal_ofRat_iff]
+  exact hq
 
 /-! ## HFinite Algebra -/
 
@@ -1340,11 +1375,115 @@ lemma monad_eq_iff_infClose {x y : ℚ*} : μ x = μ y ↔ InfClose x y := by
 lemma mem_monad_of_infClose {x y z : ℚ*} (hxy : InfClose x y) (hxz : z ∈ μ x) : z ∈ μ y :=
   infClose_trans (infClose_symm hxy) hxz
 
-/-- Every HFinite hyperrational has a unique standard part in its monad.
-    TODO: This requires proving the standard part theorem for hyperrationals. -/
-lemma monad_inter_standard_unique {x : ℚ*} (hx : HFinite x) :
-    ∃! r : ℚ, ofRat r ∈ μ x := by
-  sorry
+/-! ## Standard Part API
+
+Note: Unlike ℝ*, not every HFinite element of ℚ* has a standard part in ℚ.
+A bounded sequence of rationals can converge to an irrational (e.g., √2),
+so the hyperrational it represents has no rational standard part.
+
+We introduce `HasStdPart` to characterize elements that DO have a rational standard part.
+-/
+
+/-- A hyperrational has a standard part if some standard rational is infinitely close to it. -/
+def HasStdPart (x : ℚ*) : Prop := ∃ r : ℚ, InfClose x (ofRat r)
+
+/-- If a standard part exists, it is unique. -/
+theorem stdPart_unique {x : ℚ*} {r s : ℚ} (hr : InfClose x (ofRat r))
+    (hs : InfClose x (ofRat s)) : r = s := by
+  have h : InfClose (ofRat r) (ofRat s) := infClose_trans (infClose_symm hr) hs
+  unfold InfClose at h
+  rw [← ofRat_sub] at h
+  rw [infinitesimal_ofRat_iff] at h
+  linarith
+
+/-- Standard rationals have a standard part (themselves). -/
+theorem HasStdPart.ofRat (q : ℚ) : HasStdPart (ofRat q) :=
+  ⟨q, infClose_refl _⟩
+
+/-- Infinitesimals have standard part 0. -/
+theorem HasStdPart.of_infinitesimal {x : ℚ*} (hx : Infinitesimal x) : HasStdPart x :=
+  ⟨0, by unfold InfClose; simp only [ofRat_zero, sub_zero]; exact hx⟩
+
+/-- Zero has standard part 0. -/
+theorem HasStdPart.zero : HasStdPart (0 : ℚ*) :=
+  HasStdPart.of_infinitesimal infinitesimal_zero
+
+/-- The standard part of a hyperrational that has one.
+    Named `st` to avoid collision with `stdPart` for sets. -/
+noncomputable def st (x : ℚ*) (hx : HasStdPart x) : ℚ := hx.choose
+
+/-- The standard part is infinitely close to the original. -/
+theorem st_spec (x : ℚ*) (hx : HasStdPart x) : InfClose x (ofRat (st x hx)) :=
+  hx.choose_spec
+
+/-- The standard part is in the monad of x. -/
+theorem st_mem_monad (x : ℚ*) (hx : HasStdPart x) : ofRat (st x hx) ∈ μ x :=
+  st_spec x hx
+
+/-- The standard part of a standard rational is itself. -/
+theorem st_ofRat (q : ℚ) : st (ofRat q) (HasStdPart.ofRat q) = q :=
+  stdPart_unique (st_spec _ _) (infClose_refl _)
+
+/-- If x ≈ ofRat r and x has a standard part, then the standard part equals r. -/
+theorem st_eq_of_infClose {x : ℚ*} {r : ℚ} (hx : HasStdPart x)
+    (hr : InfClose x (ofRat r)) : st x hx = r :=
+  stdPart_unique (st_spec x hx) hr
+
+/-- The standard part of 0 is 0. -/
+theorem st_zero : st 0 HasStdPart.zero = 0 :=
+  st_eq_of_infClose _ (by unfold InfClose; simp only [ofRat_zero, sub_zero]; exact infinitesimal_zero)
+
+/-- Addition preserves having a standard part. -/
+theorem HasStdPart.add {x y : ℚ*} (hx : HasStdPart x) (hy : HasStdPart y) :
+    HasStdPart (x + y) := by
+  obtain ⟨r, hr⟩ := hx
+  obtain ⟨s, hs⟩ := hy
+  refine ⟨r + s, ?_⟩
+  have h1 := @InfClose.add x (Hyperrational.ofRat r) y (Hyperrational.ofRat s) hr hs
+  rwa [← ofRat_add] at h1
+
+/-- Standard part distributes over addition. -/
+theorem st_add {x y : ℚ*} (hx : HasStdPart x) (hy : HasStdPart y) :
+    st (x + y) (hx.add hy) = st x hx + st y hy := by
+  apply stdPart_unique (st_spec _ _)
+  have h := @InfClose.add x _ y _ (st_spec x hx) (st_spec y hy)
+  rwa [← ofRat_add] at h
+
+/-- Negation preserves having a standard part. -/
+theorem HasStdPart.neg {x : ℚ*} (hx : HasStdPart x) : HasStdPart (-x) := by
+  obtain ⟨r, hr⟩ := hx
+  refine ⟨-r, ?_⟩
+  have h := InfClose.neg hr
+  rwa [← ofRat_neg] at h
+
+/-- Standard part distributes over negation. -/
+theorem st_neg {x : ℚ*} (hx : HasStdPart x) :
+    st (-x) hx.neg = -st x hx := by
+  apply stdPart_unique (st_spec _ _)
+  have h := InfClose.neg (st_spec x hx)
+  rwa [← ofRat_neg] at h
+
+/-- Subtraction preserves having a standard part. -/
+theorem HasStdPart.sub {x y : ℚ*} (hx : HasStdPart x) (hy : HasStdPart y) :
+    HasStdPart (x - y) := by
+  rw [sub_eq_add_neg]
+  exact hx.add hy.neg
+
+/-- Standard part distributes over subtraction. -/
+theorem st_sub {x y : ℚ*} (hx : HasStdPart x) (hy : HasStdPart y) :
+    st (x - y) (hx.sub hy) = st x hx - st y hy := by
+  apply stdPart_unique (st_spec _ _)
+  have h := @InfClose.sub x _ y _ (st_spec x hx) (st_spec y hy)
+  rwa [← ofRat_sub] at h
+
+/-- Multiplication preserves having a standard part (for HFinite elements). -/
+theorem HasStdPart.mul {x y : ℚ*} (hx : HasStdPart x) (hy : HasStdPart y)
+    (hxf : HFinite x) (hyf : HFinite y) : HasStdPart (x * y) := by
+  obtain ⟨r, hr⟩ := hx
+  obtain ⟨s, hs⟩ := hy
+  refine ⟨r * s, ?_⟩
+  have h1 := @InfClose.mul x (Hyperrational.ofRat r) y (Hyperrational.ofRat s) hr hs hxf hyf
+  rwa [← ofRat_mul] at h1
 
 /-! ## Transfer Principle for Hyperrationals
 
