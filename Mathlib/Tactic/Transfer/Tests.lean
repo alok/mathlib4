@@ -5,6 +5,7 @@ Authors: Alok Singh
 -/
 import Mathlib.Tactic.Transfer
 import Mathlib.Data.Rat.Hyperrational
+import Mathlib.Order.Filter.Germ.Product
 
 /-!
 # Transfer Tactic Test Suite
@@ -206,22 +207,7 @@ theorem test_dvd_transfer {d n : ℕ} (h : d ∣ n) :
 
 end PredicateTransfer
 
-/-! ## 7. TransferableNat Typeclass -/
-
-section TransferableTypeclass
-
-/-- Test: starNat of Nat.Prime equals HyperPrime. -/
-theorem test_starNat_Prime : starNat Nat.Prime = HyperPrime := rfl
-
-/-- Test: starNat of Even equals liftPred Even. -/
-theorem test_starNat_Even : starNat Even = Hypernatural.liftPred Even := rfl
-
-/-- Test: starNat of Odd equals liftPred Odd. -/
-theorem test_starNat_Odd : starNat Odd = Hypernatural.liftPred Odd := rfl
-
-end TransferableTypeclass
-
-/-! ## 8. Combined Transfer Examples -/
+/-! ## 7. Combined Transfer Examples -/
 
 section CombinedExamples
 
@@ -243,7 +229,7 @@ theorem test_combined_pred {n : ℕ} (he : Even n) (hp : 0 < n) :
 
 end CombinedExamples
 
-/-! ## 9. Germ-Product Bridge Tests -/
+/-! ## 8. Germ-Product Bridge Tests -/
 
 section BridgeTests
 
@@ -260,7 +246,7 @@ theorem test_prodEquiv_ofFun {l : Filter ℕ} (f : ℕ → ℕ) :
 
 end BridgeTests
 
-/-! ## 10. Infinitesimal Tests (Hyperrational) -/
+/-! ## 9. Infinitesimal Tests (Hyperrational) -/
 
 section InfinitesimalTests
 
@@ -277,11 +263,69 @@ theorem test_infinitesimal_neg {x : ℚ*} (hx : Hyperrational.Infinitesimal x) :
 
 end InfinitesimalTests
 
+/-! ## 10. IST Axiom Tests -/
+
+section ISTTests
+
+open Hyper
+
+/-- Test: IsStandard holds for standard elements. -/
+theorem test_IsStandard_std (n : ℕ) : IsStandard (Hyper.std n : Hyper ℕ ℕ) :=
+  IsStandard.of_std n
+
+/-- Test: Transfer (T) - Universal quantifier. -/
+theorem test_transfer_forall {P : ℕ → Prop} :
+    (∀ n : ℕ, P n) ↔ (∀ x : Hyper ℕ ℕ, Hyper.liftPred P x) :=
+  Hyper.forall_std_iff P
+
+/-- Test: Transfer (T) - Existential quantifier with standard restriction. -/
+theorem test_transfer_exists {P : ℕ → Prop} :
+    (∃ n : ℕ, P n) ↔ (∃ x : Hyper ℕ ℕ, IsStandard x ∧ Hyper.liftPred P x) :=
+  Hyper.exists_std_iff P
+
+/-- Test: Idealization (I) - Overflow principle. -/
+theorem test_overflow {P : ℕ → Prop} (hP : ∀ n : ℕ, P n) :
+    ∀ x : Hyper ℕ ℕ, Hyper.liftPred P x :=
+  Hyper.overflow hP
+
+/-- Test: Idealization (I) - Existence of infinite elements. -/
+theorem test_exists_infinite : ∃ w : Hyper ℕ ℕ, ∀ n : ℕ, Hyper.std n < w :=
+  Hyper.exists_infinite_nat
+
+/-- Test: omega is greater than all standard naturals. -/
+theorem test_omega_gt_std (n : ℕ) : Hyper.std n < Hyper.omega :=
+  Hyper.omega_gt_std n
+
+/-- Test: Idealization (I) - Underflow principle. -/
+theorem test_underflow {P : ℕ → Prop} (hP : Hyper.liftPred P Hyper.omega) :
+    ∀ n : ℕ, ∃ m : ℕ, m ≥ n ∧ P m :=
+  Hyper.underflow Hyper.omega_gt_std hP
+
+/-- Test: Standardization (S) - standard part of predicate. -/
+theorem test_standardization (P : Hyper ℕ ℕ → Prop) :
+    ∃ Q : ℕ → Prop, ∀ n : ℕ, Q n ↔ P (Hyper.std n) :=
+  Hyper.standardization P
+
+/-- Test: standardPart is inverse of liftPred on standard elements. -/
+theorem test_standardPart_liftPred (P : ℕ → Prop) :
+    Hyper.standardPart (Hyper.liftPred P : Hyper ℕ ℕ → Prop) = P :=
+  Hyper.standardPart_liftPred P
+
+/-- Test: IsInfinite for omega. -/
+theorem test_omega_isInfinite : Hyper.IsInfinite Hyper.omega :=
+  Hyper.omega_isInfinite
+
+/-- Test: Generic omega for any infinite linearly ordered type. -/
+theorem test_omega'_gt_std (n : ℕ) : Hyper.std n < (Hyper.omega' : Hyper ℕ ℕ) :=
+  Hyper.omega'_gt_std n
+
+end ISTTests
+
 /-! ## Test Summary
 
 All tests pass if this file compiles without errors.
 
-Total tests: 35+
+Total tests: 45+
 Categories covered:
 - Basic liftPred/liftRel
 - Logical connectives (∧, ∨, ¬, →)
@@ -289,10 +333,10 @@ Categories covered:
 - Arithmetic operations (+, *)
 - Order relations (<, ≤, =)
 - Standard predicates (Prime, Even, Odd, ∣)
-- TransferableNat typeclass
 - Combined examples
 - Germ-Product bridge
 - Infinitesimal properties
+- IST axioms (Transfer, Idealization, Standardization)
 -/
 
 end TransferTests

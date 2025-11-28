@@ -498,4 +498,103 @@ theorem IsFinite.std [Preorder α] (a : α) : IsFinite (std a : Hyper ι α) := 
 
 end NonstandardAnalysis
 
+/-! ## Countable Saturation
+
+For `Hyper ℕ α` (ultraproducts indexed by `ℕ`), we have countable saturation:
+if every finite subfamily of a countable family of internal predicates has a common witness,
+then the entire family has a common witness.
+
+This is proved via diagonalization: we construct a sequence that eventually satisfies
+each predicate by taking diagonal elements from witnesses for finite prefixes.
+-/
+
+section Saturation
+
+/-- **Countable Saturation** for `Hyper ℕ α`:
+If every finite subset of predicates `{P 0, P 1, ..., P k}` has a common witness in `Hyper ℕ α`,
+then the entire countable family `{P n : n ∈ ℕ}` has a common witness.
+
+This is a key property that unlocks "backward" directions in NSA theorems,
+allowing us to go from "monad membership for all elements" back to standard topological
+properties. -/
+theorem countable_saturation {α : Type*} {P : ℕ → α → Prop}
+    (hfin : ∀ F : Finset ℕ, ∃ x : Hyper ℕ α, ∀ n ∈ F, liftPred (P n) x) :
+    ∃ x : Hyper ℕ α, ∀ n : ℕ, liftPred (P n) x := by
+  -- For each finite prefix [0..k], choose a witness and a representing sequence
+  have hwit : ∀ k : ℕ, ∃ f : ℕ → α, ∀ n ≤ k, ∀ᶠ i in hyperfilter ℕ, P n (f i) := by
+    intro k
+    obtain ⟨x, hx⟩ := hfin (Finset.range (k + 1))
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    use f
+    intro n hn
+    have hn' : n ∈ Finset.range (k + 1) := Finset.mem_range.mpr (Nat.lt_succ_of_le hn)
+    exact (liftPred_ofSeq (P n) f).mp (hx n hn')
+  choose f hf using hwit
+  -- For each k, the set {i : ∀ n ≤ k, P n (f k i)} is in the hyperfilter
+  -- Since hyperfilter ⊇ cofinite on ℕ, this set is infinite; pick M_k ≥ k from it
+  have hgood : ∀ k : ℕ, ∃ M : ℕ, M ≥ k ∧ ∀ n ≤ k, P n (f k M) := by
+    intro k
+    -- The intersection of finitely many hyperfilter sets is in the hyperfilter
+    -- Use Finset.range (k + 1) = {0, 1, ..., k}
+    have hall : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ∀ n ∈ Finset.range (k + 1), P n (f k i) := by
+      rw [Finset.eventually_all]
+      intro n hn
+      rw [Finset.mem_range] at hn
+      exact hf k n (Nat.lt_succ_iff.mp hn)
+    -- Also {i : i ≥ k} is in hyperfilter (cofinite ⊆ hyperfilter)
+    have hge : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), i ≥ k := by
+      apply Filter.mem_of_superset (Filter.mem_hyperfilter_of_finite_compl _)
+      · intro i hi; exact hi
+      · convert Set.finite_lt_nat k using 1
+        ext i
+        simp only [Set.mem_compl_iff, Set.mem_setOf_eq, not_le]
+    -- Convert hall to the ≤ form
+    have hall' : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ∀ n ≤ k, P n (f k i) := by
+      apply hall.mono
+      intro i hi n hn
+      exact hi n (Finset.mem_range.mpr (Nat.lt_succ_of_le hn))
+    -- The conjunction is in the hyperfilter, hence nonempty
+    have hboth := hall'.and hge
+    exact hboth.exists.imp fun M ⟨h1, h2⟩ => ⟨h2, h1⟩
+  choose M hM using hgood
+  -- Define diagonal sequence: g(k) = f_k(M_k)
+  let g : ℕ → α := fun k => f k (M k)
+  use ofSeq g
+  -- Show that for any n, eventually P n (g k) holds
+  intro n
+  rw [liftPred_ofSeq]
+  -- For k ≥ n: g(k) = f_k(M_k), and since k ≥ n, the witness f_k works for P n
+  apply Filter.mem_hyperfilter_of_finite_compl
+  -- {k : ¬ P n (g k)} ⊆ {0, 1, ..., n-1}
+  have hsub : {k : ℕ | ¬P n (g k)} ⊆ {k : ℕ | k < n} := by
+    intro k hk
+    simp only [Set.mem_setOf_eq] at hk ⊢
+    by_contra hge
+    simp only [not_lt] at hge
+    -- k ≥ n, so f_k satisfies P n at M_k (since M_k is a "good" index for f_k)
+    have hPn : P n (f k (M k)) := (hM k).2 n hge
+    exact hk hPn
+  exact Set.Finite.subset (Set.finite_lt_nat n) hsub
+
+/-- Variant of countable saturation with `Finset.range` -/
+theorem countable_saturation' {α : Type*} [Nonempty α] {P : ℕ → α → Prop}
+    (hfin : ∀ k : ℕ, ∃ x : Hyper ℕ α, ∀ n < k, liftPred (P n) x) :
+    ∃ x : Hyper ℕ α, ∀ n : ℕ, liftPred (P n) x := by
+  apply countable_saturation
+  intro F
+  by_cases hF : F.Nonempty
+  · obtain ⟨x, hx⟩ := hfin (F.sup id + 1)
+    use x
+    intro n hn
+    apply hx
+    calc n ≤ F.sup id := Finset.le_sup (f := id) hn
+      _ < F.sup id + 1 := Nat.lt_succ_self _
+  · -- F is empty, any witness works
+    simp only [Finset.not_nonempty_iff_eq_empty] at hF
+    subst hF
+    use std (Classical.ofNonempty)
+    simp
+
+end Saturation
+
 end Hyper

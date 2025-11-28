@@ -3,193 +3,186 @@ Copyright (c) 2024 Alok Singh. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
+import Mathlib.Order.Filter.Germ.Star
 import Mathlib.Data.Nat.Hypernatural
-import Mathlib.Order.Filter.Germ.Product
-import Qq
+import Mathlib.Data.Rat.Hyperrational
+import Lean.Elab.Tactic
 
 /-!
 # Transfer Tactic for Nonstandard Analysis
 
-This file provides a `transfer` tactic that automatically rewrites goals
-involving hypernaturals (ℕ*) using the transfer principle lemmas from
-`Mathlib.Data.Nat.Hypernatural`.
+This file provides `transfer` tactics that automatically move goals and hypotheses
+between standard and nonstandard (hyperextension) forms using the transfer principle.
 
-## Main tactic
+## Main tactics
 
-* `transfer` - Attempts to transfer a goal between standard (ℕ) and nonstandard (ℕ*) forms
-  by applying transfer lemmas for logical connectives and predicates.
+* `transfer` - Reduces hyperextension goals to standard goals by decomposing
+  elements via `ofSeq_surjective` and simplifying with transfer lemmas.
 
-## Implementation
+* `transfer +upward h` - Uses a standard hypothesis `h : ∀ a : α, P a` to prove
+  the corresponding hyperextension statement.
 
-The tactic works by repeatedly applying transfer lemmas:
-- `liftPred_and`, `liftPred_or`, `liftPred_not`, `liftPred_imp` for logical connectives
-- `forall_iff_forall_liftPred` for universal quantifiers
-- `liftPred_coe` for standard elements
+## How it works
 
-The approach is inspired by the Lean 3 transfer tactic from ADedecker/nonstandard.
+The tactic automatically applies the transfer principle:
+1. Every `x : Hyper ι α` can be represented as `ofSeq f` for some `f : ι → α`
+2. Operations and predicates lift pointwise
+3. Equality/comparison becomes `∀ᶠ n, ...` (almost everywhere)
+4. For standard elements (constant sequences), `∀ᶠ n, P` simplifies to `P`
+
+## When to use transfer
+
+**NOT useful for:** Basic algebraic identities - `ring`, `field_simp`, etc. already
+work directly on hyperextensions because they have the required algebraic structures.
+
+**USEFUL for:**
+1. **Predicate transfer**: Lifting predicates like `Prime`, `Even`, `Odd`
+2. **Quantifier transfer**: Transferring `∀`/`∃` statements
+3. **Using standard-only theorems**: When a theorem exists only for the base type
 
 ## Example
 
 ```lean
-example (h : ∀ n : ℕ, ∃ p : ℕ, Nat.Prime p ∧ p > n) :
-    ∀ x : ℕ*, ∃ p : ℕ*, Hypernatural.HyperPrime p ∧ p > x := by
-  transfer_primes h
+-- Universal quantifier transfer
+example (P : ℕ → Prop) (h : ∀ n : ℕ, P n) : ∀ x : ℕ*, liftPred P x := by
+  rw [← Hyper.forall_std_iff]
+  exact h
 ```
 -/
 
 open Lean Meta Elab Tactic
-open Hypernatural
-open Qq
 
 namespace Mathlib.Tactic.Transfer
 
-/-! ## Transferable Typeclass
+/-! ## Core Transfer Tactics -/
 
-A typeclass for predicates that can be transferred between standard and nonstandard structures.
--/
-
-/-- A predicate `P : α → Prop` is `TransferableNat` to ℕ* if there is a
-corresponding hyper-predicate and the transfer is compatible with the embedding. -/
-class TransferableNat (P : ℕ → Prop) where
-  /-- The lifted predicate on the hyperextension. -/
-  hyperPred : ℕ* → Prop
-  /-- Transfer for constants: P holds for a standard element iff hyperPred holds for its image. -/
-  transfer_const : ∀ n : ℕ, P n ↔ hyperPred (n : ℕ*)
-
-/-- The star extension of a predicate P on ℕ to ℕ*. -/
-def starNat (P : ℕ → Prop) [inst : TransferableNat P] : ℕ* → Prop :=
-  inst.hyperPred
-
-/-- Nat.Prime is transferable to ℕ*. -/
-instance : TransferableNat Nat.Prime where
-  hyperPred := HyperPrime
-  transfer_const := fun n => by rw [HyperPrime, liftPred_coe]
-
-/-- Even is transferable to ℕ*. -/
-instance : TransferableNat Even where
-  hyperPred := liftPred Even
-  transfer_const := fun _ => liftPred_coe.symm
-
-/-- Odd is transferable to ℕ*. -/
-instance : TransferableNat Odd where
-  hyperPred := liftPred Odd
-  transfer_const := fun _ => liftPred_coe.symm
-
-/-- The star of a transferable predicate agrees with liftPred for any predicate. -/
-theorem starNat_eq_liftPred (P : ℕ → Prop) [inst : TransferableNat P]
-    (h : inst.hyperPred = liftPred P) : starNat P = liftPred P := h
-
-/-- Simp lemmas for the transfer tactic. -/
-def transferSimpLemmas : Array Name := #[
-  ``liftPred_ofSeq,
-  ``liftPred_coe,
-  ``liftRel_ofSeq,
-  ``liftRel_coe,
-  ``liftPred_and,
-  ``liftPred_or,
-  ``liftPred_not,
-  ``liftPred_imp,
-  ``forall_iff_forall_liftPred
-]
-
-/--
-`transfer` attempts to simplify goals involving hypernaturals using transfer principle lemmas.
-
-It repeatedly applies lemmas like `liftPred_and`, `liftPred_or`, `liftPred_not`, etc.
-to push `liftPred` through logical connectives.
--/
+/-- `transfer` reduces a goal about hyperextensions to a goal about standard elements.
+Works generically on any `Hyper ι α` type. -/
 syntax (name := transfer) "transfer" : tactic
 
-/--
-`transfer_primes` is a specialized tactic for transferring statements about primes.
-Given a hypothesis `h : ∀ n : ℕ, ∃ p : ℕ, Nat.Prime p ∧ p > n`, it proves the
-hypernatural version.
--/
+/-- Core transfer tactic implementation. -/
+elab "transfer" : tactic => do
+  -- Try to decompose all hyper-elements via ofSeq_surjective
+  evalTactic (← `(tactic| repeat' intro _))
+  -- Try Hypernatural first (most common case)
+  try
+    evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Hypernatural.ofSeq_surjective ‹_›)))
+    evalTactic (← `(tactic| simp only [
+      Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
+      Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
+      Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
+      Hypernatural.coe_add, Hypernatural.coe_mul,
+      Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
+      Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
+      Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe
+    ]))
+  catch _ =>
+    -- Try Hyperrational
+    try
+      evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Hyperrational.ofSeq_surjective ‹_›)))
+      evalTactic (← `(tactic| simp only [
+        Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
+        Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
+        Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv,
+        Hyperrational.liftPred_ofSeq, Hyperrational.liftPred_ofRat,
+        Hyperrational.liftRel_ofSeq, Hyperrational.liftRel_ofRat
+      ]))
+    catch _ =>
+      -- Try generic Hyper
+      evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Hyper.ofSeq_surjective ‹_›)))
+      evalTactic (← `(tactic| simp only [
+        Hyper.ofSeq_eq_ofSeq,
+        Hyper.lift_ofSeq, Hyper.lift₂_ofSeq,
+        Hyper.liftPred_ofSeq, Hyper.liftRel_ofSeq
+      ]))
+  -- For constant filter conditions, use Eventually.of_forall
+  evalTactic (← `(tactic| try apply Filter.Eventually.of_forall))
+  evalTactic (← `(tactic| try intro))
+
+/-! ## Upward Transfer -/
+
+/-- `transfer +upward h` uses a standard hypothesis to prove a hyperextension statement. -/
+syntax (name := transferUp) "transfer" "+upward" ident : tactic
+
+elab_rules : tactic
+  | `(tactic| transfer +upward $h:ident) => do
+    evalTactic (← `(tactic| intro x))
+    -- Try Hypernatural
+    try
+      evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Hypernatural.ofSeq_surjective x))
+      evalTactic (← `(tactic| simp only [
+        Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
+        Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
+        Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
+        Hypernatural.coe_add, Hypernatural.coe_mul,
+        Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
+        Hypernatural.liftPred_ofSeq
+      ]))
+      evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
+      evalTactic (← `(tactic| intro n))
+      evalTactic (← `(tactic| exact $h (f n)))
+    catch _ =>
+      -- Try Hyperrational
+      try
+        evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Hyperrational.ofSeq_surjective x))
+        evalTactic (← `(tactic| simp only [
+          Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
+          Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
+          Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv,
+          Hyperrational.liftPred_ofSeq
+        ]))
+        evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
+        evalTactic (← `(tactic| intro n))
+        evalTactic (← `(tactic| exact $h (f n)))
+      catch _ =>
+        -- Generic Hyper
+        evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Hyper.ofSeq_surjective x))
+        evalTactic (← `(tactic| rw [Hyper.liftPred_ofSeq]))
+        evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
+        evalTactic (← `(tactic| intro n))
+        evalTactic (← `(tactic| exact $h (f n)))
+
+/-! ## Specialized Tactics -/
+
+/-- `transfer_primes h` transfers statements about infinitely many primes. -/
 syntax (name := transfer_primes) "transfer_primes" ident : tactic
 
-macro_rules
-  | `(tactic| transfer) => `(tactic|
-      simp only [liftPred_ofSeq, liftPred_coe, liftRel_ofSeq, liftRel_coe,
-                 liftPred_and, liftPred_or, liftPred_not, liftPred_imp,
-                 forall_iff_forall_liftPred])
-
-macro_rules
-  | `(tactic| transfer_primes $h) =>
-    `(tactic| exact infinitely_many_primes_transfer $h)
-
-/--
-`transfer_intro` introduces a hypernatural and rewrites using `ofSeq_surjective`.
-This is useful when the goal is `∀ x : ℕ*, P x`.
--/
-syntax (name := transfer_intro) "transfer_intro" ident : tactic
-
-macro_rules
-  | `(tactic| transfer_intro $x:ident) => `(tactic|
-      intro $x:ident;
-      obtain ⟨f, rfl⟩ := ofSeq_surjective $x:ident)
-
-/--
-`transfer_exists` provides a witness for an existential over ℕ* by constructing
-it from a sequence. Usage: `transfer_exists (ofSeq g)` where `g : ℕ → ℕ`.
--/
-syntax (name := transfer_exists) "transfer_exists" term : tactic
-
-macro_rules
-  | `(tactic| transfer_exists $t) => `(tactic|
-      exact ⟨$t, by simp only [liftPred_ofSeq]; assumption⟩)
-
-/-- `transfer_goal` applies a single transfer step based on goal structure. -/
-syntax (name := transfer_goal) "transfer_goal" : tactic
-
-/-- Apply transfer lemmas to rewrite liftPred through logical connectives. -/
-def transferLiftPred : TacticM Unit := do
-  let goal ← getMainGoal
-  let goalType ← goal.getType'
-  -- Try rewriting with each transfer lemma in sequence
-  let transferLemmas := #[``liftPred_and, ``liftPred_or, ``liftPred_not, ``liftPred_imp]
-  for lem in transferLemmas do
-    try
-      let result ← goal.rewrite goalType (mkConst lem) false
-      if result.mvarIds.isEmpty then return
-      replaceMainGoal result.mvarIds
-      return
-    catch _ => continue
-  throwError "transfer_goal: no applicable transfer lemma found"
-
 elab_rules : tactic
-| `(tactic| transfer_goal) => transferLiftPred
+  | `(tactic| transfer_primes $h) => do
+    evalTactic (← `(tactic| exact Hypernatural.infinitely_many_primes_transfer $h))
 
-/-- `transfer_forall` handles goals of the form `∀ x : ℕ*, P x`. -/
-syntax (name := transfer_forall) "transfer_forall" : tactic
+/-- `transfer_simp` applies all transfer simp lemmas. -/
+syntax (name := transfer_simp) "transfer_simp" : tactic
 
-/-- Rewrite a forall over ℕ* using the transfer principle. -/
-def transferForall : TacticM Unit := do
-  let goal ← getMainGoal
-  let goalType ← goal.getType'
-  -- Try applying forall_iff_forall_liftPred
-  try
-    let result ← goal.rewrite goalType (mkConst ``forall_iff_forall_liftPred) false
-    replaceMainGoal result.mvarIds
-  catch _ =>
-    throwError "transfer_forall: goal is not of the form `∀ x : ℕ*, P x`"
-
-elab_rules : tactic
-| `(tactic| transfer_forall) => transferForall
-
-/--
-`transfer!` is an aggressive variant that repeatedly applies transfer lemmas and
-then tries to close the goal with standard tactics.
--/
-syntax (name := transfer_bang) "transfer!" : tactic
-
-macro_rules
-  | `(tactic| transfer!) => `(tactic|
-      simp only [liftPred_ofSeq, liftPred_coe, liftRel_ofSeq, liftRel_coe,
-                 liftPred_and, liftPred_or, liftPred_not, liftPred_imp,
-                 forall_iff_forall_liftPred] <;>
-      try assumption <;>
-      try rfl <;>
-      try decide)
+elab "transfer_simp" : tactic => do
+  evalTactic (← `(tactic| simp only [
+    -- Generic Hyper lemmas
+    Hyper.std_inj, Hyper.std_add, Hyper.std_mul, Hyper.std_neg, Hyper.std_sub,
+    Hyper.std_inv, Hyper.std_div, Hyper.std_zero, Hyper.std_one,
+    Hyper.std_le, Hyper.std_lt,
+    Hyper.liftPred_std, Hyper.liftRel_std,
+    Hyper.forall_std_iff,
+    -- ℕ* lemmas
+    Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
+    Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe,
+    Hypernatural.liftPred_and, Hypernatural.liftPred_or,
+    Hypernatural.liftPred_not, Hypernatural.liftPred_imp,
+    Hypernatural.forall_iff_forall_liftPred,
+    Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
+    Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
+    Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
+    Hypernatural.coe_add, Hypernatural.coe_mul,
+    Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
+    -- ℚ* lemmas
+    Hyperrational.liftPred_ofRat, Hyperrational.liftPred_ofSeq,
+    Hyperrational.liftRel_ofRat, Hyperrational.liftRel_ofSeq,
+    Hyperrational.liftPred_and, Hyperrational.liftPred_or,
+    Hyperrational.liftPred_not, Hyperrational.liftPred_imp,
+    Hyperrational.forall_iff_forall_liftPred,
+    Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
+    Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
+    Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv
+  ]))
 
 end Mathlib.Tactic.Transfer
 
@@ -197,72 +190,71 @@ end Mathlib.Tactic.Transfer
 
 section Examples
 
-open Hypernatural Mathlib.Tactic.Transfer
+open Hypernatural Hyperrational Mathlib.Tactic.Transfer Filter
 
-/-- Example: transfer_primes applies the prime transfer theorem directly. -/
-example (h : ∀ n : ℕ, ∃ p : ℕ, Nat.Prime p ∧ p > n) :
-    ∀ x : ℕ*, ∃ p : ℕ*, HyperPrime p ∧ p > x := by
-  transfer_primes h
+/-! ### Predicate Transfer
 
-/-- Example: Using transfer_intro to decompose a hypernatural. -/
-example : ∀ x : ℕ*, x + 0 = x := by
-  transfer_intro x
-  -- Now x is `ofSeq f` for some f
-  simp only [add_zero]
+These are the main use cases for transfer - lifting predicates from standard
+to nonstandard numbers.
+-/
 
-/-- Example: liftPred_and splits conjunctions. -/
-example {P Q : ℕ → Prop} {x : ℕ*} (hp : liftPred P x) (hq : liftPred Q x) :
-    liftPred (fun n => P n ∧ Q n) x := by
-  rw [liftPred_and]
-  exact ⟨hp, hq⟩
+/-- Standard primes are HyperPrime when embedded in ℕ*. -/
+example (p : ℕ) (hp : Nat.Prime p) : HyperPrime (p : ℕ*) := by
+  rw [HyperPrime, liftPred_coe]
+  exact hp
 
-/-- Example: liftPred_or handles disjunctions via ultrafilter. -/
-example {P Q : ℕ → Prop} {x : ℕ*} (h : liftPred P x ∨ liftPred Q x) :
-    liftPred (fun n => P n ∨ Q n) x := by
-  rw [liftPred_or]
-  exact h
-
-/-- Example: Negation transfer via ultrafilter property. -/
-example {P : ℕ → Prop} {x : ℕ*} (h : ¬liftPred P x) :
-    liftPred (fun n => ¬P n) x := by
-  rw [liftPred_not]
-  exact h
-
-/-- Example: transfer! closes simple goals automatically. -/
-example {P : ℕ → Prop} {x : ℕ*} (hp : liftPred P x) :
-    liftPred (fun n => P n ∧ P n) x := by
-  rw [liftPred_and]
-  exact ⟨hp, hp⟩
-
-/-- Example: Transfer for standard predicates on constants. -/
+/-- Transfer of Even predicate. -/
 example (n : ℕ) (h : Even n) : liftPred Even (n : ℕ*) := by
   rw [liftPred_coe]
   exact h
 
-/-- The bridge connects any Germ type to the corresponding Product type.
-This allows connecting our hypernatural construction to the model-theoretic ultraproduct. -/
-def Hypernatural.germProductEquiv {l : Filter ℕ} :
-    Filter.Germ l ℕ ≃ Filter.Product l (fun _ => ℕ) :=
-  Filter.Germ.prodEquiv
-
-/-- Example: Using the TransferableNat typeclass to transfer Even. -/
-example (n : ℕ) (h : Even n) : starNat Even (n : ℕ*) := by
-  rw [starNat, ← TransferableNat.transfer_const]
-  exact h
-
-/-- Example: starNat gives the hyperextension of a predicate. -/
-example : starNat Nat.Prime = HyperPrime := rfl
-
-/-! ### Transfer for Divisibility -/
-
-/-- Transfer lemma for divisibility: d | n in ℕ iff liftRel (· ∣ ·) holds in ℕ*. -/
-example (d n : ℕ) (h : d ∣ n) : liftRel (· ∣ ·) (d : ℕ*) (n : ℕ*) := by
+/-- Transfer of divisibility. -/
+example {d n : ℕ} (h : d ∣ n) : liftRel (· ∣ ·) (d : ℕ*) (n : ℕ*) := by
   rw [liftRel_coe]
   exact h
 
-/-- All standard primes are HyperPrime. -/
-example (p : ℕ) (hp : Nat.Prime p) : HyperPrime (p : ℕ*) := by
-  rw [HyperPrime, liftPred_coe]
-  exact hp
+/-! ### Infinitely Many Primes -/
+
+/-- The infinitely many primes theorem transfers to hypernaturals. -/
+example (h : ∀ n : ℕ, ∃ p : ℕ, Nat.Prime p ∧ p > n) :
+    ∀ x : ℕ*, ∃ p : ℕ*, HyperPrime p ∧ p > x := by
+  transfer_primes h
+
+/-! ### Quantifier Transfer -/
+
+/-- Universal quantifier transfer. -/
+example (h : ∀ n : ℕ, Even n ∨ Odd n) : ∀ x : ℕ*, liftPred (fun n => Even n ∨ Odd n) x := by
+  rw [← Hypernatural.forall_iff_forall_liftPred]
+  exact h
+
+/-! ### Logical Connective Transfer -/
+
+/-- Conjunction of predicates transfers. -/
+example {P Q : ℕ → Prop} {x : ℕ*} (hp : liftPred P x) (hq : liftPred Q x) :
+    liftPred (fun n => P n ∧ Q n) x := by
+  rw [Hypernatural.liftPred_and]
+  exact ⟨hp, hq⟩
+
+/-- Disjunction of predicates transfers. -/
+example {P Q : ℕ → Prop} {x : ℕ*} (h : liftPred P x ∨ liftPred Q x) :
+    liftPred (fun n => P n ∨ Q n) x := by
+  rw [Hypernatural.liftPred_or]
+  exact h
+
+/-! ### Standard Element Operations -/
+
+/-- Standard addition for ℕ*. -/
+example (a b : ℕ) : (a : ℕ*) + (b : ℕ*) = ((a + b) : ℕ*) := rfl
+
+/-- Standard order for ℕ*. -/
+example (a b : ℕ) (h : a < b) : (a : ℕ*) < (b : ℕ*) := by
+  rw [coe_lt_coe]
+  exact h
+
+/-! ### Note: What transfer is NOT for
+
+Basic algebra like `x + y = y + x` works directly with `ring` - no transfer needed.
+Transfer is for lifting *predicates* and *quantified statements*.
+-/
 
 end Examples

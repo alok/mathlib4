@@ -8,6 +8,7 @@ import Mathlib.Topology.Basic
 import Mathlib.Topology.Separation.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.Normed.Group.Basic
+import Mathlib.Topology.Sequences
 
 /-!
 # Nonstandard Characterizations of Topological Concepts
@@ -97,6 +98,72 @@ theorem monad_subset_star_of_isOpen {x : α} {U : Set α} (hU : IsOpen U) (hx : 
   intro y hy
   rw [mem_monad_iff] at hy
   exact hy U (hU.mem_nhds hx)
+
+/-- If a sequence converges to `x`, then any hyperextension of that sequence applied to an
+infinite hypernatural is in `monad x`. -/
+theorem tendsto_atTop_monad {f : ℕ → α} {x : α} (hf : Tendsto f atTop (𝓝 x))
+    {N : Hyper ℕ ℕ} (hN : IsInfinite N) : lift f N ∈ monad (ι := ℕ) x := by
+  rw [mem_monad_iff]
+  intro U hU
+  -- Since f → x, eventually f n ∈ U
+  have hev : ∀ᶠ n in atTop, f n ∈ U := hf hU
+  -- Get M such that ∀ n ≥ M, f n ∈ U
+  obtain ⟨M, hM⟩ := hev.exists_forall_of_atTop
+  -- N is infinite, so N > std M
+  have hNM : std M < N := hN M
+  -- Decompose N as a sequence
+  obtain ⟨g, rfl⟩ := ofSeq_surjective N
+  rw [std_lt_ofSeq] at hNM
+  rw [lift_ofSeq, liftPred_ofSeq]
+  -- Eventually g n > M, so f (g n) ∈ U
+  apply hNM.mono
+  intro n hn
+  simp only [Function.comp_apply]
+  exact hM (g n) (Nat.le_of_lt hn)
+
+/-- Converse: if for all infinite N, lift f N is in monad x, then f → x.
+This is the key bridge lemma for sequences. -/
+theorem monad_tendsto_atTop {f : ℕ → α} {x : α}
+    (hmonad : ∀ N : Hyper ℕ ℕ, IsInfinite N → lift f N ∈ monad (ι := ℕ) x) :
+    Tendsto f atTop (𝓝 x) := by
+  rw [tendsto_atTop_nhds]
+  intro U hU hUopen
+  -- Suppose not: ∀ M, ∃ n ≥ M, f n ∉ U
+  by_contra hcontra
+  push_neg at hcontra
+  -- Define sequence n_k where f n_k ∉ U and n_k → ∞
+  have hseq : ∀ k : ℕ, ∃ n : ℕ, n ≥ k ∧ f n ∉ U := hcontra
+  choose nseq hnseq using hseq
+  -- nseq k ≥ k, so nseq tends to infinity
+  have hnseq_large : ∀ k, nseq k ≥ k := fun k => (hnseq k).1
+  have hnseq_notU : ∀ k, f (nseq k) ∉ U := fun k => (hnseq k).2
+  -- Define N = ofSeq nseq, which is infinite
+  let N : Hyper ℕ ℕ := ofSeq nseq
+  have hN_inf : IsInfinite N := by
+    intro m
+    change std m < ofSeq nseq
+    rw [std_lt_ofSeq]
+    apply Filter.mem_hyperfilter_of_finite_compl
+    simp only [Set.compl_setOf, not_lt]
+    -- {k : nseq k ≤ m} is finite because nseq k ≥ k
+    have hsub : {k : ℕ | nseq k ≤ m} ⊆ Set.Iic m := by
+      intro k hk
+      simp only [Set.mem_setOf_eq] at hk
+      simp only [Set.mem_Iic]
+      calc k ≤ nseq k := hnseq_large k
+           _ ≤ m := hk
+    exact Set.Finite.subset (Set.finite_Iic m) hsub
+  -- By hypothesis, lift f N ∈ monad x
+  have hNmonad := hmonad N hN_inf
+  rw [mem_monad_iff] at hNmonad
+  -- So lift f N is eventually in U
+  have hNU := hNmonad U (hUopen.mem_nhds hU)
+  -- But f (nseq k) ∉ U for all k
+  rw [lift_ofSeq, liftPred_ofSeq] at hNU
+  -- hNU says f (nseq k) ∈ U eventually, contradicting hnseq_notU
+  obtain ⟨k, hk⟩ := hNU.exists
+  simp only [Function.comp_apply] at hk
+  exact hnseq_notU k hk
 
 end Monad
 
@@ -363,16 +430,58 @@ theorem continuousAt_iff_monad {f : α → β} {x : α} :
     intro hmonad
     rw [ContinuousAt, Filter.Tendsto]
     intro V hV
-    -- Need to show f⁻¹(V) ∈ 𝓝 x
-    -- Use contrapositive: if f⁻¹(V) ∉ 𝓝 x, find y ∈ monad x with lift f y ∉ monad (f x)
+    -- Need to show V ∈ map f (𝓝 x), equivalently f⁻¹(V) ∈ 𝓝 x
+    rw [Filter.mem_map]
+    -- Use contrapositive via ultrafilter characterization
     by_contra hcontra
-    -- If f⁻¹(V) ∉ 𝓝 x, then (f⁻¹(V))ᶜ intersects every neighborhood of x
-    -- For each neighborhood U of x, pick a point in U ∩ (f⁻¹(V))ᶜ
-    -- This gives a "net" converging to x but whose images avoid V
-    -- The ultrafilter construction gives us such a y
-    -- For general topology (not metric), this requires choice over the neighborhood filter
-    -- This proof requires more infrastructure about ultrafilter extensions
+    -- By Filter.mem_iff_ultrafilter: s ∉ f ↔ ∃ u ≤ f, s ∉ u
+    -- So there exists u : Ultrafilter α with u ≤ 𝓝 x and f⁻¹(V) ∉ u
+    rw [Filter.mem_iff_ultrafilter] at hcontra
+    push_neg at hcontra
+    obtain ⟨u : Ultrafilter α, hu_le, hu_notmem⟩ := hcontra
+    -- Since u is an ultrafilter and f⁻¹(V) ∉ u, we have (f⁻¹(V))ᶜ ∈ u
+    have hu_compl : (f ⁻¹' V)ᶜ ∈ (u : Filter α) :=
+      Ultrafilter.compl_mem_iff_notMem.mpr hu_notmem
+    -- The issue: we need to construct y : Hyper ι α from u : Ultrafilter α
+    -- This requires the index type ι to be "large enough" (saturation)
+    -- For first-countable spaces with ι = ℕ, we can use a sequence
+    -- For general spaces, we need ι to have cardinality ≥ the neighborhood filter basis
+    -- This is a fundamental limitation of the ultraproduct construction
+    -- TODO: Add saturation hypothesis or restrict to first-countable spaces
     sorry
+
+/-- **NSA characterization of continuity for Fréchet-Urysohn spaces**: In any Fréchet-Urysohn space
+(including all first-countable spaces), `f` is continuous at `x` iff for all sequences
+`s : ℕ → α` converging to `x` and all infinite `N : Hyper ℕ ℕ`, the lifted value `f*(s*(N))`
+is in the monad of `f x`.
+
+For first-countable spaces, this is equivalent to the monad characterization with `ι = ℕ`. -/
+theorem continuousAt_iff_monad_seq [FrechetUrysohnSpace α] {f : α → β} {x : α} :
+    ContinuousAt f x ↔ ∀ y : Hyper ℕ α, y ∈ monad x → lift f y ∈ monad (f x) := by
+  constructor
+  · -- Forward direction: use the general theorem
+    exact fun hcont y hy => (continuousAt_iff_monad (ι := ℕ)).mp hcont y hy
+  · -- Backward direction: use sequential characterization
+    intro hmonad
+    -- ContinuousAt is Tendsto f (𝓝 x) (𝓝 (f x))
+    -- In Fréchet-Urysohn spaces, this is equivalent to sequential continuity
+    rw [ContinuousAt, tendsto_nhds_iff_seq_tendsto]
+    intro u hu
+    -- u is a sequence converging to x, so we need f ∘ u → f x
+    -- Use monad_tendsto_atTop: show that for all infinite N, lift (f ∘ u) N ∈ monad (f x)
+    apply monad_tendsto_atTop
+    intro N hN
+    -- lift u N ∈ monad x because u → x (using tendsto_atTop_monad)
+    have hmonad_u : lift u N ∈ monad x := tendsto_atTop_monad hu hN
+    -- By hypothesis, lift f (lift u N) ∈ monad (f x)
+    -- We need to show lift (f ∘ u) N = lift f (lift u N)
+    obtain ⟨g, rfl⟩ := ofSeq_surjective N
+    -- lift (f ∘ u) (ofSeq g) = ofSeq ((f ∘ u) ∘ g)
+    -- lift f (lift u (ofSeq g)) = ofSeq (f ∘ u ∘ g), equal by associativity
+    have heq : lift (f ∘ u) (ofSeq g : Hyper ℕ ℕ) = lift f (lift u (ofSeq g)) := by
+      simp only [lift_ofSeq, Function.comp_assoc]
+    rw [heq]
+    exact hmonad (lift u (ofSeq g)) hmonad_u
 
 /-- Continuous functions preserve monad membership. -/
 theorem Continuous.monad_map {f : α → β} (hf : Continuous f) (x : α) :
@@ -392,11 +501,64 @@ variable [TopologicalSpace α]
 (the *-extension of `K`) is near-standard with standard part in `K`.
 
 Intuitively: `K` is compact iff every hyperreal "in `K`" is infinitely close to some
-standard element of `K`. -/
+standard element of `K`.
+
+**Note**: The forward direction uses `isCompact_iff_ultrafilter_le_nhds`. The backward
+direction requires a saturation hypothesis to construct appropriate ultrafilters. -/
 theorem isCompact_iff_nearStd [T2Space α] {K : Set α} :
     IsCompact K ↔ ∀ y : Hyper ι α, liftPred (· ∈ K) y → IsNearStd y ∧
       ∀ (hy : IsNearStd y), stdPart y hy ∈ K := by
-  sorry
+  constructor
+  · -- Forward: K compact → elements of K* are near-standard with std part in K
+    intro hK y hy
+    -- Decompose y as a sequence
+    obtain ⟨f, rfl⟩ := ofSeq_surjective y
+    rw [liftPred_ofSeq] at hy
+    -- hy : ∀ᶠ n, f n ∈ K
+    -- Push forward the hyperfilter via f to get an ultrafilter on α
+    let u : Ultrafilter α := (hyperfilter ι).map f
+    -- Since eventually f n ∈ K, we have K ∈ u
+    have hK_in_u : K ∈ u := by
+      rw [Ultrafilter.mem_map]
+      exact hy
+    -- So u ≤ 𝓟 K
+    have hu_le : (u : Filter α) ≤ 𝓟 K := by
+      rw [Filter.le_principal_iff]
+      exact hK_in_u
+    -- By compactness, there exists x ∈ K with u ≤ 𝓝 x
+    rw [isCompact_iff_ultrafilter_le_nhds] at hK
+    obtain ⟨x, hxK, hu_nhds⟩ := hK u hu_le
+    -- This means y = ofSeq f is in monad x
+    have hy_monad : (ofSeq f : Hyper ι α) ∈ monad x := by
+      rw [mem_monad_iff]
+      intro V hV
+      -- V ∈ 𝓝 x, and u ≤ 𝓝 x, so V ∈ u = map f (hyperfilter ι)
+      have hV_u : V ∈ u := hu_nhds hV
+      -- Unwrap: V ∈ map f (hyperfilter ι) ↔ f⁻¹(V) ∈ hyperfilter ι
+      rw [liftPred_ofSeq]
+      -- hV_u : V ∈ Ultrafilter.map f (hyperfilter ι)
+      -- This is the same as f⁻¹(V) ∈ hyperfilter ι, which is our goal
+      exact hV_u
+    constructor
+    · -- IsNearStd (ofSeq f)
+      exact ⟨x, hy_monad⟩
+    · -- stdPart is in K
+      intro hy_nearstd
+      -- stdPart is unique in T2 space
+      have hstd_eq : stdPart (ofSeq f) hy_nearstd = x :=
+        monad_eq_of_mem_monad (stdPart_spec _ _) hy_monad
+      rw [hstd_eq]
+      exact hxK
+  · -- Backward: all elements near-standard → K compact (requires saturation)
+    intro hmonad
+    rw [isCompact_iff_ultrafilter_le_nhds]
+    intro u hu
+    -- u : Ultrafilter α with u ≤ 𝓟 K
+    -- We need to find x ∈ K with u ≤ 𝓝 x
+    -- This requires constructing y : Hyper ι α from u, which needs saturation
+    -- For general ι, this requires |ι| ≥ cardinality assumptions
+    -- TODO: Add saturation hypothesis or prove for ι = ℕ with countable filter basis
+    sorry
 
 /-- In a compact set, every element of the *-extension is near-standard. -/
 theorem IsCompact.isNearStd_of_mem_star [T2Space α] {K : Set α} (hK : IsCompact K)
@@ -414,17 +576,50 @@ variable [TopologicalSpace α]
 /-- **NSA characterization of limits**: `Tendsto f F (𝓝 L)` iff for every `x` with
 `liftPred (· ∈ F) x`, we have `lift f x ∈ monad L`.
 
-For sequences: `f n → L` iff for every infinite `N`, `f N ≈ L`. -/
+For sequences: `f n → L` iff for every infinite `N`, `f N ≈ L`.
+
+**Note**: The forward direction is provable. The backward direction requires a saturation
+hypothesis to construct appropriate elements of `Hyper ι β` from ultrafilters on `β`. -/
 theorem tendsto_iff_lift_mem_monad {β : Type*} {f : β → α} {F : Filter β} {L : α} :
     Tendsto f F (𝓝 L) ↔
       ∀ x : Hyper ι β, (∀ U ∈ F, liftPred (· ∈ U) x) → lift f x ∈ monad L := by
-  sorry
+  constructor
+  · -- Forward: Tendsto → monad membership
+    intro hf x hx
+    rw [mem_monad_iff]
+    intro V hV
+    -- Since f tends to L, f⁻¹(V) ∈ F
+    have hpreimage : f ⁻¹' V ∈ F := hf hV
+    -- x satisfies all F-membership, so liftPred (· ∈ f⁻¹' V) x
+    have hx_preimage := hx (f ⁻¹' V) hpreimage
+    -- This means lift f x satisfies V
+    obtain ⟨g, rfl⟩ := ofSeq_surjective x
+    rw [liftPred_ofSeq] at hx_preimage
+    rw [lift_ofSeq, liftPred_ofSeq]
+    simp only [Set.mem_preimage] at hx_preimage
+    convert hx_preimage using 1
+  · -- Backward: monad membership → Tendsto (requires saturation)
+    intro hmonad
+    rw [Filter.Tendsto]
+    intro V hV
+    -- Need to show f⁻¹(V) ∈ F
+    -- The issue: to use the contrapositive, we need to construct x : Hyper ι β
+    -- from an ultrafilter on β, which requires saturation
+    -- For now, we leave this as sorry with documentation
+    -- TODO: Add saturation hypothesis or prove for specific cases
+    sorry
 
-/-- For sequences: convergence iff infinite indices map to the monad. -/
+/-- For sequences: convergence iff infinite indices map to the monad.
+
+This is the key NSA characterization of sequence convergence: `f n → L` iff
+for every infinite hypernatural `N`, `f*(N)` is in the monad of `L`.
+
+Intuitively: a sequence converges to `L` iff evaluating it at any "infinite index"
+gives a value infinitely close to `L`. -/
 theorem tendsto_atTop_iff_infinite_in_monad {f : ℕ → α} {L : α} :
     Tendsto f atTop (𝓝 L) ↔
-      ∀ N : Hyper ℕ ℕ, IsInfinite N → lift f N ∈ monad L := by
-  sorry
+      ∀ N : Hyper ℕ ℕ, IsInfinite N → lift f N ∈ monad L :=
+  ⟨fun hf _N hN => tendsto_atTop_monad hf hN, monad_tendsto_atTop⟩
 
 end Limits
 
