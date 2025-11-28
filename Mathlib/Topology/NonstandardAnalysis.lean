@@ -194,7 +194,28 @@ theorem Infinitesimal.neg {x : Hyper ι α} (hx : Infinitesimal x) : Infinitesim
 /-- Sum of infinitesimals is infinitesimal. -/
 theorem Infinitesimal.add {x y : Hyper ι α} (hx : Infinitesimal x) (hy : Infinitesimal y) :
     Infinitesimal (x + y) := by
-  sorry
+  intro ε hε
+  -- We'll use ε/2 for each
+  have hε2 : 0 < ε / 2 := by linarith
+  have hx' := hx (ε / 2) hε2
+  have hy' := hy (ε / 2) hε2
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  -- x + y becomes ofSeq (f + g)
+  have hadd : (ofSeq f : Hyper ι α) + ofSeq g = ofSeq (fun n => f n + g n) := by
+    change lift₂ Add.add (ofSeq f) (ofSeq g) = ofSeq (fun n => f n + g n)
+    rw [lift₂_ofSeq]
+    rfl
+  rw [hadd, lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+  simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hx' hy'
+  -- Eventually ‖f n‖ < ε/2 and ‖g n‖ < ε/2, so ‖f n + g n‖ < ε
+  have hboth := hx'.and hy'
+  apply hboth.mono
+  intro n ⟨hn_f, hn_g⟩
+  simp only [Function.comp_apply] at hn_f hn_g ⊢
+  calc ‖f n + g n‖ ≤ ‖f n‖ + ‖g n‖ := norm_add_le _ _
+    _ < ε / 2 + ε / 2 := by linarith
+    _ = ε := by ring
 
 end Infinitesimal
 
@@ -291,7 +312,33 @@ variable [TopologicalSpace α] [TopologicalSpace β]
 Intuitively: `f` is continuous at `x` iff whenever `y ≈ x`, we have `f(y) ≈ f(x)`. -/
 theorem continuousAt_iff_monad {f : α → β} {x : α} :
     ContinuousAt f x ↔ ∀ y : Hyper ι α, y ∈ monad x → lift f y ∈ monad (f x) := by
-  sorry
+  constructor
+  · -- Forward: continuous at x → monad preservation
+    intro hcont y hy
+    rw [mem_monad_iff] at hy ⊢
+    intro V hV
+    -- V is a neighborhood of f(x), so f⁻¹(V) is a neighborhood of x
+    have hpreimage : f ⁻¹' V ∈ 𝓝 x := hcont hV
+    -- y is in monad x, so y satisfies the lifted predicate for f⁻¹(V)
+    have hy_preimage := hy (f ⁻¹' V) hpreimage
+    -- lift f y satisfies the lifted predicate for V
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    rw [liftPred_ofSeq] at hy_preimage
+    rw [lift_ofSeq, liftPred_ofSeq]
+    simp only [Set.mem_preimage] at hy_preimage
+    convert hy_preimage using 1
+  · -- Backward: monad preservation → continuous at x
+    intro hmonad
+    rw [ContinuousAt, Filter.Tendsto]
+    intro V hV
+    -- Need to show f⁻¹(V) ∈ 𝓝 x
+    -- Suppose not, then there's a sequence approaching x that avoids f⁻¹(V)
+    by_contra hcontra
+    -- If f⁻¹(V) ∉ 𝓝 x, then its complement meets every neighborhood of x
+    -- Use the ultrafilter property: either f⁻¹(V) ∈ 𝓝 x eventually, or its complement does
+    -- This is subtle - we need to construct a witness
+    -- For now, leave as sorry for the contrapositive direction
+    sorry
 
 /-- Continuous functions preserve monad membership. -/
 theorem Continuous.monad_map {f : α → β} (hf : Continuous f) (x : α) :
