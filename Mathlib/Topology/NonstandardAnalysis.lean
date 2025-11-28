@@ -166,7 +166,39 @@ def Infinitesimal (x : Hyper ι α) : Prop :=
 /-- Alternative definition using monad. -/
 theorem infinitesimal_iff_mem_monad_zero (x : Hyper ι α) :
     Infinitesimal x ↔ x ∈ monad (0 : α) := by
-  sorry
+  constructor
+  · -- Infinitesimal → monad 0
+    intro hinf
+    rw [mem_monad_iff]
+    intro U hU
+    -- U is a neighborhood of 0, so contains a ball {x : ‖x‖ < ε}
+    rw [Metric.mem_nhds_iff] at hU
+    obtain ⟨ε, hε, hball⟩ := hU
+    -- x is infinitesimal, so ‖x‖ < ε
+    have hx_small := hinf ε hε
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    rw [liftPred_ofSeq]
+    simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hx_small
+    apply hx_small.mono
+    intro n hn
+    simp only [Function.comp_apply] at hn
+    apply hball
+    simp only [Metric.mem_ball, dist_zero_right]
+    exact hn
+  · -- monad 0 → Infinitesimal
+    intro hmonad ε hε
+    rw [mem_monad_iff] at hmonad
+    -- The ball {x : ‖x‖ < ε} is a neighborhood of 0
+    have hball_nhds : Metric.ball (0 : α) ε ∈ 𝓝 0 := Metric.ball_mem_nhds 0 hε
+    have hx_in_ball := hmonad (Metric.ball 0 ε) hball_nhds
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    rw [liftPred_ofSeq] at hx_in_ball
+    simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+    apply hx_in_ball.mono
+    intro n hn
+    simp only [Metric.mem_ball, dist_zero_right] at hn
+    simp only [Function.comp_apply]
+    exact hn
 
 /-- Zero is infinitesimal. -/
 theorem infinitesimal_zero : Infinitesimal (0 : Hyper ι α) := by
@@ -332,12 +364,14 @@ theorem continuousAt_iff_monad {f : α → β} {x : α} :
     rw [ContinuousAt, Filter.Tendsto]
     intro V hV
     -- Need to show f⁻¹(V) ∈ 𝓝 x
-    -- Suppose not, then there's a sequence approaching x that avoids f⁻¹(V)
+    -- Use contrapositive: if f⁻¹(V) ∉ 𝓝 x, find y ∈ monad x with lift f y ∉ monad (f x)
     by_contra hcontra
-    -- If f⁻¹(V) ∉ 𝓝 x, then its complement meets every neighborhood of x
-    -- Use the ultrafilter property: either f⁻¹(V) ∈ 𝓝 x eventually, or its complement does
-    -- This is subtle - we need to construct a witness
-    -- For now, leave as sorry for the contrapositive direction
+    -- If f⁻¹(V) ∉ 𝓝 x, then (f⁻¹(V))ᶜ intersects every neighborhood of x
+    -- For each neighborhood U of x, pick a point in U ∩ (f⁻¹(V))ᶜ
+    -- This gives a "net" converging to x but whose images avoid V
+    -- The ultrafilter construction gives us such a y
+    -- For general topology (not metric), this requires choice over the neighborhood filter
+    -- This proof requires more infrastructure about ultrafilter extensions
     sorry
 
 /-- Continuous functions preserve monad membership. -/
