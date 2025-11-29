@@ -5,7 +5,16 @@ Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.Germ.Basic
 import Mathlib.Order.Filter.Ultrafilter.Basic
+import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
 import Mathlib.Order.Interval.Finset.Defs
+import Mathlib.SetTheory.Cardinal.Basic
+import Mathlib.Algebra.Order.Monoid.Defs
+import Mathlib.Algebra.Order.Group.Defs
+import Mathlib.Algebra.Order.Ring.Defs
+import Mathlib.Algebra.Order.Monoid.Basic
+import Mathlib.Algebra.Order.Group.Basic
+import Mathlib.Algebra.Order.Ring.Basic
+import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -40,7 +49,7 @@ and nonstandard worlds. This is implemented via:
 
 open Filter
 
-variable {ι : Type*} [Infinite ι] {α β γ : Type*}
+variable {ι κ : Type*} [Infinite ι] {α β γ : Type*}
 
 /-! ## The Hyper Type -/
 
@@ -213,6 +222,32 @@ theorem liftPred_imp (x : Hyper ι α) :
   rw [liftPred_or, liftPred_not]
   tauto
 
+/-- Existential quantification transfers through `liftPred` to `liftRel`. -/
+theorem liftPred_exists_iff {Q : α → β → Prop} {x : Hyper ι α} :
+    liftPred (fun a => ∃ b, Q a b) x ↔ ∃ y : Hyper ι β, liftRel Q x y := by
+  classical
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  constructor
+  · intro h
+    have : Nonempty β := by
+      obtain ⟨n, hn⟩ := Filter.nonempty_of_mem h
+      obtain ⟨b, _⟩ := hn
+      exact ⟨b⟩
+    let g (n : ι) : β := if h : ∃ b, Q (f n) b then Classical.choose h else Classical.choice ‹_›
+    use ofSeq g
+    rw [liftRel_ofSeq]
+    filter_upwards [h] with n hn
+    have h_ex : ∃ b, Q (f n) b := hn
+    simp only [g]
+    rw [dif_pos h_ex]
+    exact Classical.choose_spec h_ex
+  · rintro ⟨y, hy⟩
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    rw [liftRel_ofSeq] at hy
+    filter_upwards [hy] with n hn
+    exact ⟨g n, hn⟩
+
 end LogicalConnectives
 
 /-! ## Algebraic Operations -/
@@ -261,8 +296,46 @@ end Algebra
 
 section Order
 
-noncomputable instance [LE α] : LE (Hyper ι α) := ⟨liftRel (· ≤ ·)⟩
-noncomputable instance [LT α] : LT (Hyper ι α) := ⟨liftRel (· < ·)⟩
+open Filter
+
+noncomputable instance [LE α] : LE (Hyper ι α) := Filter.Germ.instLE
+noncomputable instance instLTHyper [LT α] : LT (Hyper ι α) := ⟨liftRel (· < ·)⟩
+
+noncomputable instance instPreorderHyper [Preorder α] : Preorder (Hyper ι α) :=
+  { Filter.Germ.instLE, instLTHyper with
+    le_refl := fun x => Germ.inductionOn x fun _ => Eventually.of_forall fun _ => le_refl _
+    le_trans := fun x y z =>
+      Germ.inductionOn₃ x y z fun _ _ _ h1 h2 => h2.mp (h1.mono fun _ => le_trans)
+    lt_iff_le_not_ge := fun x y => by
+      induction x using Germ.inductionOn with | h f =>
+      induction y using Germ.inductionOn with | h g =>
+      change (∀ᶠ i in hyperfilter ι, f i < g i) ↔
+        (∀ᶠ i in hyperfilter ι, f i ≤ g i) ∧ ¬(∀ᶠ i in hyperfilter ι, g i ≤ f i)
+      simp only [lt_iff_le_not_ge]
+      rw [Filter.eventually_and]
+      apply and_congr_right
+      intro _
+      rw [Ultrafilter.eventually_not] }
+
+noncomputable instance [AddCommMonoid α] : AddCommMonoid (Hyper ι α) :=
+  Filter.Germ.instAddCommMonoid
+
+noncomputable instance [AddCommGroup α] : AddCommGroup (Hyper ι α) :=
+  Filter.Germ.instAddCommGroup
+
+noncomputable instance instPartialOrderHyper [PartialOrder α] : PartialOrder (Hyper ι α) :=
+  { instPreorderHyper with
+    le_antisymm := fun x y => Germ.inductionOn₂ x y fun _ _ h1 h2 =>
+      Germ.coe_eq.2 <| (h1.and h2).mono fun _ h => le_antisymm h.1 h.2 }
+
+noncomputable instance [AddCommMonoid α] [PartialOrder α] [IsOrderedAddMonoid α] :
+    IsOrderedAddMonoid (Hyper ι α) :=
+  { inferInstanceAs (AddCommMonoid (Hyper ι α)),
+    (instPartialOrderHyper : PartialOrder (Hyper ι α)) with
+    add_le_add_left := fun x y h z =>
+      Germ.inductionOn₃ x y z (fun f g k H => by
+        rw [Germ.coe_le] at H
+        exact Germ.coe_le.2 (H.mono fun i hi => add_le_add_left hi (k i))) h }
 
 @[simp]
 theorem std_le [LE α] (a b : α) : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := liftRel_std _ _ _
@@ -270,21 +343,26 @@ theorem std_le [LE α] (a b : α) : (std a : Hyper ι α) ≤ std b ↔ a ≤ b 
 @[simp]
 theorem std_lt [LT α] (a b : α) : (std a : Hyper ι α) < std b ↔ a < b := liftRel_std _ _ _
 
-theorem ofSeq_le_ofSeq [LE α] {f g : ι → α} :
-    (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ι, f n ≤ g n :=
-  liftRel_ofSeq _ _ _
+theorem ofSeq_le_ofSeq [LE α] (f g : ι → α) :
+    (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i ≤ g i :=
+  Germ.coe_le
 
-theorem ofSeq_lt_ofSeq [LT α] {f g : ι → α} :
-    (ofSeq f : Hyper ι α) < ofSeq g ↔ ∀ᶠ n in hyperfilter ι, f n < g n :=
-  liftRel_ofSeq _ _ _
+theorem ofSeq_lt_ofSeq [LT α] (f g : ι → α) :
+    (ofSeq f : Hyper ι α) < ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i < g i :=
+  Germ.liftRel_coe
 
 /-- The `<` relation on `Hyper` is defined as `liftRel`. -/
 theorem lt_def [LT α] (x y : Hyper ι α) : x < y ↔ liftRel (· < ·) x y := Iff.rfl
 
+theorem liftRel_const_coe {R : α → α → Prop} {c : α} {f : ι → α} :
+    liftRel R (std c) (ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, R c (f i) :=
+  Iff.rfl
+
 /-- `std a < ofSeq f` iff `a < f n` for almost all `n`. -/
-theorem std_lt_ofSeq [LT α] (a : α) (f : ι → α) :
-    (std a : Hyper ι α) < ofSeq f ↔ ∀ᶠ n in hyperfilter ι, a < f n := by
-  rw [lt_def, std_eq_ofSeq_const, liftRel_ofSeq]
+theorem std_lt_ofSeq [LT α] (x : α) (f : ι → α) :
+    (std x : Hyper ι α) < ofSeq f ↔ ∀ᶠ i in hyperfilter ι, x < f i := by
+  rw [lt_def]
+  exact liftRel_const_coe
 
 end Order
 
@@ -303,16 +381,20 @@ section IST
 
 /-! ### The Standard Predicate -/
 
-/-- An element of `Hyper ι α` is standard if it is in the range of `std`. -/
-def IsStandard (x : Hyper ι α) : Prop := ∃ a : α, Hyper.std a = x
+/-- An element of `Hyper ι α` is standard if it is the image of some `a : α`. -/
+def IsStandard (x : Hyper ι α) : Prop := ∃ a, x = std a
 
 theorem IsStandard.of_std (a : α) : IsStandard (std a : Hyper ι α) := ⟨a, rfl⟩
 
-theorem IsStandard.exists_eq {x : Hyper ι α} (h : IsStandard x) : ∃ a : α, std a = x := h
+theorem IsStandard.inv [Inv α] {x : Hyper ι α} (hx : IsStandard x) : IsStandard (x⁻¹) := by
+  obtain ⟨a, rfl⟩ := hx
+  exact ⟨a⁻¹, std_inv a⟩
 
-/-- A standard element equals its standard representative. -/
-theorem IsStandard.eq_std {x : Hyper ι α} (h : IsStandard x) : x = std h.choose :=
-  h.choose_spec.symm
+theorem IsStandard.div [Div α] {x y : Hyper ι α} (hx : IsStandard x) (hy : IsStandard y) :
+    IsStandard (x / y) := by
+  obtain ⟨a, rfl⟩ := hx
+  obtain ⟨b, rfl⟩ := hy
+  exact ⟨a / b, std_div a b⟩
 
 /-! ### Transfer Principle (T)
 
@@ -329,6 +411,52 @@ theorem exists_std_iff (P : α → Prop) :
   · intro ⟨x, hstd, hP⟩
     obtain ⟨a, rfl⟩ := hstd
     exact ⟨a, by simpa using hP⟩
+
+/-! ### Finiteness and Infinitesimals -/
+
+/-- An element of `Hyper ι α` is finite if it is bounded by standard elements. -/
+def IsFinite [Preorder α] (x : Hyper ι α) : Prop :=
+  ∃ a b : α, std a ≤ x ∧ x ≤ std b
+
+/-- An element of `Hyper ι α` is infinite if it is not finite. -/
+def IsInfinite [Preorder α] (x : Hyper ι α) : Prop := ¬ IsFinite x
+
+/-- An element is positive infinite if it is greater than all standard elements. -/
+def IsInfinitePos [Preorder α] (x : Hyper ι α) : Prop := ∀ a : α, std a < x
+
+/-- An element is negative infinite if it is smaller than all standard elements. -/
+def IsInfiniteNeg [Preorder α] (x : Hyper ι α) : Prop := ∀ a : α, x < std a
+
+theorem IsStandard.isFinite [Preorder α] {x : Hyper ι α} (h : IsStandard x) : IsFinite x := by
+  obtain ⟨a, rfl⟩ := h
+  exact ⟨a, a, le_refl _, le_refl _⟩
+
+theorem IsFinite.add [AddCommMonoid α] [PartialOrder α] [IsOrderedAddMonoid α] {x y : Hyper ι α}
+    (hx : IsFinite x) (hy : IsFinite y) : IsFinite (x + y) := by
+  obtain ⟨a1, b1, ha1, hb1⟩ := hx
+  obtain ⟨a2, b2, ha2, hb2⟩ := hy
+  refine ⟨a1 + a2, b1 + b2, ?_, ?_⟩
+  · exact add_le_add ha1 ha2
+  · exact add_le_add hb1 hb2
+
+theorem IsFinite.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α] {x : Hyper ι α}
+    (hx : IsFinite x) : IsFinite (-x) := by
+  obtain ⟨a, b, ha, hb⟩ := hx
+  refine ⟨-b, -a, ?_, ?_⟩
+  · exact neg_le_neg hb
+  · exact neg_le_neg ha
+
+theorem IsFinite.sub [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α] {x y : Hyper ι α}
+    (hx : IsFinite x) (hy : IsFinite y) : IsFinite (x - y) := by
+  rw [sub_eq_add_neg]
+  exact hx.add hy.neg
+
+theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinitePos x) :
+    IsInfinite x := by
+  intro hfin
+  obtain ⟨_, b, _, hb⟩ := hfin
+  have : std b < std b := lt_of_lt_of_le (h b) hb
+  exact lt_irrefl _ this
 
 /-- Transfer for binary relations. -/
 theorem forall_forall_std_iff (R : α → β → Prop) :
@@ -478,23 +606,12 @@ These definitions and lemmas provide the key nonstandard analysis concepts. -/
 
 section NonstandardAnalysis
 
-/-- An element is **finite** if it is bounded by some standard element.
-For ordered types, this means there exists `a : α` with `x ≤ std a`. -/
-def IsFinite [LE α] (x : Hyper ι α) : Prop :=
-  ∃ a : α, x ≤ std a
-
-/-- An element is **infinite** (in the sense of exceeding all standard bounds)
-if it is greater than all standard elements. -/
-def IsInfinite [LT α] (x : Hyper ι α) : Prop :=
-  ∀ a : α, std a < x
-
-/-- `omega` is infinite (greater than all standard naturals). -/
-theorem omega_isInfinite : IsInfinite (omega : Hyper ℕ ℕ) := omega_gt_std
+/-- `omega` is positive infinite. -/
+theorem omega_isInfinitePos : IsInfinitePos (omega : Hyper ℕ ℕ) := omega_gt_std
 
 /-- Standard elements are finite. -/
-theorem IsFinite.std [Preorder α] (a : α) : IsFinite (std a : Hyper ι α) := by
-  use a
-  simp only [std_le, le_refl]
+theorem IsFinite.std [Preorder α] (a : α) : IsFinite (std a : Hyper ι α) :=
+  (IsStandard.of_std a).isFinite
 
 end NonstandardAnalysis
 
@@ -595,6 +712,99 @@ theorem countable_saturation' {α : Type*} [Nonempty α] {P : ℕ → α → Pro
     use std (Classical.ofNonempty)
     simp
 
+/-- **κ-Saturation** for `Hyper ι α`:
+
+The ultraproduct `Hyper ι α` is `(#ι)⁺`-saturated. This means: for any type `κ` with
+`#κ ≤ #ι`, if every finite subset of predicates indexed by `κ` has a common witness,
+then the entire family has a common witness.
+
+This generalizes `countable_saturation` from `ℕ` to arbitrary small index types.
+The condition `#κ ≤ #ι` ensures we can embed `κ` into `ι` for the diagonal argument.
+
+**Mathematical Note**: Classically, an ultraproduct over index set `I` is `|I|⁺`-saturated,
+meaning it satisfies the saturation property for families of size `< |I|⁺ = (|I|).succ`.
+The condition `#κ ≤ #ι` is equivalent to `#κ < (#ι)⁺`. -/
+theorem cardinal_saturation (e : κ ↪ ι) {α : Type*} {P : κ → α → Prop}
+    (hfin : ∀ F : Finset κ, ∃ x : Hyper ι α, ∀ k ∈ F, liftPred (P k) x) :
+    ∃ x : Hyper ι α, ∀ k : κ, liftPred (P k) x := by
+  -- Use the regularity of the hyperfilter
+  let E := hyperfilterBijection ι
+  -- For each i, we find an element satisfying the required predicates
+  have h_exists : ∀ i, ∃ a : α, ∀ k, e k ∈ E i → P k a := by
+    intro i
+    let K_i : Finset κ := (E i).preimage e e.injective.injOn
+    obtain ⟨x, hx⟩ := hfin K_i
+    obtain ⟨u, rfl⟩ := Hyper.ofSeq_surjective x
+    let Y := {j | ∀ k ∈ K_i, P k (u j)}
+    have hY : Y ∈ hyperfilter ι := by
+      change ∀ᶠ j in hyperfilter ι, ∀ k ∈ K_i, P k (u j)
+      rw [Finset.eventually_all]
+      intro k hk
+      have hk' : k ∈ K_i := Finset.mem_coe.mp hk
+      specialize hx k hk'
+      rw [Hyper.liftPred_ofSeq] at hx
+      exact hx
+    obtain ⟨j, hj⟩ := Filter.nonempty_of_mem hY
+    use u j
+    intro k hke
+    have hk : k ∈ K_i := Finset.mem_preimage.mpr hke
+    exact hj k hk
+
+  choose f hf using h_exists
+
+  use Hyper.ofSeq f
+  intro k
+  rw [Hyper.liftPred_ofSeq]
+  let W_k := {i | e k ∈ E i}
+  have hW : W_k ∈ hyperfilter ι := by
+    have : W_k = {i | i ∈ {j | e k ∈ E j}} := rfl
+    rw [this]
+    have : hyperfilter ι ≤ hyperfilterRegularizer ι :=
+      le_trans (Ultrafilter.of_le _) inf_le_left
+    apply this
+    apply Filter.mem_generate_of_mem
+    use e k
+    rfl
+  apply Filter.mem_of_superset hW
+  intro i hi
+  exact hf i k hi
+
 end Saturation
+
+/-! ## NSA Notation
+
+We introduce intuitive notation for nonstandard analysis that hides the ultrafilter machinery.
+All notation is scoped to `NonstandardAnalysis`.
+
+* `★a` - standard embedding of `a` into the hyperextension (`std a`)
+* `f ★` - lift of function `f` to hyperextension (`lift f`)
+* `x ⦦★ P` - `x` satisfies the lifted predicate `P` (`liftPred P x`)
+* `x ∈★ S` - `x` is in the star of set `S` (`liftPred (· ∈ S) x`)
+
+The symbol `★` (U+2605 BLACK STAR) is chosen to avoid conflict with the Hodge star `⋆` (U+22C6).
+-/
+section Notation
+
+set_option quotPrecheck false in
+/-- Standard embedding: `★a` means `std a` -/
+scoped[NonstandardAnalysis] prefix:max "★" => Hyper.std
+
+set_option quotPrecheck false in
+/-- Function lifting: `f★` means `lift f` -/
+scoped[NonstandardAnalysis] notation:max f "★" => Hyper.lift f
+
+set_option quotPrecheck false in
+/-- Predicate satisfaction: `x ⦦★ P` means `liftPred P x` -/
+scoped[NonstandardAnalysis] notation:50 x " ⦦★ " P:51 => Hyper.liftPred P x
+
+set_option quotPrecheck false in
+/-- Set membership in star: `x ∈★ S` means `liftPred (· ∈ S) x` -/
+scoped[NonstandardAnalysis] notation:50 x " ∈★ " S:51 => Hyper.liftPred (· ∈ S) x
+
+set_option quotPrecheck false in
+/-- Sequence construction: `⟦f⟧` means `ofSeq f` -/
+scoped[NonstandardAnalysis] notation:max "⟦" f "⟧" => Hyper.ofSeq f
+
+end Notation
 
 end Hyper
