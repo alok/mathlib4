@@ -12,7 +12,8 @@ set_option linter.missingDocs true
 /-!
 # The `transfer` Tactic for Nonstandard Analysis
 
-This file defines the `transfer` tactic, which automates the transfer principle in Nonstandard Analysis.
+This file defines the `transfer` tactic, which automates the transfer principle in
+Nonstandard Analysis.
 It simplifies expressions involving `Hyper.lift`, `Hyper.liftPred`, `Hyper.std`, etc., allowing
 users to move between standard and nonstandard formulations easily.
 -/
@@ -36,7 +37,8 @@ It uses a set of simp lemmas that relate standard and nonstandard operations.
 It supports optional simp arguments and location.
 It automatically infers the index type `ι` to correctly instantiate quantifier transfer lemmas.
 It supports directional transfer:
-- `transfer` or `transfer +upward`: Transfers standard quantifiers to nonstandard ones (forward rewrite).
+- `transfer` or `transfer +upward`: Transfers standard quantifiers to nonstandard ones
+  (forward rewrite).
 - `transfer +downward`: Transfers nonstandard quantifiers to standard ones (backward rewrite).
 -/
 syntax transferDir := "+" &"upward" <|> "+" &"downward"
@@ -95,7 +97,13 @@ elab_rules : tactic
       ``Hyper.lift₂_std,
       ``Hyper.std_inj,
       ``Hyper.std_le,
-      ``Hyper.std_lt
+      ``Hyper.std_lt,
+      ``Hyper.liftPred_ofSeq,
+      ``Hyper.liftRel_ofSeq,
+      ``Hyper.liftRel_const_coe,
+      ``Hyper.ofSeq_le_ofSeq,
+      ``Hyper.ofSeq_lt_ofSeq,
+      ``Hyper.std_lt_ofSeq
     ]
 
     -- Lemmas that distribute/commute structure (need reversal for upward transfer)
@@ -198,5 +206,36 @@ elab_rules : tactic
            let (res, _) ← (Simp.rewrite? tgt thms.post {} "transfer" (rflOnly := false)).run ctx {}
            if let some res := res then
              replaceMainGoal [← applySimpResultToTarget goal tgt res]
+
+/--
+The `saturation` tactic automates the application of saturation principles.
+It transforms a goal of the form `∃ x : Hyper ι α, ∀ k : κ, ...` into a
+finite satisfiability problem.
+Currently supports:
+- `countable_saturation`: When `κ = ℕ` and `ι = ℕ`.
+-/
+syntax "saturation" : tactic
+
+elab_rules : tactic
+  | `(tactic| saturation) => do
+    let goal ← getMainGoal
+    let tgt ← whnf (← instantiateMVars (← goal.getType))
+
+    -- Match goal: ∃ x : Hyper ι α, ∀ k : κ, P k x
+    if tgt.isAppOfArity ``Exists 2 then
+      let body := tgt.getArg! 1
+      -- body is (fun x => ∀ k, P k x)
+      if let Expr.lam _ _ (Expr.forallE _ kType _ _) _ := body then
+        -- Check if index type is Nat
+        if kType.isConstOf ``Nat then
+           -- Apply countable_saturation
+           evalTactic (← `(tactic| refine countable_saturation ?_))
+           return
+        else
+           throwError "saturation: currently only supports index type ℕ"
+      else
+        throwError "saturation: goal must be of the form ∃ x, ∀ k, ..."
+    else
+      throwError "saturation: goal must be of the form ∃ x, ..."
 
 end Mathlib.Tactic.Nonstandard
