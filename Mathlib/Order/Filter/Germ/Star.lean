@@ -2077,6 +2077,34 @@ theorem exists_hyperfinite_sandwich_nat {A : Set α} (hA : A.Countable) :
     -- Use the core theorem with the embedding (e already maps A → ℕ)
     exact exists_hyperfinite_sandwich ⟨e, he_inj⟩
 
+/-- The cardinality of a hyperfinite set is a hypernatural.
+Given a hyperfinite set H with representing sequence S, the cardinality is the
+hypernatural represented by `|S_i|`. -/
+noncomputable def hyperfiniteCard (H : Set (Hyper ι α)) (hH : IsHyperfinite H) : Hyper ι ℕ :=
+  ofSeq (fun i => (hH.choose_spec.1 i).toFinset.card)
+
+/-- A hyperfinite set with cardinality exceeding all standard naturals contains nonstandard elements.
+
+This is a fundamental principle: if |H| > n for all standard n, then H cannot consist only of
+standard elements (which would make it at most countably infinite in the standard sense). -/
+theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
+    (hH : IsHyperfinite H) (hCard : ∀ n : ℕ, std n < hyperfiniteCard H hH) :
+    ∃ x ∈ H, ¬ IsStandard x := by
+  -- By contradiction: suppose all elements are standard
+  by_contra h_all_std
+  push_neg at h_all_std
+  -- Then H = std '' (some subset of α)
+  -- The key insight: a hyperfinite set consisting only of standard elements
+  -- has cardinality bounded by a standard natural (it's internally finite)
+  -- But our hypothesis says the cardinality exceeds all standard naturals
+  -- This is a contradiction
+  --
+  -- More precisely: if all x ∈ H satisfy IsStandard x, then for each x ∈ H,
+  -- there exists a unique a : α with x = std a. This gives a bijection
+  -- between H and a subset of α, meaning H has "standard size".
+  -- But hyperfiniteCard H hH is nonstandard (> all std n).
+  sorry
+
 /-- For any set with a countable enumeration, the hyperfinite approximation
 gives strict containment when A is infinite. -/
 theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.Infinite) :
@@ -2084,20 +2112,18 @@ theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.
       (∀ a ∈ A, (std a : Hyper ℕ α) ∈ H) ∧
       (∀ x ∈ H, liftPred (· ∈ A) x) ∧
       ∃ x ∈ H, ¬ IsStandard x := by
-  obtain ⟨H, hH_fin, hH_std, hH_star⟩ := exists_hyperfinite_sandwich_nat hA
-  use H, hH_fin, hH_std, hH_star
-  -- Need to find a nonstandard element in H
-  -- Since A is infinite, H has hyperfinite cardinality > any standard ℕ
-  -- This means H contains nonstandard elements
-  --
-  -- The key insight: we construct a diagonal element by picking, for each index i,
-  -- an element from S_i that is "new" (not repeated from earlier). Since A is infinite
-  -- and S_i grows without bound, we can always find such elements.
-  --
-  -- This diagonal element is in H (since each component is in S_i) but is not
-  -- the standard embedding of any single element of A (since it visits infinitely
-  -- many distinct elements).
-  sorry -- Diagonal argument requires careful choice function
+  obtain ⟨H, hH_hf, hH_std, hH_star⟩ := exists_hyperfinite_sandwich_nat hA
+  use H, hH_hf, hH_std, hH_star
+  -- Key principle: H has hyperfinite cardinality that grows unboundedly
+  -- Since A is infinite, the approximating sets S(i) = {a : e(a) ≤ i} grow without bound
+  -- So hyperfiniteCard H hH exceeds any standard n
+  -- By the above lemma, H must contain nonstandard elements
+  apply hH_hf.exists_nonstandard_of_large_card
+  intro n
+  -- The cardinality of H at index i is |{a ∈ A : e(a) ≤ i}|
+  -- Since A is infinite and e is injective, this eventually exceeds n
+  -- For hyperfilter-many i, |S(i)| > n, so hyperfiniteCard > std n
+  sorry
 
 /-- **Hyperfinite Approximation (Simplified Statement)**:
 For any set A, there exists an internal hyperfinite set H with `std '' A ⊆ H ⊆ *A`.
@@ -2116,25 +2142,6 @@ theorem exists_hyperfinite_between [LinearOrder ι] [LocallyFiniteOrderBot ι]
     exact hH_std a ha
   · intro x hx
     exact hH_star x hx
-
-/-- The cardinality of a hyperfinite set is a hypernatural.
-Given a hyperfinite set H with representing sequence S, the cardinality is the
-hypernatural represented by `|S_i|`. -/
-noncomputable def hyperfiniteCard (H : Set (Hyper ι α)) (hH : IsHyperfinite H) : Hyper ι ℕ :=
-  ofSeq (fun i => (hH.choose_spec.1 i).toFinset.card)
-
-/-- If A is infinite, the hyperfinite approximation eventually has cardinality
-exceeding any standard natural. -/
-theorem hyperfiniteCard_infinite [LinearOrder ι] [LocallyFiniteOrderBot ι]
-    {A : Set α} (e : A ↪ ι) (hA_inf : A.Infinite) (n : ℕ) :
-    ∃ H : Set (Hyper ι α), ∃ hH : IsHyperfinite H,
-      (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
-      std n ≤ hyperfiniteCard H hH := by
-  obtain ⟨H, hH_hf, hH_std, _⟩ := exists_hyperfinite_sandwich e
-  use H, hH_hf, hH_std
-  -- The cardinality of H at index i is |{a ∈ A : e a ≤ i}|
-  -- As i → ∞, this eventually exceeds n (since |A| is infinite)
-  sorry -- Requires showing that |{a ∈ A : e a ≤ i}| → ∞
 
 end HyperfiniteApprox
 
