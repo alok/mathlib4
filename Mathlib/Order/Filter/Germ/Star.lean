@@ -28,8 +28,6 @@ import Mathlib.Order.ConditionallyCompleteLattice.Basic
 import Mathlib.Tactic.Linarith
 import Mathlib.Algebra.Field.Defs
 
-open scoped Classical
-
 set_option linter.style.longFile 2000
 
 /-!
@@ -74,9 +72,6 @@ This is the ultraproduct `∏_U α` where `U` is the hyperfilter on `ι`. -/
 def Hyper (ι : Type*) [Infinite ι] (α : Type*) : Type _ :=
   Germ (hyperfilter ι : Filter ι) α
 
-/-- Hypernatural numbers are the nonstandard extension of ℕ indexed by ℕ. -/
-abbrev Hypernatural := Hyper ℕ ℕ
-
 namespace Hyper
 
 /-! ## Standard Embedding -/
@@ -94,14 +89,6 @@ theorem std_def (a : α) : (std a : Hyper ι α) = Germ.const a := rfl
 theorem std_injective : Function.Injective (std : α → Hyper ι α) :=
   fun _ _ h => Germ.const_inj.mp h
 
-/-- The coercion from ℕ to Hypernatural is injective. -/
-theorem coe_nat_inj : Function.Injective (fun n : ℕ => (n : Hypernatural)) := std_injective
-
-/-- Lift a function to the nonstandard extension. -/
-def lift (f : α → β) : Hyper ι α → Hyper ι β := Germ.map f
-
-
-
 @[simp]
 theorem std_inj {a b : α} : (std a : Hyper ι α) = std b ↔ a = b := Germ.const_inj
 
@@ -110,33 +97,49 @@ theorem std_inj {a b : α} : (std a : Hyper ι α) = std b ↔ a = b := Germ.con
 /-- Construct a nonstandard element from a sequence. -/
 noncomputable def ofSeq (f : ι → α) : Hyper ι α := Germ.ofFun f
 
-theorem std_eq_ofSeq_const (a : α) : std a = ofSeq (fun (_ : ι) => a) := rfl
-
-theorem lift_ofSeq (f : α → β) (s : ι → α) : lift f (ofSeq s) = ofSeq (f ∘ s) := Germ.map_coe f s
-
--- theorem lift_std (f : α → β) (a : α) : lift f (std a) = std (f a) := by
---   dsimp [lift, std]
---   rfl
-
 /-- Every nonstandard element can be represented by a sequence.
 This is the surjectivity of the quotient map. -/
-theorem ofSeq_surjective {ι : Type*} [Infinite ι] {α : Type*} : Function.Surjective (fun f : ι → α => ofSeq f) :=
+theorem ofSeq_surjective : Function.Surjective (ofSeq : (ι → α) → Hyper ι α) :=
   Quot.exists_rep
 
 /-- Alias for the representation theorem. -/
 theorem exists_seq_rep (x : Hyper ι α) : ∃ f : ι → α, ofSeq f = x :=
   ofSeq_surjective x
 
-/-- Induction principle for `Hyper ι α`.
-This allows proving a property for all hyper-elements by proving it for all sequences. -/
-@[elab_as_elim]
-theorem inductionOn {P : Hyper ι α → Prop} (x : Hyper ι α) (h : ∀ f : ι → α, P (ofSeq f)) : P x :=
-  Germ.inductionOn x h
+/-- Two sequences give the same nonstandard element iff they agree almost everywhere. -/
+theorem ofSeq_eq_ofSeq {f g : ι → α} :
+    (ofSeq f : Hyper ι α) = ofSeq g ↔ ∀ᶠ n in hyperfilter ι, f n = g n :=
+  Germ.coe_eq
 
+/-- `std a` is the constant sequence `fun _ => a`. -/
+theorem std_eq_ofSeq_const (a : α) : (std a : Hyper ι α) = ofSeq (fun _ => a) := rfl
 
+/-- Universal quantification over Hyper is equivalent to quantification over sequences. -/
+theorem forall_ofSeq_iff (P : Hyper ι α → Prop) :
+    (∀ x, P x) ↔ (∀ f : ι → α, P (ofSeq f)) := by
+  constructor
+  · intro h f; exact h (ofSeq f)
+  · intro h x; obtain ⟨f, rfl⟩ := ofSeq_surjective x; exact h f
 
+/-- Existential quantification over Hyper is equivalent to quantification over sequences. -/
+theorem exists_ofSeq_iff (P : Hyper ι α → Prop) :
+    (∃ x, P x) ↔ (∃ f : ι → α, P (ofSeq f)) := by
+  constructor
+  · rintro ⟨x, hx⟩; obtain ⟨f, rfl⟩ := ofSeq_surjective x; exact ⟨f, hx⟩
+  · rintro ⟨f, hf⟩; exact ⟨ofSeq f, hf⟩
 
+/-! ## Lifting Functions -/
 
+/-- Lift a unary function to the nonstandard extension.
+`lift f` applies `f` pointwise to representatives. -/
+noncomputable def lift (f : α → β) : Hyper ι α → Hyper ι β := Germ.map f
+
+@[simp]
+theorem lift_std (f : α → β) (a : α) : lift f (std a : Hyper ι α) = std (f a) := by
+  simp [lift, std, Germ.map_const]
+
+theorem lift_ofSeq (f : α → β) (s : ι → α) : lift f (ofSeq s : Hyper ι α) = ofSeq (f ∘ s) :=
+  Germ.map_coe f s
 
 /-- `lift` respects function composition. -/
 @[simp]
@@ -162,21 +165,6 @@ theorem lift₂_std (f : α → β → γ) (a : α) (b : β) :
 theorem lift₂_ofSeq (f : α → β → γ) (s : ι → α) (t : ι → β) :
     lift₂ f (ofSeq s : Hyper ι α) (ofSeq t) = ofSeq (fun n => f (s n) (t n)) :=
   Germ.map₂_coe f s t
-
-
-/-- Lift a sequence of predicates to the nonstandard extension. -/
-def liftPredSeq (P : ι → α → Prop) (x : Hyper ι α) : Prop :=
-  x.liftOn (fun f => ∀ᶠ i in hyperfilter ι, P i (f i))
-    (fun f g h => propext (Filter.eventually_congr (h.mono fun i hi => by simp [hi])))
-
-theorem liftPredSeq_ofSeq (P : ι → α → Prop) (f : ι → α) :
-    liftPredSeq P (ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, P i (f i) := by
-  dsimp [liftPredSeq, ofSeq]
-  rfl
-
-/-- An internal set is one that is defined by a sequence of sets. -/
-def IsInternal (A : Set (Hyper ι α)) : Prop :=
-  ∃ S : ι → Set α, ∀ x, x ∈ A ↔ liftPredSeq (fun i y => y ∈ S i) x
 
 /-! ## Lifting Predicates and Relations -/
 
@@ -443,7 +431,7 @@ theorem std_mul [Mul α] (a b : α) : (std (a * b) : Hyper ι α) = std a * std 
 
 @[simp]
 theorem std_neg [Neg α] (a : α) : (std (-a) : Hyper ι α) = -std a := by
-  dsimp [lift, std]
+  simp [Neg.neg, lift_std]
 
 @[simp]
 theorem std_sub [Sub α] (a b : α) : (std (a - b) : Hyper ι α) = std a - std b := by
@@ -451,7 +439,7 @@ theorem std_sub [Sub α] (a b : α) : (std (a - b) : Hyper ι α) = std a - std 
 
 @[simp]
 theorem std_inv [Inv α] (a : α) : (std a⁻¹ : Hyper ι α) = (std a)⁻¹ := by
-  dsimp [lift, std]
+  simp [Inv.inv, lift_std]
 
 @[simp]
 theorem std_div [Div α] (a b : α) : (std (a / b) : Hyper ι α) = std a / std b := by
@@ -508,8 +496,6 @@ noncomputable instance instRingHyper [Ring α] : Ring (Hyper ι α) := Filter.Ge
 noncomputable instance instCommRingHyper [CommRing α] : CommRing (Hyper ι α) :=
   Filter.Germ.instCommRing
 
-
-
 noncomputable instance instIsOrderedRingHyper [Ring α] [PartialOrder α] [IsOrderedRing α] :
     IsOrderedRing (Hyper ι α) :=
   { @Filter.Germ.instRing ι (hyperfilter ι) α _,
@@ -543,60 +529,6 @@ noncomputable instance instIsOrderedRingHyper [Ring α] [PartialOrder α] [IsOrd
       filter_upwards [hab, hc] with i hab hc
       exact mul_le_mul_of_nonneg_right hab hc
     zero_le_one := Eventually.of_forall fun _ => zero_le_one }
-
--- noncomputable instance instOrderedSemiringHyper [OrderedSemiring α] : OrderedSemiring (Hyper ι α) :=
---   { instSemiringHyper, instPartialOrderHyper with
---     add_le_add_left := fun a b h c => by
---       induction a using Germ.inductionOn; next f =>
---       induction b using Germ.inductionOn; next g =>
---       induction c using Germ.inductionOn; next k =>
---       dsimp [LE.le] at h ⊢
---       rw [← Germ.coe_add, ← Germ.coe_add, Germ.liftRel_coe]
---       rw [Germ.liftRel_coe] at h
---       exact h.mono fun i hi => add_le_add_left hi (k i)
---     mul_le_mul_of_nonneg_left := fun c hc a b hab => by
---       induction a using Germ.inductionOn; next f =>
---       induction b using Germ.inductionOn; next g =>
---       induction c using Germ.inductionOn; next k =>
---       dsimp [LE.le] at hab hc ⊢
---       rw [← Germ.coe_zero] at hc
---       simp only [Germ.liftRel_coe] at hab hc ⊢
---       rw [← Germ.coe_mul, ← Germ.coe_mul, Germ.liftRel_coe]
---       filter_upwards [hab, hc] with i hab hc
---       exact mul_le_mul_of_nonneg_left hab hc
---     mul_le_mul_of_nonneg_right := fun c hc a b hab => by
---       induction a using Germ.inductionOn; next f =>
---       induction b using Germ.inductionOn; next g =>
---       induction c using Germ.inductionOn; next k =>
---       dsimp [LE.le] at hab hc ⊢
---       rw [← Germ.coe_zero] at hc
---       simp only [Germ.liftRel_coe] at hab hc ⊢
---       rw [← Germ.coe_mul, ← Germ.coe_mul, Germ.liftRel_coe]
---       filter_upwards [hab, hc] with i hab hc
---       exact mul_le_mul_of_nonneg_right hab hc
---     zero_le_one := Eventually.of_forall fun _ => zero_le_one }
-
--- noncomputable instance instLinearOrderedSemiringHyper [LinearOrderedSemiring α] :
---     LinearOrderedSemiring (Hyper ι α) :=
---   { instOrderedSemiringHyper, instLinearOrderHyper with }
-
--- noncomputable instance instLinearOrderedCommSemiringHyper [LinearOrderedCommSemiring α] :
---     LinearOrderedCommSemiring (Hyper ι α) :=
---   { instLinearOrderedSemiringHyper, Filter.Germ.instCommSemiring with }
-
--- Factorial
-def factorial [Infinite ι] (n : Hyper ι ℕ) : Hyper ι ℕ := lift Nat.factorial n
-
-@[simp]
-theorem factorial_std {ι : Type*} [Infinite ι] (n : ℕ) : factorial (std n : Hyper ι ℕ) = std n.factorial := by
-  dsimp [factorial, lift, std]
-
--- Pow
-noncomputable def pow [Infinite ι] [Pow α ℕ] (x : Hyper ι α) (n : Hyper ι ℕ) : Hyper ι α := lift₂ (fun a b => a ^ b) x n
-
-@[simp]
-theorem pow_std {ι : Type*} [Infinite ι] [Pow α ℕ] (a : α) (n : ℕ) : pow (std a : Hyper ι α) (std n) = std (a ^ n) := by
-  dsimp [pow, lift₂, std]
 
 noncomputable instance [AddCommMonoid α] : AddCommMonoid (Hyper ι α) :=
   Filter.Germ.instAddCommMonoid
@@ -671,60 +603,6 @@ theorem mul_eq_lift₂ [Mul α] (x y : Hyper ι α) : x * y = lift₂ (· * ·) 
 theorem sub_eq_lift₂ [Sub α] (x y : Hyper ι α) : x - y = lift₂ (· - ·) x y := rfl
 theorem neg_eq_lift [Neg α] (x : Hyper ι α) : -x = lift (-·) x := rfl
 theorem zero_eq_std [Zero α] : (0 : Hyper ι α) = std 0 := rfl
-
-/-- The transfer of the induction axiom for *internal* sets of hypernaturals.
-If an internal set `P` contains 0 and is closed under successor, it contains all hypernaturals. -/
-theorem internal_induction (P : Set (Hyper ι ℕ)) (h_int : IsInternal P)
-    (h0 : 0 ∈ P) (hs : ∀ n, n ∈ P → n + 1 ∈ P) : ∀ n, n ∈ P := by
-  -- P is internal, so P corresponds to a sequence of sets A
-  obtain ⟨A, hA⟩ := h_int
-  intro n
-  rw [hA]
-  induction n using inductionOn with | h f =>
-  rw [liftPredSeq]
-  -- We want to show {i | f i ∈ A i} ∈ U
-  -- We know 0 ∈ P, so {i | 0 ∈ A i} ∈ U
-  have h0_seq : ∀ᶠ i in hyperfilter ι, 0 ∈ A i := by
-    have : (0 : Hyper ι ℕ) ∈ P := h0
-    rw [← std_zero, std_eq_ofSeq_const] at this
-    rwa [hA, liftPredSeq_ofSeq] at this
-  -- We know ∀ n, n ∈ P → n + 1 ∈ P
-  -- This transfers to: ∀ᶠ i, ∀ k, k ∈ A i → k + 1 ∈ A i
-  have hs_seq : ∀ᶠ i in hyperfilter ι, ∀ k, k ∈ A i → k + 1 ∈ A i := by
-    by_contra h_not
-    have h_ex : ∀ᶠ i in hyperfilter ι, ∃ k, k ∈ A i ∧ k + 1 ∉ A i := by
-      rw [← Ultrafilter.eventually_not] at h_not
-      filter_upwards [h_not] with i hi
-      push_neg at hi
-      exact hi
-    -- Construct a sequence of counterexamples
-    let k_seq (i : ι) : ℕ := if h : ∃ k, k ∈ A i ∧ k + 1 ∉ A i then Classical.choose h else 0
-    have hk : ∀ᶠ i in hyperfilter ι, k_seq i ∈ A i ∧ k_seq i + 1 ∉ A i := by
-      filter_upwards [h_ex] with i hi
-      dsimp [k_seq]
-      rw [dif_pos hi]
-      exact Classical.choose_spec hi
-    -- Let n_bad := [k_seq]
-    let n_bad : Hyper ι ℕ := ofSeq k_seq
-    have hn_in : n_bad ∈ P := by
-      rw [hA, liftPredSeq]
-      filter_upwards [hk] with i hi using hi.1
-    have hn_succ_notin : n_bad + 1 ∉ P := by
-      rw [hA]
-      have : n_bad + 1 = ofSeq (fun i => k_seq i + 1) := by
-        dsimp [n_bad]
-        rw [← std_one, std_eq_ofSeq_const, add_eq_lift₂, lift₂_ofSeq]
-      rw [this, liftPredSeq_ofSeq]
-      rw [← Ultrafilter.eventually_not]
-      filter_upwards [hk] with i hi using hi.2
-    -- Contradiction with hs
-    exact hn_succ_notin (hs n_bad hn_in)
-
-  -- Now combine h0_seq and hs_seq
-  filter_upwards [h0_seq, hs_seq] with i h0i hsi
-  -- For each i, A i is a set of naturals containing 0 and closed under successor.
-  -- By standard induction, A i = Set.univ
-  exact Nat.rec h0i hsi (f i)
 theorem std_le_std [Preorder α] {a b : α} : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := by
   constructor
   · intro h
@@ -1025,16 +903,6 @@ theorem exists_infinite_nat : ∃ ω : Hyper ℕ ℕ, ∀ n : ℕ, std n < ω :=
 
 /-- An infinite hypernatural - the equivalence class of the identity sequence. -/
 noncomputable def omega : Hyper ℕ ℕ := ofSeq id
-
-theorem coe_nat_eq_std (n : ℕ) : (n : Hypernatural) = std n := rfl
-
-theorem omega_gt_nat (n : ℕ) : (n : Hypernatural) < omega := by
-  rw [lt_def]
-  simp only [omega, coe_nat_eq_std, std_def, Germ.const, Germ.liftRel_coe, ofSeq, Germ.ofFun]
-  apply Filter.mem_hyperfilter_of_finite_compl
-  dsimp
-  simp only [Set.compl_setOf, not_lt]
-  exact Set.finite_le_nat n
 
 theorem omega_gt_std (n : ℕ) : std n < omega := by
   rw [omega, std_lt_ofSeq]
