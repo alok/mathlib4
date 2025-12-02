@@ -2093,16 +2093,21 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
   -- By contradiction: suppose all elements are standard
   by_contra h_all_std
   push_neg at h_all_std
-  -- Then H = std '' (some subset of α)
-  -- The key insight: a hyperfinite set consisting only of standard elements
-  -- has cardinality bounded by a standard natural (it's internally finite)
-  -- But our hypothesis says the cardinality exceeds all standard naturals
-  -- This is a contradiction
+  -- Get the representing sequence S for H
+  let S := hH.choose
+  have hS_fin : ∀ i, (S i).Finite := hH.choose_spec.1
+  have hS_mem : ∀ x, x ∈ H ↔ liftPredSeq (fun i y => y ∈ S i) x := hH.choose_spec.2
+  -- Key insight: if all elements of H are standard and hyperfiniteCard H > std n for all n,
+  -- we get a contradiction by constructing a nonstandard element.
   --
-  -- More precisely: if all x ∈ H satisfy IsStandard x, then for each x ∈ H,
-  -- there exists a unique a : α with x = std a. This gives a bijection
-  -- between H and a subset of α, meaning H has "standard size".
-  -- But hyperfiniteCard H hH is nonstandard (> all std n).
+  -- The proof proceeds by showing that if H = {std a : a ∈ B} for some B ⊆ α,
+  -- then either:
+  -- (1) B is finite with |B| = k, but then |S_i| ≤ k for hyperfilter-many i (contradiction)
+  -- (2) B is infinite, but then we can diagonalize to construct a nonstandard element
+  --
+  -- For now, we leave this as sorry. The key observation is that a hyperfinite set
+  -- with cardinality exceeding all standard naturals cannot consist only of standard elements.
+  -- This is a fundamental fact about ultraproducts that requires more infrastructure.
   sorry
 
 /-- For any set with a countable enumeration, the hyperfinite approximation
@@ -2120,10 +2125,41 @@ theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.
   -- By the above lemma, H must contain nonstandard elements
   apply hH_hf.exists_nonstandard_of_large_card
   intro n
-  -- The cardinality of H at index i is |{a ∈ A : e(a) ≤ i}|
-  -- Since A is infinite and e is injective, this eventually exceeds n
-  -- For hyperfilter-many i, |S(i)| > n, so hyperfiniteCard > std n
-  sorry
+  -- Get n+1 distinct elements from A
+  obtain ⟨t, ht_sub, ht_card⟩ := hA_inf.exists_subset_card_eq (n + 1)
+  -- Get the representing sequence S for H
+  let S := hH_hf.choose
+  have hS_fin : ∀ i, (S i).Finite := hH_hf.choose_spec.1
+  have hS_mem : ∀ x, x ∈ H ↔ liftPredSeq (fun i y => y ∈ S i) x := hH_hf.choose_spec.2
+  -- For each a ∈ t, std a ∈ H, so a ∈ S i for hyperfilter-many i
+  have h_in : ∀ a ∈ t, ∀ᶠ i in hyperfilter ℕ, a ∈ S i := by
+    intro a ha
+    have h_std_in : std a ∈ H := hH_std a (ht_sub (Finset.mem_coe.mp ha))
+    rw [hS_mem, liftPredSeq, std, Germ.const] at h_std_in
+    exact h_std_in
+  -- By finite intersection, all elements of t are in S i for hyperfilter-many i
+  have h_all : ∀ᶠ i in hyperfilter ℕ, ∀ a ∈ t, a ∈ S i := by
+    rw [Filter.eventually_all_finset]
+    exact h_in
+  -- On this set, |S i| ≥ |t| = n + 1 > n
+  have h_card : ∀ᶠ i in hyperfilter ℕ, n < (hS_fin i).toFinset.card := by
+    filter_upwards [h_all] with i hi
+    have h_sub : ↑t ⊆ S i := by
+      intro a ha
+      exact hi a (Finset.mem_coe.mpr ha)
+    have h_card_le : t.card ≤ (hS_fin i).toFinset.card := by
+      calc t.card = (t.map ⟨id, Function.injective_id⟩).card := by simp
+        _ ≤ (hS_fin i).toFinset.card := by
+          apply Finset.card_le_card
+          intro x hx
+          rw [Finset.mem_map] at hx
+          obtain ⟨a, ha, rfl⟩ := hx
+          rw [Set.Finite.mem_toFinset]
+          exact h_sub (Finset.mem_coe.mpr ha)
+    omega
+  -- Therefore hyperfiniteCard H > std n
+  rw [hyperfiniteCard, std_lt_ofSeq]
+  exact h_card
 
 /-- **Hyperfinite Approximation (Simplified Statement)**:
 For any set A, there exists an internal hyperfinite set H with `std '' A ⊆ H ⊆ *A`.
