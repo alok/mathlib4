@@ -1708,8 +1708,8 @@ theorem galaxy_mem (S : Set (Set α)) (x : Hyper ι α) :
     x ∈ galaxy S ↔ ∃ s ∈ S, liftPred (· ∈ s) x := by
   simp [galaxy]
 
-set_option linter.unusedSectionVars false in
-
+omit [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α]
+  [TopologicalSpace α] [OrderTopology α] [DenselyOrdered α] [NoMaxOrder α] [NoMinOrder α] in
 theorem liftPredSeq_mono {P Q : ι → α → Prop} (h : ∀ i x, P i x → Q i x) (x : Hyper ι α) :
     liftPredSeq P x → liftPredSeq Q x := by
   induction x using Germ.inductionOn
@@ -1954,5 +1954,188 @@ theorem not_isCompact_Ioo {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] 
     exact h_ne_bot h_inter
 
 end HeineBorel
+
+/-! ## Hyperfinite Approximation Theorem
+
+The fundamental theorem of hyperfinite analysis: every set A can be "sandwiched" between
+its standard embedding and its star:
+
+  std(A) ⊆ H ⊆ *A
+
+where H is a hyperfinite set. This is crucial for applying hyperfinite combinatorics
+to infinite structures.
+
+### Construction
+
+Given a set A with an enumeration `e : A → ι` where ι has a locally finite order,
+we construct H as the internal set corresponding to the sequence of finite sets
+`{a ∈ A : e(a) ≤ i}`. This sequence is:
+- Eventually containing any fixed element (giving std(A) ⊆ H)
+- Always contained in A (giving H ⊆ *A)
+- Finite at each index (making H hyperfinite)
+-/
+
+section HyperfiniteApprox
+
+open scoped NonstandardAnalysis
+
+variable {ι : Type*} [Infinite ι] {α : Type*}
+
+/-- **Hyperfinite Approximation Theorem (Core Version)**:
+For any set A with an order-preserving enumeration into ι, there exists a hyperfinite
+internal set H such that every standard element of A is in H, and H is contained in *A.
+
+The key insight: if we can enumerate A by indices in ι, then the sequence of
+"initial segments" {a : e(a) ≤ i} gives a hyperfinite set containing all of std(A). -/
+theorem exists_hyperfinite_sandwich [LinearOrder ι] [LocallyFiniteOrderBot ι]
+    {A : Set α} (e : A ↪ ι) :
+    ∃ H : Set (Hyper ι α), IsHyperfinite H ∧
+      (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
+      (∀ x ∈ H, liftPred (· ∈ A) x) := by
+  -- Define S_i = {a ∈ A : e(a) ≤ i} as a Finset via the finite Iic
+  let S : ι → Finset α := fun i =>
+    ((Set.Iic i).toFinite.preimage e.injective.injOn).toFinset.map
+      ⟨Subtype.val, Subtype.val_injective⟩
+  -- Convert to Set for the internal definition
+  let S' : ι → Set α := fun i => S i
+  have hS_fin : ∀ i, (S' i).Finite := fun i => (S i).finite_toSet
+  -- H is the internal set defined by S'
+  let H := {x | liftPredSeq (fun i y => y ∈ S' i) x}
+  use H
+  constructor
+  · -- H is hyperfinite
+    exact ⟨S', hS_fin, fun x => Iff.rfl⟩
+  -- Key helper: a ∈ S i iff e ⟨a, ha⟩ ≤ i
+  have hS_mem : ∀ i (a : α) (ha : a ∈ A), a ∈ (S i : Set α) ↔ e ⟨a, ha⟩ ≤ i := by
+    intro i a ha
+    rw [Finset.mem_coe, Finset.mem_map]
+    simp only [Set.Finite.mem_toFinset, Set.mem_preimage, Set.mem_Iic,
+               Function.Embedding.coeFn_mk]
+    constructor
+    · rintro ⟨⟨b, hb⟩, hle, rfl⟩
+      exact hle
+    · intro hle
+      exact ⟨⟨a, ha⟩, hle, rfl⟩
+  constructor
+  · -- std(A) ⊆ H: for any a ∈ A, std a ∈ H
+    intro a ha
+    simp only [H, Set.mem_setOf_eq, liftPredSeq, std, Germ.const, S']
+    -- a ∈ S i for all i ≥ e ⟨a, ha⟩, which is cofinite
+    -- First show {i | a ∈ S i} is cofinite
+    have h_cofin : {i | a ∈ (S i : Set α)} ∈ Filter.cofinite := by
+      rw [Filter.mem_cofinite]
+      apply Set.Finite.subset (Set.finite_Iio (e ⟨a, ha⟩))
+      intro i hi
+      simp only [Set.mem_compl_iff, Set.mem_setOf_eq, Set.mem_Iio] at hi ⊢
+      rw [hS_mem i a ha] at hi
+      exact lt_of_not_ge hi
+    -- Then lift to hyperfilter (hyperfilter_le_cofinite : hyperfilter ≤ cofinite)
+    exact hyperfilter_le_cofinite h_cofin
+  · -- H ⊆ *A: elements of H are in the star of A
+    intro x hx
+    simp only [H, Set.mem_setOf_eq, S'] at hx
+    -- Every element of S i is in A
+    have h_sub : ∀ i y, y ∈ (S i : Set α) → y ∈ A := by
+      intro i y hy
+      rw [Finset.mem_coe, Finset.mem_map] at hy
+      simp only [Set.Finite.mem_toFinset, Set.mem_preimage, Set.mem_Iic,
+                 Function.Embedding.coeFn_mk] at hy
+      obtain ⟨⟨a, ha⟩, _, rfl⟩ := hy
+      exact ha
+    exact liftPredSeq_mono h_sub x hx
+
+/-- **Hyperfinite Approximation Theorem (ℕ-indexed version)**:
+For any countable set A, there exists a hyperfinite internal set H in `Hyper ℕ α`
+sandwiching the standard elements. -/
+theorem exists_hyperfinite_sandwich_nat {A : Set α} (hA : A.Countable) :
+    ∃ H : Set (Hyper ℕ α), IsHyperfinite H ∧
+      (∀ a ∈ A, (std a : Hyper ℕ α) ∈ H) ∧
+      (∀ x ∈ H, liftPred (· ∈ A) x) := by
+  by_cases hA_empty : A = ∅
+  · -- Empty set case: use the empty internal set
+    use {x | liftPredSeq (fun _ _ => False) x}
+    constructor
+    · use fun _ => ∅
+      constructor
+      · exact fun _ => Set.finite_empty
+      · intro x
+        simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false]
+    · constructor
+      · intro a ha
+        rw [hA_empty] at ha
+        exact ha.elim
+      · intro x hx
+        -- The empty internal set contains no elements - derive a contradiction
+        simp only [Set.mem_setOf_eq] at hx
+        obtain ⟨f, rfl⟩ := ofSeq_surjective x
+        rw [liftPredSeq_ofSeq] at hx
+        have hbot : (hyperfilter ℕ : Filter ℕ) = ⊥ := Filter.eventually_false_iff_eq_bot.mp hx
+        exact ((hyperfilter ℕ).neBot.ne hbot).elim
+  · -- Nonempty case
+    have hA_nonempty : A.Nonempty := Set.nonempty_iff_ne_empty.mpr hA_empty
+    obtain ⟨e, he_inj⟩ := hA.exists_injective_nat
+    -- Use the core theorem with the embedding (e already maps A → ℕ)
+    exact exists_hyperfinite_sandwich ⟨e, he_inj⟩
+
+/-- For any set with a countable enumeration, the hyperfinite approximation
+gives strict containment when A is infinite. -/
+theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.Infinite) :
+    ∃ H : Set (Hyper ℕ α), IsHyperfinite H ∧
+      (∀ a ∈ A, (std a : Hyper ℕ α) ∈ H) ∧
+      (∀ x ∈ H, liftPred (· ∈ A) x) ∧
+      ∃ x ∈ H, ¬ IsStandard x := by
+  obtain ⟨H, hH_fin, hH_std, hH_star⟩ := exists_hyperfinite_sandwich_nat hA
+  use H, hH_fin, hH_std, hH_star
+  -- Need to find a nonstandard element in H
+  -- Since A is infinite, H has hyperfinite cardinality > any standard ℕ
+  -- This means H contains nonstandard elements
+  --
+  -- The key insight: we construct a diagonal element by picking, for each index i,
+  -- an element from S_i that is "new" (not repeated from earlier). Since A is infinite
+  -- and S_i grows without bound, we can always find such elements.
+  --
+  -- This diagonal element is in H (since each component is in S_i) but is not
+  -- the standard embedding of any single element of A (since it visits infinitely
+  -- many distinct elements).
+  sorry -- Diagonal argument requires careful choice function
+
+/-- **Hyperfinite Approximation (Simplified Statement)**:
+For any set A, there exists an internal hyperfinite set H with `std '' A ⊆ H ⊆ *A`.
+
+This is the standard NSA result phrased set-theoretically. -/
+theorem exists_hyperfinite_between [LinearOrder ι] [LocallyFiniteOrderBot ι]
+    {A : Set α} (e : A ↪ ι) :
+    ∃ H : Set (Hyper ι α), IsHyperfinite H ∧
+      std '' A ⊆ H ∧
+      H ⊆ {x | liftPred (· ∈ A) x} := by
+  obtain ⟨H, hH_hf, hH_std, hH_star⟩ := exists_hyperfinite_sandwich e
+  use H, hH_hf
+  constructor
+  · intro x hx
+    obtain ⟨a, ha, rfl⟩ := hx
+    exact hH_std a ha
+  · intro x hx
+    exact hH_star x hx
+
+/-- The cardinality of a hyperfinite set is a hypernatural.
+Given a hyperfinite set H with representing sequence S, the cardinality is the
+hypernatural represented by `|S_i|`. -/
+noncomputable def hyperfiniteCard (H : Set (Hyper ι α)) (hH : IsHyperfinite H) : Hyper ι ℕ :=
+  ofSeq (fun i => (hH.choose_spec.1 i).toFinset.card)
+
+/-- If A is infinite, the hyperfinite approximation eventually has cardinality
+exceeding any standard natural. -/
+theorem hyperfiniteCard_infinite [LinearOrder ι] [LocallyFiniteOrderBot ι]
+    {A : Set α} (e : A ↪ ι) (hA_inf : A.Infinite) (n : ℕ) :
+    ∃ H : Set (Hyper ι α), ∃ hH : IsHyperfinite H,
+      (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
+      std n ≤ hyperfiniteCard H hH := by
+  obtain ⟨H, hH_hf, hH_std, _⟩ := exists_hyperfinite_sandwich e
+  use H, hH_hf, hH_std
+  -- The cardinality of H at index i is |{a ∈ A : e a ≤ i}|
+  -- As i → ∞, this eventually exceeds n (since |A| is infinite)
+  sorry -- Requires showing that |{a ∈ A : e a ≤ i}| → ∞
+
+end HyperfiniteApprox
 
 end Hyper
