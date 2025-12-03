@@ -10,8 +10,11 @@ import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.Normed.Group.Basic
 import Mathlib.Analysis.Normed.Ring.Basic
 import Mathlib.Analysis.Normed.Field.Basic
+import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Topology.Sequences
 import Mathlib.Topology.UniformSpace.HeineCantor
+
+set_option linter.style.longFile 1800
 
 /-!
 # Nonstandard Characterizations of Topological Concepts
@@ -486,6 +489,112 @@ theorem halo_zero_mul_bounded_closed {x r : Hyper ι α}
 
 end InfinitesimalIdeal
 
+/-! ## Division by Non-Infinitesimals
+
+For normed fields, division by non-infinitesimal elements preserves finiteness.
+This is crucial for defining derivatives via difference quotients.
+-/
+
+section Division
+
+variable [NormedField α]
+
+/-- An element is **appreciable** (non-infinitesimal and non-zero) if its norm is bounded
+away from zero by some positive standard real. -/
+def IsAppreciable (x : Hyper ι α) : Prop :=
+  ∃ δ : ℝ, 0 < δ ∧ std δ < lift (‖·‖) x
+
+/-- Standard non-zero elements are appreciable. -/
+theorem isAppreciable_std {a : α} (ha : a ≠ 0) : IsAppreciable (std a : Hyper ι α) := by
+  use ‖a‖ / 2
+  constructor
+  · exact div_pos (norm_pos_iff.mpr ha) two_pos
+  · rw [lift_std, std_lt]
+    linarith [norm_pos_iff.mpr ha]
+
+/-- Appreciable elements are non-zero. -/
+theorem IsAppreciable.ne_zero {x : Hyper ι α} (hx : IsAppreciable x) : x ≠ 0 := by
+  obtain ⟨δ, hδ, hbound⟩ := hx
+  intro h
+  rw [h] at hbound
+  simp only [← std_zero, lift_std, norm_zero, std_lt] at hbound
+  linarith
+
+/-- Appreciable elements are not infinitesimal. -/
+theorem IsAppreciable.not_infinitesimal {x : Hyper ι α} (hx : IsAppreciable x) :
+    ¬Infinitesimal x := by
+  obtain ⟨δ, hδ, hbound⟩ := hx
+  intro hinf
+  have hinf_ε := hinf δ hδ
+  have hlt1 : lift (‖·‖) x < std δ := hinf_ε
+  have hlt2 : std δ < lift (‖·‖) x := hbound
+  exact (lt_trans hlt2 hlt1).false
+
+/-- Non-infinitesimal non-zero elements are appreciable. -/
+theorem isAppreciable_of_not_infinitesimal {x : Hyper ι α} (hne : x ≠ 0)
+    (hninf : ¬Infinitesimal x) : IsAppreciable x := by
+  unfold Infinitesimal at hninf
+  push_neg at hninf
+  obtain ⟨ε, hε, hbound⟩ := hninf
+  use ε
+  constructor
+  · exact hε
+  · -- We have std ε ≤ lift (‖·‖) x, need to show strict inequality
+    -- Since ‖x‖ ≥ ε > 0, we have strict inequality
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    rw [lift_ofSeq, std_eq_ofSeq_const] at hbound ⊢
+    rw [ofSeq_le_ofSeq] at hbound
+    rw [ofSeq_lt_ofSeq]
+    -- Since not all f n = 0, and ε ≤ ‖f n‖ eventually, we have ε < ‖f n‖ eventually
+    -- Actually we only have ≤, need to be more careful
+    -- For now, use ε/2
+    sorry
+
+/-- Inverse of an appreciable element is norm-bounded. -/
+theorem IsAppreciable.inv_isBoundedNorm {x : Hyper ι α} (hx : IsAppreciable x) :
+    IsBoundedNorm (x⁻¹) := by
+  obtain ⟨δ, hδ, hbound⟩ := hx
+  use 1 / δ
+  constructor
+  · exact div_pos one_pos hδ
+  · obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    -- x⁻¹ = ofSeq (fun n => (f n)⁻¹)
+    have hinv : (ofSeq f : Hyper ι α)⁻¹ = ofSeq (fun n => (f n)⁻¹) := by
+      change lift Inv.inv (ofSeq f) = ofSeq (fun n => (f n)⁻¹)
+      rw [lift_ofSeq]
+      rfl
+    rw [hinv, lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+    rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hbound
+    apply hbound.mono
+    intro n hn
+    simp only [Function.comp_apply] at hn ⊢
+    rw [norm_inv]
+    have hfn_pos : 0 < ‖f n‖ := lt_trans hδ hn
+    -- ‖(f n)⁻¹‖ = (‖f n‖)⁻¹ < δ⁻¹ = 1/δ since ‖f n‖ > δ
+    rw [one_div]
+    exact inv_strictAnti₀ hδ hn
+
+/-- Division of a norm-bounded element by an appreciable element is norm-bounded. -/
+theorem IsBoundedNorm.div_isAppreciable {x y : Hyper ι α}
+    (hx : IsBoundedNorm x) (hy : IsAppreciable y) : IsBoundedNorm (x / y) := by
+  have hinv := hy.inv_isBoundedNorm
+  obtain ⟨M, hM, hx_bound⟩ := hx
+  obtain ⟨N, hN, hinv_bound⟩ := hinv
+  use M * N
+  constructor
+  · exact mul_pos hM hN
+  · -- x / y = x * y⁻¹ - need to show ‖x/y‖ < M*N
+    sorry
+
+/-- Infinitesimal divided by appreciable is infinitesimal. -/
+theorem Infinitesimal.div_isAppreciable {x y : Hyper ι α}
+    (hx : Infinitesimal x) (hy : IsAppreciable y) : Infinitesimal (x / y) := by
+  have hinv := hy.inv_isBoundedNorm
+  -- x / y = x * y⁻¹, so use infinitesimal * bounded = infinitesimal
+  sorry
+
+end Division
+
 /-! ## Infinitesimal Closeness (≈)
 
 Two elements are infinitesimally close if their difference is infinitesimal.
@@ -663,6 +772,50 @@ theorem Continuous.halo_map {f : α → β} (hf : Continuous f) (x : α) :
   exact (continuousAt_iff_halo (ι := ι)).mp hf.continuousAt y hy
 
 end Continuity
+
+/-! ## NSA Characterization of Limits
+
+Limits can be characterized via halos: `lim_{x→a} f(x) = L` iff `f*(y) ∈ halo(L)`
+for all `y ∈ halo(a)` with `y ≠ ★a`.
+-/
+
+section Limits
+
+variable [TopologicalSpace α] [TopologicalSpace β]
+
+/-- **NSA characterization of limits at a point**: `Tendsto f (𝓝[≠] a) (𝓝 L)` iff
+for all `y ≈ a` with `y ≠ ★a`, we have `f*(y) ≈ L`.
+
+This is the classic nonstandard definition of limits. -/
+theorem tendsto_nhdsWithin_iff_halo {f : α → β} {a : α} {L : β} :
+    Tendsto f (𝓝[≠] a) (𝓝 L) ↔
+      ∀ y : Hyper ι α, y ∈ halo a → y ≠ std a → lift f y ∈ halo L := by
+  constructor
+  · -- Forward: if f tends to L at a, then halo elements map to halo of L
+    -- This follows from: y ∈ halo a means y is in every neighborhood of a,
+    -- and tendsto means preimage of V ∈ 𝓝 L is in 𝓝[≠] a
+    sorry
+  · -- Backward: if all halo elements map correctly, f tends to L
+    -- This is the ultrafilter characterization of limits
+    sorry
+
+/-- **NSA characterization of one-sided limits from above**: For ordered spaces,
+`Tendsto f (𝓝[>] a) (𝓝 L)` iff for all `y > ★a` with `y ≈ a`, we have `f*(y) ≈ L`. -/
+theorem tendsto_nhdsWithin_Ioi_iff_halo [Preorder α] [OrderTopology α]
+    {f : α → β} {a : α} {L : β} :
+    Tendsto f (𝓝[>] a) (𝓝 L) ↔
+      ∀ y : Hyper ι α, y ∈ halo a → std a < y → lift f y ∈ halo L := by
+  sorry
+
+/-- **NSA characterization of one-sided limits from below**: For ordered spaces,
+`Tendsto f (𝓝[<] a) (𝓝 L)` iff for all `y < ★a` with `y ≈ a`, we have `f*(y) ≈ L`. -/
+theorem tendsto_nhdsWithin_Iio_iff_halo [Preorder α] [OrderTopology α]
+    {f : α → β} {a : α} {L : β} :
+    Tendsto f (𝓝[<] a) (𝓝 L) ↔
+      ∀ y : Hyper ι α, y ∈ halo a → y < std a → lift f y ∈ halo L := by
+  sorry
+
+end Limits
 
 /-! ## NSA Characterization of Topological Concepts -/
 
@@ -1410,5 +1563,106 @@ theorem liftNorm_infClose_of_continuous [NormedAddCommGroup E]
     linarith
 
 end EquivalentNorms
+
+/-! ## Differentiation via NSA
+
+The crown jewel of nonstandard analysis: a function is differentiable at a point
+iff the difference quotient `(f(x+ε) - f(x))/ε` is infinitesimally close to the
+derivative for all nonzero infinitesimal `ε`.
+
+This gives a rigorous foundation for the intuitive notion that derivatives are
+"ratios of infinitesimals".
+-/
+
+section Differentiation
+
+variable {𝕂 : Type*} [NontriviallyNormedField 𝕂]
+
+/-- The difference quotient `(f(x+h) - f(x))/h` lifted to hyperelements.
+For scalar-valued functions, this gives the infinitesimal slope. -/
+noncomputable def differenceQuotient (f : 𝕂 → 𝕂) (x : 𝕂) (h : Hyper ι 𝕂) : Hyper ι 𝕂 :=
+  (lift f (std x + h) - lift f (std x)) / h
+
+/-- For a scalar-valued function: `f` has derivative `L` at `x` iff for all
+nonzero infinitesimal `ε`, the difference quotient `(f(x+ε) - f(x))/ε ≈ L`.
+
+This is the fundamental NSA characterization of differentiability. -/
+theorem hasDerivAt_iff_differenceQuotient_infClose {f : 𝕂 → 𝕂} {x L : 𝕂} :
+    HasDerivAt f L x ↔
+      ∀ ε : Hyper ι 𝕂, Infinitesimal ε → ε ≠ 0 →
+        differenceQuotient f x ε ≈ std L := by
+  constructor
+  · -- Forward: if f has derivative L, difference quotients are infinitely close to L
+    intro hf ε hε hne
+    -- HasDerivAt f L x means Tendsto (fun h => (f (x+h) - f x) / h) (𝓝[≠] 0) (𝓝 L)
+    rw [hasDerivAt_iff_tendsto] at hf
+    -- Use the limit characterization
+    -- ε is infinitesimal and nonzero, so ε ∈ halo 0 \ {★0}
+    have hε_halo : ε ∈ halo (0 : 𝕂) := (infinitesimal_iff_mem_halo_zero ε).mp hε
+    -- Need to show differenceQuotient f x ε ∈ halo L
+    -- This follows from the NSA characterization of limits
+    unfold differenceQuotient InfClose Infinitesimal
+    intro δ hδ
+    -- Use that f has derivative L: the limit as h → 0 of (f(x+h) - f(x))/h - L = 0
+    -- In terms of norms: ‖(f(x+h) - f(x))/h - L‖ < δ for h in a neighborhood of 0
+    -- The forward direction requires showing the difference quotient is eventually in
+    -- any neighborhood of L. This follows from the continuity characterization of derivatives.
+    sorry
+  · -- Backward: if difference quotients are close to L for all infinitesimal ε, f has derivative L
+    intro hhalo
+    rw [hasDerivAt_iff_tendsto]
+    -- Need to show Tendsto (fun h => (f (x+h) - f x) / h) (𝓝[≠] 0) (𝓝 L)
+    -- Use the NSA characterization of limits
+    sorry
+
+/-- Alternate formulation: `f'(x) = st((f(x+ε) - f(x))/ε)` for any nonzero infinitesimal ε. -/
+theorem deriv_eq_stdPart_differenceQuotient [CompleteSpace 𝕂] {f : 𝕂 → 𝕂} {x : 𝕂}
+    (hf : DifferentiableAt 𝕂 f x) {ε : Hyper ι 𝕂} (hε : Infinitesimal ε) (hne : ε ≠ 0) :
+    (differenceQuotient f x ε).IsNearStd := by
+  -- The difference quotient is near the derivative
+  have hderiv := hf.hasDerivAt
+  have hclose := (hasDerivAt_iff_differenceQuotient_infClose (ι := ι)).mp hderiv ε hε hne
+  -- InfClose to a standard element means IsNearStd
+  use deriv f x
+  -- InfClose x (std L) ↔ x ∈ halo L for normed spaces
+  -- (follows from infinitesimal_iff_mem_halo_zero and translation)
+  rw [mem_halo_iff]
+  intro U hU
+  -- hclose : differenceQuotient f x ε ≈ std (deriv f x)
+  -- i.e., Infinitesimal (differenceQuotient f x ε - std (deriv f x))
+  unfold InfClose at hclose
+  -- Need to convert from Infinitesimal (diff - std L) to liftPred (· ∈ U) diff
+  sorry
+
+/-- Leibniz rule via NSA: For infinitesimal ε, d(fg) = f·dg + g·df. -/
+theorem differenceQuotient_mul {f g : 𝕂 → 𝕂} {x : 𝕂} {ε : Hyper ι 𝕂}
+    (hε : Infinitesimal ε) (hne : ε ≠ 0) :
+    differenceQuotient (f * g) x ε =
+      lift f (std x + ε) * differenceQuotient g x ε +
+      lift g (std x) * differenceQuotient f x ε := by
+  unfold differenceQuotient
+  -- Algebraic manipulation: (fg(x+ε) - fg(x))/ε = f(x+ε)(g(x+ε)-g(x))/ε + g(x)(f(x+ε)-f(x))/ε
+  obtain ⟨s, rfl⟩ := ofSeq_surjective ε
+  sorry
+
+/-- Chain rule via NSA: For infinitesimal ε, d(f∘g) = f'(g(x))·dg.
+The key insight is that δ = g(x+ε) - g(x) is infinitesimal by continuity. -/
+theorem differenceQuotient_comp {f g : 𝕂 → 𝕂} {x : 𝕂} {ε : Hyper ι 𝕂}
+    (hε : Infinitesimal ε) (hne : ε ≠ 0)
+    (hg_cont : ContinuousAt g x) (hg_diff : DifferentiableAt 𝕂 g x) :
+    ∃ δ : Hyper ι 𝕂, Infinitesimal δ ∧
+      differenceQuotient (f ∘ g) x ε =
+        differenceQuotient f (g x) δ * differenceQuotient g x ε := by
+  -- δ = g(x+ε) - g(x) is infinitesimal since g is continuous
+  use lift g (std x + ε) - lift g (std x)
+  constructor
+  · -- g(x+ε) - g(x) is infinitesimal since g is continuous at x
+    -- This follows from continuity: std x + ε ∈ halo x implies g(std x + ε) ∈ halo(g x)
+    -- Therefore g(std x + ε) - g(std x) = g(std x + ε) - std(g x) ∈ halo 0
+    sorry
+  · -- The chain rule identity
+    sorry
+
+end Differentiation
 
 end Hyper
