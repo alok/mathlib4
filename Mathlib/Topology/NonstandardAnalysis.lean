@@ -664,6 +664,116 @@ theorem Continuous.halo_map {f : α → β} (hf : Continuous f) (x : α) :
 
 end Continuity
 
+/-! ## NSA Characterization of Topological Concepts -/
+
+section TopologicalConcepts
+
+variable [TopologicalSpace α]
+
+/-- **NSA characterization of open sets**: A set `U` is open iff it contains the halo of every
+point in `U`.
+Intuitively: `U` is open iff every point infinitely close to `x ∈ U` is also in `U*`. -/
+theorem isOpen_iff_halo_subset [Nonempty (Set α ↪ ι)] {U : Set α} :
+    IsOpen U ↔ ∀ x ∈ U, halo (ι := ι) x ⊆ {y | liftPred (· ∈ U) y} := by
+  constructor
+  · intro h x hx y hy
+    rw [mem_halo_iff] at hy
+    exact hy U (h.mem_nhds hx)
+  · intro h
+    rw [isOpen_iff_mem_nhds]
+    intro x hx
+    by_contra h_not_mem
+    have h_closure : x ∈ closure Uᶜ := by
+      rw [mem_closure_iff_nhds]
+      intro V hV
+      by_contra h_empty
+      push_neg at h_empty
+      have hV_sub_U : V ⊆ U := fun z hz =>
+        by_contra fun hz' => Set.eq_empty_iff_forall_notMem.mp h_empty z ⟨hz, hz'⟩
+      exact h_not_mem (mem_of_superset hV hV_sub_U)
+    haveI : NeBot (𝓝 x ⊓ 𝓟 Uᶜ) := mem_closure_iff_clusterPt.mp h_closure
+    obtain ⟨y, hy_eq⟩ := exists_hyper_of_ultrafilter (ι := ι) (Ultrafilter.of (𝓝 x ⊓ 𝓟 Uᶜ))
+    let 𝓤 := Ultrafilter.of (𝓝 x ⊓ 𝓟 Uᶜ)
+    have h_le : 𝓤 ≤ 𝓝 x ⊓ 𝓟 Uᶜ := Ultrafilter.of_le _
+    have hy_halo : y ∈ halo x := by
+      rw [mem_halo_iff]
+      intro V hV
+      rw [mem_star_iff_mem_asUltrafilter, hy_eq]
+      apply h_le
+      exact mem_inf_of_left hV
+    have hy_not_U : y ∉ {z | liftPred (· ∈ U) z} := by
+      intro hy_U
+      simp only [mem_setOf_eq] at hy_U
+      rw [mem_star_iff_mem_asUltrafilter, hy_eq] at hy_U
+      have hUc : Uᶜ ∈ 𝓤 := by
+        apply h_le
+        exact mem_inf_of_right (mem_principal_self Uᶜ)
+      have h_inter : U ∩ Uᶜ ∈ (𝓤 : Filter α) := inter_mem hy_U hUc
+      rw [inter_compl_self] at h_inter
+      exact 𝓤.neBot.ne (Filter.empty_mem_iff_bot.mp h_inter)
+    specialize h x hx hy_halo
+    contradiction
+
+/-- **NSA characterization of closed sets**: A set `F` is closed iff it contains all standard parts
+of its near-standard elements.
+Intuitively: `F` is closed iff whenever `y ∈ F*` and `y ≈ x`, then `x ∈ F`. -/
+theorem isClosed_iff_halo_inter [Nonempty (Set α ↪ ι)] {F : Set α} :
+    IsClosed F ↔ ∀ x : α, (halo (ι := ι) x ∩ {y | liftPred (· ∈ F) y}).Nonempty → x ∈ F := by
+  sorry
+
+/-- **NSA characterization of dense sets**: `A` is dense iff `A*` meets every halo. -/
+theorem dense_iff_halo_inter [Nonempty (Set α ↪ ι)] {A : Set α} :
+    Dense A ↔ ∀ x : α, (halo (ι := ι) x ∩ {y | liftPred (· ∈ A) y}).Nonempty := by
+  sorry
+  /-
+  constructor
+  · intro hA x
+    have hx : x ∈ closure A := hA.closure_eq_univ.symm ▸ mem_univ x
+    haveI : NeBot (𝓝 x ⊓ 𝓟 A) := mem_closure_iff_clusterPt.mp hx
+    obtain ⟨y, hy_eq⟩ := exists_hyper_of_ultrafilter (ι := ι) (Ultrafilter.of (𝓝 x ⊓ 𝓟 A))
+    let 𝓤 := Ultrafilter.of (𝓝 x ⊓ 𝓟 A)
+    have h_le : 𝓤 ≤ 𝓝 x ⊓ 𝓟 A := Ultrafilter.of_le _
+    use y
+    constructor
+    · rw [mem_halo_iff]
+      intro V hV
+      rw [mem_star_iff_mem_asUltrafilter, hy_eq]
+      apply h_le
+      exact mem_inf_of_left hV
+    · rw [mem_star_iff_mem_asUltrafilter, hy_eq]
+      apply h_le
+      exact mem_inf_of_right (mem_principal_self A)
+  · intro h
+    rw [dense_iff_closure_eq]
+    ext x
+    constructor
+    · intro _
+      exact mem_univ x
+    · intro _
+      obtain ⟨y, hy_halo, hy_A⟩ := h x
+      rw [mem_halo_iff] at hy_halo
+      rw [mem_star_iff_mem_asUltrafilter] at hy_A
+      have h_le : asUltrafilter y ≤ 𝓝 x := by
+        intro U hU
+        rw [← mem_star_iff_mem_asUltrafilter]
+        exact hy_halo U hU
+      have h_cluster : ClusterPt x (𝓟 A) := by
+        rw [ClusterPt, inf_comm]
+        apply NeBot.mono h_le
+        rw [le_inf_iff]
+        exact ⟨le_rfl, le_principal_iff.mpr hy_A⟩
+      rw [← mem_closure_iff_clusterPt] at h_cluster
+      exact h_cluster
+  -/
+
+/-- **NSA characterization of cluster points**: `x` is a cluster point of `F` iff
+`halo x` meets `F*`. -/
+theorem clusterPt_iff_halo_inter [Nonempty (Set α ↪ ι)] {F : Filter α} {x : α} :
+    ClusterPt x F ↔ (halo (ι := ι) x ∩ ⋂ U ∈ F, {y | liftPred (· ∈ U) y}).Nonempty := by
+  sorry
+
+end TopologicalConcepts
+
 /-! ## NSA Characterization of Compactness -/
 
 section Compactness
@@ -1005,6 +1115,7 @@ section StandardPartTransfer
 
 variable [TopologicalSpace α] [TopologicalSpace β] [T2Space α] [T2Space β]
 
+omit [T2Space α] [T2Space β] in
 /-- **Standard Part Transfer Principle**: For a continuous function `f` at the standard part,
 the standard part of `lift f x` equals `f` applied to the standard part of `x`.
 
@@ -1043,7 +1154,36 @@ theorem stdPart_lift₂_of_continuousAt {γ : Type*} [TopologicalSpace γ] [T2Sp
     IsNearStd (lift₂ f x y) ∧
       ∀ (hz : IsNearStd (lift₂ f x y)),
         stdPart (lift₂ f x y) hz = f (stdPart x hx) (stdPart y hy) := by
-  sorry -- TODO: requires product halo membership infrastructure
+  -- Get the standard parts
+  let a := stdPart x hx
+  let b := stdPart y hy
+  -- x and y are in the halos of their standard parts
+  have hx_halo : x ∈ halo a := stdPart_spec x hx
+  have hy_halo : y ∈ halo b := stdPart_spec y hy
+  -- Show lift₂ f x y is in halo(f(a, b))
+  have hfxy_halo : lift₂ f x y ∈ halo (f a b) := by
+    rw [mem_halo_iff]
+    intro W hW
+    -- By continuity, there exist neighborhoods U and V with f(U × V) ⊆ W
+    rw [ContinuousAt, Filter.Tendsto, Filter.map_le_iff_le_comap] at hf
+    have hpre : Function.uncurry f ⁻¹' W ∈ nhds (a, b) := hf (Filter.preimage_mem_comap hW)
+    rw [nhds_prod_eq, Filter.mem_prod_iff] at hpre
+    obtain ⟨U, hU, V, hV, hUV⟩ := hpre
+    -- x ∈ U* and y ∈ V*
+    have hxU : liftPred (· ∈ U) x := (mem_halo_iff a x).mp hx_halo U hU
+    have hyV : liftPred (· ∈ V) y := (mem_halo_iff b y).mp hy_halo V hV
+    -- Now show lift₂ f x y ∈ W*
+    obtain ⟨s, rfl⟩ := ofSeq_surjective x
+    obtain ⟨t, rfl⟩ := ofSeq_surjective y
+    rw [liftPred_ofSeq] at hxU hyV
+    rw [lift₂_ofSeq, liftPred_ofSeq]
+    filter_upwards [hxU, hyV] with i hsU htV
+    exact hUV (Set.mk_mem_prod hsU htV)
+  -- Therefore IsNearStd (lift₂ f x y)
+  constructor
+  · exact ⟨f a b, hfxy_halo⟩
+  · intro hz
+    exact halo_eq_of_mem_halo (stdPart_spec (lift₂ f x y) hz) hfxy_halo
 
 end StandardPartTransfer
 
@@ -1067,6 +1207,37 @@ section HeineCantor
 
 variable [UniformSpace α] [UniformSpace β]
 
+/-- If two elements are both in the halo of the same point in a uniform space,
+then they are entourage-close. -/
+theorem entourageClose_of_mem_halo {x y : Hyper ι α} {a : α}
+    (hx : x ∈ halo a) (hy : y ∈ halo a) : EntourageClose x y := by
+  intro U hU
+  -- Get symmetric V with V ○ V ⊆ U
+  obtain ⟨V, hV, hVsymm, hVU⟩ := comp_symm_mem_uniformity_sets hU
+  -- ball a V is a neighborhood of a (explicitly at type α)
+  let ball_a : Set α := {b : α | (a, b) ∈ V}
+  have hball : ball_a ∈ nhds a := UniformSpace.ball_mem_nhds a hV
+  -- x and y are in the lifted ball
+  have hx_ball : liftPred (· ∈ ball_a) x := (mem_halo_iff a x).mp hx ball_a hball
+  have hy_ball : liftPred (· ∈ ball_a) y := (mem_halo_iff a y).mp hy ball_a hball
+  -- Work with ofSeq representation
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  rw [liftPred_ofSeq] at hx_ball hy_ball
+  rw [liftRel_ofSeq]
+  -- hx_ball: ∀ᶠ n, f n ∈ ball a V, i.e., (a, f n) ∈ V
+  -- hy_ball: ∀ᶠ n, g n ∈ ball a V, i.e., (a, g n) ∈ V
+  -- By symmetry of V: (f n, a) ∈ V
+  -- By composition: (f n, g n) ∈ V ○ V ⊆ U
+  apply Filter.Eventually.mono (hx_ball.and hy_ball)
+  intro n ⟨hfn, hgn⟩
+  -- hfn : (a, f n) ∈ V, hgn : (a, g n) ∈ V
+  -- By symmetry: (f n, a) ∈ V
+  have hfn_symm : (f n, a) ∈ V := hVsymm.symm a (f n) hfn
+  -- By composition: (f n, g n) ∈ V ○ V
+  have hcomp : (f n, g n) ∈ SetRel.comp V V := ⟨a, hfn_symm, hgn⟩
+  exact hVU hcomp
+
 /-- The key lemma for Heine-Cantor: if two hyperelements are both near-standard to the same
 point, then their images under a continuous function are entourage-close.
 
@@ -1076,7 +1247,30 @@ theorem entourageClose_lift_of_same_stdPart [T2Space α] [T2Space β]
     {f : α → β} {x y : Hyper ι α} {a : α}
     (hx : x ∈ halo a) (hy : y ∈ halo a) (hf : ContinuousAt f a) :
     EntourageClose (lift f x) (lift f y) := by
-  sorry -- TODO: requires liftRel infrastructure for uniform spaces
+  -- By continuity at a, both lift f x and lift f y are in halo (f a)
+  have hfx := st_lift_eq_of_continuousAt hx hf
+  have hfy := st_lift_eq_of_continuousAt hy hf
+  -- Two elements in the same halo are entourage-close
+  exact entourageClose_of_mem_halo hfx hfy
+
+/-- Standard elements that are entourage-close are equal (T2 characterization). -/
+theorem std_entourageClose_std_iff [T2Space α] (a b : α) :
+    EntourageClose (std a : Hyper ι α) (std b) ↔ a = b := by
+  constructor
+  · intro h
+    -- EntourageClose (std a) (std b) means for all U ∈ 𝓤 α, (a, b) ∈ U
+    -- This is exactly (a, b) ∈ (𝓤 α).ker = ⋂₀ (𝓤 α).sets
+    have hker : (a, b) ∈ (uniformity α).ker := by
+      simp only [Filter.ker, Set.mem_sInter, Filter.mem_sets]
+      intro U hU
+      exact (liftRel_std (fun a b => (a, b) ∈ U) a b).mp (h U hU)
+    -- By inseparable_iff_ker_uniformity, this means Inseparable a b
+    rw [← inseparable_iff_ker_uniformity] at hker
+    -- In T2Space (which implies T0Space), Inseparable implies equality
+    exact hker.eq
+  · intro h
+    rw [h]
+    exact EntourageClose.refl _
 
 /-- **Heine-Cantor Theorem (NSA Proof)**: A continuous function on a compact subset of a
 T2 uniform space is uniformly continuous on that set.
@@ -1091,7 +1285,67 @@ theorem heineCantor_nsa [T2Space α] [T2Space β]
     {K : Set α} (hK : IsCompact K) {f : α → β} (hf : ContinuousOn f K) :
     ∀ x y : Hyper ι α, liftPred (· ∈ K) x → liftPred (· ∈ K) y →
       EntourageClose x y → EntourageClose (lift f x) (lift f y) := by
-  sorry -- TODO: requires entourage separation lemma and liftRel infrastructure
+  intro x y hxK hyK hxy
+  -- Save original compactness before rewriting
+  have hK_compact : IsCompact K := hK
+  -- By compactness (NSA version), x is near-standard to some a ∈ K
+  rw [isCompact_iff_nearStd (ι := ι) (α := α) K] at hK
+  obtain ⟨a, haK, hxa⟩ := hK x hxK
+  obtain ⟨b, hbK, hyb⟩ := hK y hyK
+  -- x ∈ halo a and y ∈ halo b (convert from IsNearStandard to halo membership)
+  -- IsNearStandard x a means x ∈ monad (nhds a) = ∀ U ∈ nhds a, liftPred (· ∈ U) x
+  have hx_halo_a : x ∈ halo a := (mem_halo_iff a x).mpr hxa
+  have hy_halo_b : y ∈ halo b := (mem_halo_iff b y).mpr hyb
+  -- Show a = b using entourage closeness and Hausdorff
+  have hab : a = b := by
+    -- x ≃ᵤ std a (since x ∈ halo a)
+    have hx_std_a : EntourageClose x (std a : Hyper ι α) :=
+      entourageClose_of_mem_halo hx_halo_a (std_mem_halo a)
+    -- y ≃ᵤ std b (since y ∈ halo b)
+    have hy_std_b : EntourageClose y (std b : Hyper ι α) :=
+      entourageClose_of_mem_halo hy_halo_b (std_mem_halo b)
+    -- x ≃ᵤ y by hypothesis, so by transitivity:
+    -- std a ≃ᵤ x ≃ᵤ y ≃ᵤ std b
+    have h_a_b : EntourageClose (std a : Hyper ι α) (std b) :=
+      hx_std_a.symm.trans (hxy.trans hy_std_b)
+    exact (std_entourageClose_std_iff a b).mp h_a_b
+  -- Now a = b, so use continuity at a = b
+  rw [hab] at hx_halo_a
+  -- ContinuousWithinAt f K b from ContinuousOn
+  have hfb : ContinuousWithinAt f K b := hf b hbK
+  -- Show lift f x ∈ halo (f b) and lift f y ∈ halo (f b)
+  have hfx_halo : lift f x ∈ halo (f b) := by
+    rw [mem_halo_iff]
+    intro V hV
+    -- By ContinuousWithinAt, f⁻¹'V ∈ 𝓝[K] b
+    have hpre : f ⁻¹' V ∈ 𝓝[K] b := hfb.preimage_mem_nhdsWithin hV
+    -- Decompose: ∃ U ∈ nhds b, U ∩ K ⊆ f⁻¹'V
+    rw [mem_nhdsWithin_iff_exists_mem_nhds_inter] at hpre
+    obtain ⟨U, hU, hUK⟩ := hpre
+    -- x ∈ halo b means liftPred (· ∈ U) x
+    have hxU : liftPred (· ∈ U) x := (mem_halo_iff b x).mp hx_halo_a U hU
+    -- Combined with liftPred (· ∈ K) x, get liftPred (· ∈ U ∩ K) x
+    have hxUK : liftPred (· ∈ U ∩ K) x := (liftPred_and x).mpr ⟨hxU, hxK⟩
+    -- By monotonicity: U ∩ K ⊆ f⁻¹'V implies liftPred (· ∈ f⁻¹'V) x
+    -- By monotonicity and liftPred_lift
+    rw [liftPred_lift]
+    obtain ⟨s, rfl⟩ := ofSeq_surjective x
+    rw [liftPred_ofSeq] at hxUK ⊢
+    exact hxUK.mono fun i hi => hUK hi
+  have hfy_halo : lift f y ∈ halo (f b) := by
+    rw [mem_halo_iff]
+    intro V hV
+    have hpre : f ⁻¹' V ∈ 𝓝[K] b := hfb.preimage_mem_nhdsWithin hV
+    rw [mem_nhdsWithin_iff_exists_mem_nhds_inter] at hpre
+    obtain ⟨U, hU, hUK⟩ := hpre
+    have hyU : liftPred (· ∈ U) y := (mem_halo_iff b y).mp hy_halo_b U hU
+    have hyUK : liftPred (· ∈ U ∩ K) y := (liftPred_and y).mpr ⟨hyU, hyK⟩
+    rw [liftPred_lift]
+    obtain ⟨t, rfl⟩ := ofSeq_surjective y
+    rw [liftPred_ofSeq] at hyUK ⊢
+    exact hyUK.mono fun i hi => hUK hi
+  -- Both lift f x and lift f y are in halo (f b), so they are entourage-close
+  exact entourageClose_of_mem_halo hfx_halo hfy_halo
 
 end HeineCantor
 
@@ -1116,16 +1370,44 @@ variable {E : Type*} [AddCommGroup E] [Module 𝕜 E]
 /-- Lift of a norm to hyperelements. -/
 def liftNorm [Norm E] (x : Hyper ι E) : Hyper ι ℝ := lift (‖·‖) x
 
+omit [AddCommGroup E] in
 /-- For norms that agree on standard elements, they agree on near-standard elements
 up to infinitesimals. -/
-theorem liftNorm_infClose_of_continuous [Norm E] [NormedAddCommGroup E]
+theorem liftNorm_infClose_of_continuous [NormedAddCommGroup E]
     {p : E → ℝ} (hp_cont : Continuous p) (hp_norm : ∀ e : E, 0 ≤ p e)
     {x : Hyper ι E} (hx : IsNearStd x) :
     ∃ c : ℝ, 0 ≤ c ∧ lift p x ≤ std c * liftNorm x + std c := by
   -- By near-standardness, x is in halo of some standard element
   obtain ⟨a, ha⟩ := hx
-  -- p and ‖·‖ are both continuous, so their lifts are near-standard
-  sorry -- This requires more infrastructure about norm comparison
+  -- Use c = p(a) + 1
+  use p a + 1
+  constructor
+  · -- 0 ≤ p a + 1
+    linarith [hp_norm a]
+  · -- lift p x ≤ std (p a + 1) * liftNorm x + std (p a + 1)
+    -- Work with ofSeq representations
+    obtain ⟨s, rfl⟩ := ofSeq_surjective x
+    -- Rewrite everything in terms of ofSeq
+    rw [lift_ofSeq, liftNorm, lift_ofSeq]
+    simp only [mul_eq_lift₂, add_eq_lift₂, std_eq_ofSeq_const, lift₂_ofSeq, ofSeq_le_ofSeq,
+      Function.comp_apply]
+    -- From x ∈ halo a, s n is eventually in any neighborhood of a
+    rw [mem_halo_ofSeq_iff] at ha
+    -- Since p is continuous at a, p(s i) is eventually close to p(a)
+    have hU : Metric.ball (p a) 1 ∈ 𝓝 (p a) := Metric.ball_mem_nhds _ one_pos
+    have hpre : p ⁻¹' Metric.ball (p a) 1 ∈ 𝓝 a := hp_cont.continuousAt.preimage_mem_nhds hU
+    have h1 : ∀ᶠ i in hyperfilter ι, |p (s i) - p a| < 1 := by
+      filter_upwards [ha (p ⁻¹' Metric.ball (p a) 1) hpre] with i hi
+      exact Metric.mem_ball.mp hi
+    -- The bound follows
+    filter_upwards [h1] with i hi
+    have hp_bound : p (s i) < p a + 1 := by
+      rw [abs_lt] at hi
+      linarith
+    have h_norm_nonneg : 0 ≤ ‖s i‖ := norm_nonneg (s i)
+    have h_pa_pos : 0 < p a + 1 := by linarith [hp_norm a]
+    have h_mul_nonneg : 0 ≤ (p a + 1) * ‖s i‖ := mul_nonneg (le_of_lt h_pa_pos) h_norm_nonneg
+    linarith
 
 end EquivalentNorms
 

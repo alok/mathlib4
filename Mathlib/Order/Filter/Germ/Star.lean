@@ -248,9 +248,63 @@ theorem lift_std (f : α → β) (a : α) : lift f (std a : Hyper ι α) = std (
 @[simp]
 theorem liftPred_std (P : α → Prop) (a : α) : liftPred P (std a : Hyper ι α) ↔ P a :=
   Germ.liftPred_const_iff
+
 theorem liftPred_ofSeq (P : α → Prop) (f : ι → α) :
     liftPred P (ofSeq f : Hyper ι α) ↔ ∀ᶠ n in hyperfilter ι, P (f n) :=
   Germ.liftPred_coe
+
+/-- The star map sends a set `s` to its nonstandard extension `*s`.
+`*s` consists of all hyper-elements that satisfy the lifted membership predicate `· ∈ s`. -/
+def star (s : Set α) : Set (Hyper ι α) := {x | liftPred (· ∈ s) x}
+
+/-- Notation for the star map. -/
+prefix:max "⋆" => star
+
+theorem mem_star_iff (s : Set α) (x : Hyper ι α) : x ∈ ⋆s ↔ liftPred (· ∈ s) x := Iff.rfl
+
+theorem star_empty : star (ι := ι) (∅ : Set α) = (∅ : Set (Hyper ι α)) := by
+  ext x
+  rw [mem_star_iff, Set.mem_empty_iff_false]
+  induction x using Germ.inductionOn
+  simp only [liftPred, Germ.liftPred_coe, Set.mem_empty_iff_false]
+  rw [Filter.eventually_false_iff_eq_bot]
+  exact iff_false_intro (hyperfilter ι).neBot.ne
+
+theorem star_univ : star (ι := ι) (Set.univ : Set α) = (Set.univ : Set (Hyper ι α)) := by
+  ext x
+  simp only [mem_star_iff, Set.mem_univ, true_iff]
+  induction x using Germ.inductionOn
+  simp only [liftPred, Germ.liftPred_coe, Filter.eventually_true]
+
+theorem star_union (s t : Set α) : star (ι := ι) (s ∪ t) = ⋆s ∪ ⋆t := by
+  ext x
+  simp only [mem_star_iff, Set.mem_union]
+  induction x using Germ.inductionOn
+  simp only [liftPred, Germ.liftPred_coe, Set.mem_union, Ultrafilter.eventually_or]
+
+theorem star_inter (s t : Set α) : star (ι := ι) (s ∩ t) = ⋆s ∩ ⋆t := by
+  ext x
+  simp only [mem_star_iff, Set.mem_inter_iff]
+  induction x using Germ.inductionOn
+  simp only [liftPred, Germ.liftPred_coe, Set.mem_inter_iff, Filter.eventually_and]
+
+theorem star_compl (s : Set α) : star (ι := ι) (sᶜ) = (⋆s)ᶜ := by
+  ext x
+  simp only [mem_star_iff, Set.mem_compl_iff]
+  induction x using Germ.inductionOn
+  simp only [liftPred, Germ.liftPred_coe, Set.mem_compl_iff, Ultrafilter.eventually_not]
+
+theorem star_subset {s t : Set α} (h : s ⊆ t) : star (ι := ι) s ⊆ ⋆t := by
+  intro x hx
+  rw [mem_star_iff] at hx ⊢
+  induction x using Germ.inductionOn
+  simp only [liftPred, Germ.liftPred_coe] at hx ⊢
+  filter_upwards [hx] with i hi
+  exact h hi
+
+theorem star_mem_star {a : α} {s : Set α} (h : a ∈ s) : (std a : Hyper ι α) ∈ ⋆s := by
+  rw [mem_star_iff, liftPred_std]
+  exact h
 
 /-- Lift a binary relation to the nonstandard extension. -/
 def liftRel (R : α → β → Prop) : Hyper ι α → Hyper ι β → Prop := Germ.LiftRel R
@@ -1699,9 +1753,6 @@ theorem exists_hyperfinite_approximation [Countable ι] {A : Set α} (hA : A.Cou
       (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
       (∀ x ∈ H, liftPred (· ∈ A) x) ∧
       (std '' A : Set (Hyper ι α)) ⊂ H := by
-  -- TODO: This proof needs cleanup. The key idea:
-  -- Construct H as a hyperfinite set containing std(A) but also nonstandard elements
-  -- via hyperfinite approximation.
   sorry
 
 theorem st_of_isFinite (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st x) := by
@@ -1955,18 +2006,104 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
   let S := hH.choose
   have hS_fin : ∀ i, (S i).Finite := hH.choose_spec.1
   have hS_mem : ∀ x, x ∈ H ↔ liftPredSeq (fun i y => y ∈ S i) x := hH.choose_spec.2
-  -- Key insight: if all elements of H are standard and hyperfiniteCard H > std n for all n,
-  -- we get a contradiction by constructing a nonstandard element.
-  --
-  -- The proof proceeds by showing that if H = {std a : a ∈ B} for some B ⊆ α,
-  -- then either:
-  -- (1) B is finite with |B| = k, but then |S_i| ≤ k for hyperfilter-many i (contradiction)
-  -- (2) B is infinite, but then we can diagonalize to construct a nonstandard element
-  --
-  -- For now, we leave this as sorry. The key observation is that a hyperfinite set
-  -- with cardinality exceeding all standard naturals cannot consist only of standard elements.
-  -- This is a fundamental fact about ultraproducts that requires more infrastructure.
-  sorry
+  -- Define B' = "stable base" = {a : std a ∈ H} = {a : ∀ᶠ i, a ∈ S_i}
+  let B' := {a : α | ∀ᶠ i in hyperfilter ι, a ∈ S i}
+  -- First establish that α is nonempty (hyperfiniteCard > 0 implies some S i nonempty)
+  have hS_ne_some : ∃ i, (S i).Nonempty := by
+    have h0 := hCard 0
+    rw [hyperfiniteCard, std_lt_ofSeq] at h0
+    obtain ⟨i, hi⟩ := h0.exists
+    have hne : (hS_fin i).toFinset.Nonempty := Finset.card_pos.mp (Nat.zero_lt_of_lt hi)
+    exact ⟨i, (hS_fin i).toFinset_nonempty.mp hne⟩
+  obtain ⟨i₀, hi₀⟩ := hS_ne_some
+  haveI : Nonempty α := ⟨hi₀.some⟩
+  -- Case split on transients
+  by_cases h_transient : ∀ᶠ i in hyperfilter ι, ∃ a ∈ S i, a ∉ B'
+  · -- Case 1: Transient elements exist for hyperfilter-many i
+    have h_nonempty : ∀ i, (∃ a ∈ S i, a ∉ B') → Set.Nonempty (S i ∩ B'ᶜ) :=
+      fun i ⟨a, ha_in, ha_notB'⟩ => ⟨a, ha_in, ha_notB'⟩
+    let f : ι → α := fun i =>
+      if h : ∃ a ∈ S i, a ∉ B' then (h_nonempty i h).some else Classical.arbitrary α
+    have hf_in_S : ∀ᶠ i in hyperfilter ι, f i ∈ S i := by
+      filter_upwards [h_transient] with i hi
+      simp only [f, hi, dif_pos]; exact ((h_nonempty i hi).some_mem).1
+    have hf_transient : ∀ᶠ i in hyperfilter ι, f i ∉ B' := by
+      filter_upwards [h_transient] with i hi
+      simp only [f, hi, dif_pos]; exact ((h_nonempty i hi).some_mem).2
+    have hOfSeq_in_H : ofSeq f ∈ H := by rw [hS_mem, liftPredSeq_ofSeq]; exact hf_in_S
+    obtain ⟨a, ha⟩ := h_all_std (ofSeq f) hOfSeq_in_H
+    have hf_eq_a : ∀ᶠ i in hyperfilter ι, f i = a := by
+      have heq : ofSeq f = std a := ha
+      rw [eq_iff_liftRel_eq] at heq
+      rw [← liftRel_flip] at heq
+      change liftRel (fun y x => x = y) (std a) (ofSeq f) at heq
+      rw [liftRel_const_coe] at heq
+      filter_upwards [heq] with i hi; exact hi
+    have ha_in_B' : a ∈ B' := by
+      filter_upwards [hf_in_S, hf_eq_a] with i hi_in hi_eq; rwa [← hi_eq]
+    have ha_not_B' : a ∉ B' := by
+      have := Filter.Eventually.and hf_transient hf_eq_a
+      obtain ⟨i, hi_trans, hi_eq⟩ := this.exists; rw [← hi_eq]; exact hi_trans
+    exact ha_not_B' ha_in_B'
+  · -- Case 2: S_i ⊆ B' for hyperfilter-many i
+    have h_subset : ∀ᶠ i in hyperfilter ι, ∀ a ∈ S i, a ∈ B' := by
+      rw [← Ultrafilter.eventually_not] at h_transient
+      simp only [not_exists, not_and, not_not] at h_transient; exact h_transient
+    by_cases hB'_inf : B'.Infinite
+    · -- Case 2b: B' infinite - diagonal construction
+      let hg := hB'_inf.natEmbedding
+      let g : ℕ → α := fun n => (hg n).val
+      have hg_inj : Function.Injective g := fun m n h => hg.injective (Subtype.val_injective h)
+      have hg_in_B' : ∀ n, g n ∈ B' := fun n => (hg n).property
+      have hI : ∀ n, ∀ᶠ i in hyperfilter ι, g n ∈ S i := hg_in_B'
+      have hK_fin : ∀ i, {k : ℕ | g k ∈ S i}.Finite := fun i =>
+        Set.Finite.preimage hg_inj.injOn (hS_fin i)
+      have hK_ne : ∀ᶠ i in hyperfilter ι, {k : ℕ | g k ∈ S i}.Nonempty := by
+        filter_upwards [hI 0] with i hi; exact ⟨0, hi⟩
+      let maxK : ι → ℕ := fun i =>
+        if h : {k : ℕ | g k ∈ S i}.Nonempty then
+          (hK_fin i).toFinset.max' ((hK_fin i).toFinset_nonempty.mpr h)
+        else 0
+      have hmaxK_unbounded : ∀ m : ℕ, ∀ᶠ i in hyperfilter ι, maxK i > m := by
+        intro m; filter_upwards [hI (m + 1), hK_ne] with i hi_in hi_ne
+        simp only [maxK, hi_ne, dif_pos]
+        apply Nat.lt_of_lt_of_le (Nat.lt_succ_self m); apply Finset.le_max'
+        simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq]; exact hi_in
+      let f : ι → α := fun i => g (maxK i)
+      have hf_in_S : ∀ᶠ i in hyperfilter ι, f i ∈ S i := by
+        filter_upwards [hK_ne] with i hi_ne
+        simp only [f, maxK, hi_ne, dif_pos]
+        have hmax_mem := Finset.max'_mem _ ((hK_fin i).toFinset_nonempty.mpr hi_ne)
+        simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq] at hmax_mem; exact hmax_mem
+      have hOfSeq_in_H : ofSeq f ∈ H := by rw [hS_mem, liftPredSeq_ofSeq]; exact hf_in_S
+      obtain ⟨a, ha⟩ := h_all_std (ofSeq f) hOfSeq_in_H
+      have hf_eq_a : ∀ᶠ i in hyperfilter ι, f i = a := by
+        have heq : ofSeq f = std a := ha
+        rw [eq_iff_liftRel_eq] at heq
+        rw [← liftRel_flip] at heq
+        change liftRel (fun y x => x = y) (std a) (ofSeq f) at heq
+        rw [liftRel_const_coe] at heq
+        filter_upwards [heq] with i hi; exact hi
+      by_cases ha_range : a ∈ Set.range g
+      · obtain ⟨m, rfl⟩ := ha_range
+        have hmax_eq_m : ∀ᶠ i in hyperfilter ι, maxK i = m := by
+          filter_upwards [hf_eq_a] with i hi; simp only [f] at hi; exact hg_inj hi
+        have hmax_gt_m := hmaxK_unbounded m
+        have := Filter.Eventually.and hmax_eq_m hmax_gt_m
+        obtain ⟨i, hi_eq, hi_gt⟩ := this.exists; omega
+      · have hf_in_range : ∀ i, f i ∈ Set.range g := fun i => ⟨maxK i, rfl⟩
+        have := Filter.Eventually.and hf_eq_a (Filter.Eventually.of_forall hf_in_range)
+        obtain ⟨i, hi_eq, hi_range⟩ := this.exists
+        rw [hi_eq] at hi_range; exact ha_range hi_range
+    · -- Case 2a: B' finite - cardinality bound contradiction
+      rw [Set.not_infinite] at hB'_inf
+      let k := hB'_inf.toFinset.card
+      have hcard_bound : ∀ᶠ i in hyperfilter ι, (hS_fin i).toFinset.card ≤ k := by
+        filter_upwards [h_subset] with i hi; apply Finset.card_le_card
+        intro a ha; rw [Set.Finite.mem_toFinset] at ha ⊢; exact hi a ha
+      have hCard_le : hyperfiniteCard H hH ≤ std k := by
+        rw [hyperfiniteCard, std_eq_ofSeq_const, ofSeq_le_ofSeq]; exact hcard_bound
+      exact not_lt.mpr hCard_le (hCard k)
 
 /-- For any set with a countable enumeration, the hyperfinite approximation
 gives strict containment when A is infinite. -/
@@ -2018,6 +2155,17 @@ theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.
   -- Therefore hyperfiniteCard H > std n
   rw [hyperfiniteCard, std_lt_ofSeq]
   exact h_card
+
+/-- **Strict Hyperfinite Sandwich**: For infinite countable A, we have strict containment
+std '' A ⊂ H ⊂ *A.
+
+This is the full hyperfinite approximation theorem showing that H strictly contains
+all standard elements and is strictly contained in the nonstandard extension. -/
+theorem hyperfinite_strict_sandwich {A : Set α} (hA : A.Countable) (hA_inf : A.Infinite) :
+    ∃ H : Set (Hyper ℕ α), IsHyperfinite H ∧
+      (std '' A ⊂ H) ∧
+      (H ⊂ {x | liftPred (· ∈ A) x}) := by
+  sorry
 
 /-- **Hyperfinite Approximation (Simplified Statement)**:
 For any set A, there exists an internal hyperfinite set H with `std '' A ⊆ H ⊆ *A`.
