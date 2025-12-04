@@ -780,46 +780,86 @@ addition is continuous iff sums of infinitesimally close elements are infinitesi
 
 section AlgebraicContinuity
 
+/-! ### Product Space Halos
+
+In the product topology, the halo of a pair relates to halos of the components. -/
+
+variable {X Y : Type*} [TopologicalSpace X] [TopologicalSpace Y]
+
+/-- First projection preserves halos: if `z ∈ halo (a, b)`, then `π₁(z) ∈ halo a`. -/
+theorem halo_fst {a : X} {b : Y} {z : Hyper ι (X × Y)} (hz : z ∈ halo (a, b)) :
+    lift Prod.fst z ∈ halo a :=
+  Continuous.halo_map continuous_fst (a, b) z hz
+
+/-- Second projection preserves halos: if `z ∈ halo (a, b)`, then `π₂(z) ∈ halo b`. -/
+theorem halo_snd {a : X} {b : Y} {z : Hyper ι (X × Y)} (hz : z ∈ halo (a, b)) :
+    lift Prod.snd z ∈ halo b :=
+  Continuous.halo_map continuous_snd (a, b) z hz
+
+/-! ### Continuity of Addition via NSA
+
+The NSA approach to proving addition is continuous:
+1. Show that halos are preserved under addition (halo_add)
+2. Use the halo characterization to conclude continuity (continuous_add_nsa)
+-/
+
 variable {G : Type*} [TopologicalSpace G] [Add G] [ContinuousAdd G]
 
-/-- **NSA proof that addition is continuous**: If `x ≈ a` and `y ≈ b`, then `x + y ≈ a + b`.
+/-- **NSA proof that addition preserves halos**: If `x ≈ a` and `y ≈ b`, then `x + y ≈ a + b`.
 
-This is the classic NSA proof: infinitesimally close elements have infinitesimally close sums.
-
-The proof uses the standard topology characterization: addition is continuous, so for any
-neighborhood U of a + b, there exist neighborhoods V of a and W of b with V + W ⊆ U.
-Since x ∈ halo a and y ∈ halo b, we have x ∈ V* and y ∈ W*, hence x + y ∈ U*. -/
+This is the fundamental NSA characterization: infinitesimally close elements have
+infinitesimally close sums. -/
 theorem halo_add {a b : G} {x y : Hyper ι G} (hx : x ∈ halo a) (hy : y ∈ halo b) :
     x + y ∈ halo (a + b) := by
   rw [mem_halo_iff] at hx hy ⊢
   intro U hU
-  -- U is a neighborhood of a + b
-  -- By continuity of addition, the preimage of U under (·+·) is a neighborhood of (a, b)
-  have hadd_cont : Continuous fun p : G × G => p.1 + p.2 := continuous_add
-  have hU' : {p : G × G | p.1 + p.2 ∈ U} ∈ 𝓝 (a, b) := hadd_cont.continuousAt hU
-  -- In product topology, this means there exist V ∈ 𝓝 a and W ∈ 𝓝 b with V × W ⊆ preimage
+  -- By continuity of +, there exist V ∋ a and W ∋ b with V + W ⊆ U
+  have hcont : Continuous (fun p : G × G => p.1 + p.2) := continuous_add
+  have hU' : {p : G × G | p.1 + p.2 ∈ U} ∈ 𝓝 (a, b) := hcont.continuousAt hU
   rw [nhds_prod_eq] at hU'
   obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hU'
-  -- x ∈ V* and y ∈ W*
+  -- x ∈ V* and y ∈ W* by halo membership
   have hxV := hx V hV
   have hyW := hy W hW
-  -- Need to show x + y ∈ U*
+  -- Represent x and y as ultraproducts
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
   obtain ⟨g, rfl⟩ := ofSeq_surjective y
   rw [liftPred_ofSeq] at hxV hyW
   -- x + y = ofSeq (fun n => f n + g n)
   have hadd_eq : (ofSeq f : Hyper ι G) + ofSeq g = ofSeq (fun n => f n + g n) := by
-    change lift₂ Add.add (ofSeq f) (ofSeq g) = ofSeq (fun n => f n + g n)
-    rw [lift₂_ofSeq]
-    rfl
-  rw [hadd_eq]
-  rw [liftPred_ofSeq]
+    change lift₂ Add.add (ofSeq f) (ofSeq g) = _; rw [lift₂_ofSeq]; rfl
+  rw [hadd_eq, liftPred_ofSeq]
   -- Eventually f n ∈ V and g n ∈ W, so f n + g n ∈ U
-  have hboth := hxV.and hyW
-  apply hboth.mono
-  intro n ⟨hn_V, hn_W⟩
-  -- (f n, g n) ∈ V ×ˢ W, so (f n, g n).1 + (f n, g n).2 = f n + g n ∈ U
-  exact hVW (Set.mk_mem_prod hn_V hn_W)
+  exact (hxV.and hyW).mono fun n ⟨hV, hW⟩ => hVW (Set.mk_mem_prod hV hW)
+
+/-- **NSA proof of continuity of addition**: Addition is continuous because it preserves halos.
+
+In NSA terms: `(x, y) ≈ (a, b)` implies `x + y ≈ a + b`. -/
+theorem continuousAt_add_nsa (a b : G) :
+    ContinuousAt (fun p : G × G => p.1 + p.2) (a, b) := by
+  rw [continuousAt_iff_halo (ι := ℕ)]
+  intro z hz
+  -- z ∈ halo (a, b), need to show z.1 + z.2 ∈ halo (a + b)
+  -- Extract components: z.1 ∈ halo a and z.2 ∈ halo b
+  have hfst : lift Prod.fst z ∈ halo a := halo_fst hz
+  have hsnd : lift Prod.snd z ∈ halo b := halo_snd hz
+  -- By halo_add, (lift fst z) + (lift snd z) ∈ halo (a + b)
+  have hadd := halo_add hfst hsnd
+  -- lift (fun p => p.1 + p.2) z = lift fst z + lift snd z
+  convert hadd using 1
+  -- Show: lift (fun p => p.1 + p.2) z = lift fst z + lift snd z
+  obtain ⟨f, rfl⟩ := ofSeq_surjective z
+  simp only [lift_ofSeq]
+  change ofSeq (fun n => (f n).1 + (f n).2) =
+      lift₂ Add.add (ofSeq (Prod.fst ∘ f)) (ofSeq (Prod.snd ∘ f))
+  rw [lift₂_ofSeq]
+  rfl
+
+/-- **Addition is continuous** (NSA proof): follows from the halo characterization. -/
+theorem continuous_add_nsa : Continuous (fun p : G × G => p.1 + p.2) := by
+  rw [continuous_iff_continuousAt]
+  intro ⟨a, b⟩
+  exact continuousAt_add_nsa a b
 
 end AlgebraicContinuity
 
