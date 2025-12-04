@@ -79,10 +79,10 @@ def InfiniteNeg (x : ℤ*) : Prop := ∀ m : ℤ, x < (m : ℤ*)
 /-- A hyperinteger is infinite if it is either positive or negative infinite. -/
 def Infinite (x : ℤ*) : Prop := InfinitePos x ∨ InfiniteNeg x
 
-/-- Standard-part predicate for hyperintegers.
+/-- Standard-part predicate for hyperintegers: `IsSt x z` means `x` equals the standard integer `z`.
 
-This is equivalent to `Hyper.IsNearStandard` for discrete types where `halo x = {std x}`. -/
-@[deprecated "Use `Hyper.IsNearStandard` from `Mathlib.Order.Filter.Germ.Star` instead" (since := "2025-12-03")]
+For discrete types like `ℤ*`, this is just equality (`IsSt x z ↔ x = z`), but provides
+a uniform API with `Hyperreal.IsSt`. Equivalent to `Hyper.IsNearStandard` for discrete spaces. -/
 def IsSt (x : ℤ*) (z : ℤ) : Prop := x = z
 
 lemma isSt_iff_eq {x : ℤ*} {z : ℤ} : IsSt x z ↔ x = z := Iff.rfl

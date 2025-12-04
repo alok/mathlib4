@@ -111,12 +111,10 @@ theorem Infinite.ne_zero {x : ℕ*} (hx : Infinite x) : x ≠ 0 := by
   have : (0 : ℕ*) < (0 : ℕ*) := by simpa [h] using hx 0
   exact lt_irrefl _ this
 
-/-- Standard-part predicate: for hypernaturals this is just equality with a
-standard natural number, but keeping the predicate aligns with the hyperreal
-API.
+/-- Standard-part predicate for hypernaturals: `IsSt x r` means `x` equals the standard natural `r`.
 
-This is equivalent to `Hyper.IsNearStandard` for discrete types where `halo x = {std x}`. -/
-@[deprecated "Use `Hyper.IsNearStandard` from `Mathlib.Order.Filter.Germ.Star` instead" (since := "2025-12-03")]
+For discrete types like `ℕ*`, this is just equality (`IsSt x r ↔ x = r`), but provides
+a uniform API with `Hyperreal.IsSt`. Equivalent to `Hyper.IsNearStandard` for discrete spaces. -/
 def IsSt (x : ℕ*) (r : ℕ) : Prop := x = r
 
 lemma isSt_iff_eq {x : ℕ*} {r : ℕ} : IsSt x r ↔ x = r := Iff.rfl

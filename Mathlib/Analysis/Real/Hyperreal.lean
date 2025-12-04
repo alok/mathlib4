@@ -192,10 +192,10 @@ theorem gt_of_tendsto_zero_of_neg {f : ℕ → ℝ} (hf : Tendsto f atTop (𝓝 
 theorem epsilon_lt_pos (x : ℝ) : 0 < x → ε < x :=
   lt_of_tendsto_zero_of_pos tendsto_inv_atTop_nhds_zero_nat
 
-/-- Standard part predicate.
-This is equivalent to `Hyper.IsNearStandard`, which is the more general topological definition.
-See `IsSt_iff_isNearStandard` for the equivalence. -/
-@[deprecated "Use `Hyper.IsNearStandard` from `Mathlib.Order.Filter.Germ.Star` instead" (since := "2025-12-03")]
+/-- Standard part predicate: `IsSt x r` means `x` is infinitely close to the standard real `r`.
+
+This is equivalent to `Hyper.IsNearStandard` (see `IsSt_iff_isNearStandard`), but provides
+a concrete epsilon-delta characterization that's more convenient for the hyperreals. -/
 def IsSt (x : ℝ*) (r : ℝ) :=
   ∀ δ : ℝ, 0 < δ → (r - δ : ℝ*) < x ∧ x < r + δ
 
