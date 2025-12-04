@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.Germ.Product
-import Mathlib.Order.Filter.Ultrafilter.Basic
+import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
 import Mathlib.ModelTheory.Ultraproducts
 
 /-!
