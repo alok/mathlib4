@@ -3,30 +3,32 @@ Copyright (c) 2024 Alok Singh. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
-import Mathlib.Order.Filter.Germ.Basic
-import Mathlib.Order.Filter.Ultrafilter.Basic
-import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
-import Mathlib.Order.Interval.Finset.Defs
-import Mathlib.SetTheory.Cardinal.Basic
-import Mathlib.Algebra.Order.Monoid.Defs
-import Mathlib.Algebra.Order.Group.Defs
-import Mathlib.Algebra.Order.Ring.Defs
-import Mathlib.Algebra.Order.Monoid.Basic
-import Mathlib.Algebra.Order.Group.Basic
-import Mathlib.Algebra.Order.Ring.Basic
-import Mathlib.Algebra.Order.Field.Basic
-import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
-import Mathlib.Data.Finset.Lattice.Fold
-import Mathlib.Data.Nat.Lattice
-import Mathlib.Order.Lattice
-import Mathlib.Topology.Basic
-import Mathlib.Topology.Compactness.Compact
-import Mathlib.Topology.Order
-import Mathlib.Topology.Order.Basic
-import Mathlib.Topology.Order.DenselyOrdered
-import Mathlib.Order.ConditionallyCompleteLattice.Basic
-import Mathlib.Tactic.Linarith
-import Mathlib.Algebra.Field.Defs
+module
+
+public import Mathlib.Order.Filter.Germ.Basic
+public import Mathlib.Order.Filter.Ultrafilter.Basic
+public import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+public import Mathlib.Order.Interval.Finset.Defs
+public import Mathlib.SetTheory.Cardinal.Basic
+public import Mathlib.Algebra.Order.Monoid.Defs
+public import Mathlib.Algebra.Order.Group.Defs
+public import Mathlib.Algebra.Order.Ring.Defs
+public import Mathlib.Algebra.Order.Monoid.Basic
+public import Mathlib.Algebra.Order.Group.Basic
+public import Mathlib.Algebra.Order.Ring.Basic
+public import Mathlib.Algebra.Order.Field.Basic
+public import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
+public import Mathlib.Data.Finset.Lattice.Fold
+public import Mathlib.Data.Nat.Lattice
+public import Mathlib.Order.Lattice
+public import Mathlib.Topology.Basic
+public import Mathlib.Topology.Compactness.Compact
+public import Mathlib.Topology.Order
+public import Mathlib.Topology.Order.Basic
+public import Mathlib.Topology.Order.DenselyOrdered
+public import Mathlib.Order.ConditionallyCompleteLattice.Basic
+public import Mathlib.Tactic.Linarith
+public import Mathlib.Algebra.Field.Defs
 
 open scoped Classical
 
@@ -64,6 +66,8 @@ and nonstandard worlds. This is implemented via:
 -/
 
 open Filter
+
+@[expose] public section
 
 variable {ι κ : Type*} [Infinite ι] {α β γ : Type*}
 
@@ -715,9 +719,6 @@ noncomputable instance [AddCommMonoid α] : AddCommMonoid (Hyper ι α) :=
 
 noncomputable instance [AddCommGroup α] : AddCommGroup (Hyper ι α) :=
   Filter.Germ.instAddCommGroup
-
-noncomputable instance [Ring α] : Ring (Hyper ι α) := Filter.Germ.instRing
-noncomputable instance [CommRing α] : CommRing (Hyper ι α) := Filter.Germ.instCommRing
 
 @[simp]
 theorem std_le [LE α] (a b : α) : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := liftRel_std _ _ _
@@ -2188,3 +2189,5 @@ theorem exists_hyperfinite_between [LinearOrder ι] [LocallyFiniteOrderBot ι]
 end HyperfiniteApprox
 
 end Hyper
+
+end

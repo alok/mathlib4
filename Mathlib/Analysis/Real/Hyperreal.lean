@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Analysis.SpecificLimits.Basic
 public import Mathlib.Order.Filter.FilterProduct
+public import Mathlib.Order.Filter.Germ.Star
 
 /-!
 # Construction of the hyperreal numbers as an ultraproduct of real sequences.
@@ -191,9 +192,15 @@ theorem gt_of_tendsto_zero_of_neg {f : ℕ → ℝ} (hf : Tendsto f atTop (𝓝 
 theorem epsilon_lt_pos (x : ℝ) : 0 < x → ε < x :=
   lt_of_tendsto_zero_of_pos tendsto_inv_atTop_nhds_zero_nat
 
-/-- Standard part predicate -/
+/-- Standard part predicate.
+This is equivalent to `Hyper.IsNearStandard`, which is the more general topological definition.
+See `IsSt_iff_isNearStandard` for the equivalence. -/
+@[deprecated "Use `Hyper.IsNearStandard` from `Mathlib.Order.Filter.Germ.Star` instead" (since := "2025-12-03")]
 def IsSt (x : ℝ*) (r : ℝ) :=
   ∀ δ : ℝ, 0 < δ → (r - δ : ℝ*) < x ∧ x < r + δ
+
+/-- The coercion from ℝ to ℝ* equals Hyper.std. -/
+theorem coe_eq_std (r : ℝ) : (r : ℝ*) = Hyper.std r := rfl
 
 open scoped Classical in
 /-- Standard part function: like a "round" to ℝ instead of ℤ -/
@@ -227,6 +234,24 @@ theorem isSt_ofSeq_iff_tendsto {f : ℕ → ℝ} {r : ℝ} :
 theorem isSt_iff_tendsto {x : ℝ*} {r : ℝ} : IsSt x r ↔ x.Tendsto (𝓝 r) := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   exact isSt_ofSeq_iff_tendsto
+
+/-- `IsSt` is equivalent to the topological `IsNearStandard` from `Hyper`. -/
+theorem IsSt_iff_isNearStandard (x : ℝ*) (r : ℝ) :
+    IsSt x r ↔ Hyper.IsNearStandard (ι := ℕ) (α := ℝ) x r := by
+  rw [isSt_iff_tendsto]
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [ofSeq, Germ.coe_tendsto, Hyper.isNearStandard_def]
+  -- Goal: Tendsto f (hyperfilter ℕ) (𝓝 r) ↔ ∀ U ∈ 𝓝 r, Hyper.liftPred (· ∈ U) ↑f
+  -- Hyper.liftPred = Germ.LiftPred, and liftPred_coe gives us the filter characterization
+  constructor
+  · intro h U hU
+    -- Hyper.liftPred (· ∈ U) ↑f = Germ.LiftPred (· ∈ U) ↑f ↔ ∀ᶠ n, f n ∈ U
+    rw [Hyper.liftPred, Germ.liftPred_coe]
+    exact h hU
+  · intro h U hU
+    have := h U hU
+    rw [Hyper.liftPred, Germ.liftPred_coe] at this
+    exact this
 
 theorem isSt_of_tendsto {f : ℕ → ℝ} {r : ℝ} (hf : Tendsto f atTop (𝓝 r)) : IsSt (ofSeq f) r :=
   isSt_ofSeq_iff_tendsto.2 <| hf.mono_left Nat.hyperfilter_le_atTop

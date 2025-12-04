@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.FilterProduct
+import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Nat.Prime.Defs
@@ -112,7 +113,10 @@ theorem Infinite.ne_zero {x : ℕ*} (hx : Infinite x) : x ≠ 0 := by
 
 /-- Standard-part predicate: for hypernaturals this is just equality with a
 standard natural number, but keeping the predicate aligns with the hyperreal
-API. -/
+API.
+
+This is equivalent to `Hyper.IsNearStandard` for discrete types where `halo x = {std x}`. -/
+@[deprecated "Use `Hyper.IsNearStandard` from `Mathlib.Order.Filter.Germ.Star` instead" (since := "2025-12-03")]
 def IsSt (x : ℕ*) (r : ℕ) : Prop := x = r
 
 lemma isSt_iff_eq {x : ℕ*} {r : ℕ} : IsSt x r ↔ x = r := Iff.rfl

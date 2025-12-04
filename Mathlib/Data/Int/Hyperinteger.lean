@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.FilterProduct
+import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Int.Order.Basic
 
@@ -78,7 +79,10 @@ def InfiniteNeg (x : ℤ*) : Prop := ∀ m : ℤ, x < (m : ℤ*)
 /-- A hyperinteger is infinite if it is either positive or negative infinite. -/
 def Infinite (x : ℤ*) : Prop := InfinitePos x ∨ InfiniteNeg x
 
-/-- Standard-part predicate for hyperintegers. -/
+/-- Standard-part predicate for hyperintegers.
+
+This is equivalent to `Hyper.IsNearStandard` for discrete types where `halo x = {std x}`. -/
+@[deprecated "Use `Hyper.IsNearStandard` from `Mathlib.Order.Filter.Germ.Star` instead" (since := "2025-12-03")]
 def IsSt (x : ℤ*) (z : ℤ) : Prop := x = z
 
 lemma isSt_iff_eq {x : ℤ*} {z : ℤ} : IsSt x z ↔ x = z := Iff.rfl
