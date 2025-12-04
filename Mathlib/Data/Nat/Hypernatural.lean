@@ -593,6 +593,81 @@ lemma Infinite.exists_pred {x : ℕ*} (hx : Infinite x) : ∃ y : ℕ*, x = y + 
   filter_upwards [hf] with i hi
   exact (Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hi))).symm
 
+/-! ### Hyperfinite: The type of infinite hypernaturals
+
+In NSA, infinite hypernaturals (often called "hyperfinite" or "unlimited" naturals) play a
+crucial role as indices for characterizing limits, Cauchy sequences, and convergence.
+
+The key NSA characterization of sequential convergence is:
+  `f n → L  ↔  ∀ N : Hyperfinite, f*(N) ≈ L`
+
+That is, a sequence converges to L iff evaluating the nonstandard extension at any
+infinite index gives a value infinitely close to L.
+-/
+
+/-- The type of infinite (unlimited) hypernaturals.
+These are hypernaturals larger than every standard natural number. -/
+def Hyperfinite : Type := {N : ℕ* // Infinite N}
+
+namespace Hyperfinite
+
+instance : CoeOut Hyperfinite ℕ* := ⟨Subtype.val⟩
+
+/-- Omega as a Hyperfinite element. -/
+noncomputable def omega' : Hyperfinite := ⟨ω, infinite_omega⟩
+
+/-- Any Hyperfinite is positive. -/
+theorem pos (N : Hyperfinite) : 0 < (N : ℕ*) := N.2 0
+
+/-- Any Hyperfinite is greater than any standard natural. -/
+theorem coe_lt (N : Hyperfinite) (n : ℕ) : (n : ℕ*) < N := N.2 n
+
+/-- Hyperfinite is nonempty (witnessed by ω). -/
+instance : Nonempty Hyperfinite := ⟨omega'⟩
+
+/-- Hyperfinite is inhabited (by ω). -/
+noncomputable instance : Inhabited Hyperfinite := ⟨omega'⟩
+
+/-- Successor of Hyperfinite is Hyperfinite. -/
+noncomputable def succ (N : Hyperfinite) : Hyperfinite :=
+  ⟨N.val + 1, N.2.add_right 1⟩
+
+/-- Sum of Hyperfinite with any hypernatural is Hyperfinite. -/
+noncomputable def add (N : Hyperfinite) (m : ℕ*) : Hyperfinite :=
+  ⟨N.val + m, N.2.add_right m⟩
+
+/-- Product of Hyperfinite with positive hypernatural is Hyperfinite. -/
+noncomputable def mul_pos (N : Hyperfinite) {m : ℕ*} (hm : 0 < m) : Hyperfinite :=
+  ⟨N.val * m, N.2.mul_pos hm⟩
+
+/-- Double of a Hyperfinite is Hyperfinite. -/
+noncomputable def double (N : Hyperfinite) : Hyperfinite :=
+  ⟨N.val + N.val, N.2.add_right N.val⟩
+
+/-- Any hypernatural ≥ a Hyperfinite is also infinite. -/
+theorem infinite_of_le {N : Hyperfinite} {M : ℕ*} (h : N.val ≤ M) : Infinite M :=
+  Infinite.of_le N.2 h
+
+/-- Construct Hyperfinite from sequence that tends to infinity. -/
+noncomputable def ofSeqInfinite (f : ℕ → ℕ) (hf : ∀ n, ∃ m, ∀ k ≥ m, n < f k) : Hyperfinite := by
+  refine ⟨ofSeq f, ?_⟩
+  intro n
+  obtain ⟨m, hm⟩ := hf n
+  apply ofSeq_lt_ofSeq.mpr
+  apply Nat.hyperfilter_le_atTop
+  filter_upwards [Filter.eventually_ge_atTop m] with k hk
+  exact hm k hk
+
+end Hyperfinite
+
+/-- Coercion from Hyperfinite to ℕ* is injective. -/
+theorem hyperfinite_val_injective : Function.Injective (Subtype.val : Hyperfinite → ℕ*) :=
+  Subtype.val_injective
+
+/-- Two Hyperfinite are equal iff their underlying hypernaturals are equal. -/
+theorem hyperfinite_ext {N M : Hyperfinite} : N = M ↔ (N : ℕ*) = (M : ℕ*) :=
+  Subtype.ext_iff
+
 /-- Standard part of multiplication for HFinite numbers. -/
 lemma st_mul {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x * y) = st x * st y := by
   have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
@@ -850,6 +925,23 @@ lemma st_factorial {x : ℕ*} (hx : HFinite x) : st (factorial x) = Nat.factoria
   have hx' : x = (st x : ℕ*) := isSt_st_of_not_infinite hx
   conv_lhs => rw [hx']
   simp only [factorial_coe, st_coe]
+
+/-! ### Hyperfinite extensions
+
+Additional operations on `Hyperfinite` that require definitions from later in the file.
+-/
+
+namespace Hyperfinite
+
+/-- Factorial of Hyperfinite is Hyperfinite. -/
+noncomputable def factorial (N : Hyperfinite) : Hyperfinite :=
+  ⟨Hypernatural.factorial N.val, Infinite.factorial N.2⟩
+
+/-- Power of Hyperfinite by positive natural is Hyperfinite. -/
+noncomputable def pow (N : Hyperfinite) {n : ℕ} (hn : 0 < n) : Hyperfinite :=
+  ⟨N.val ^ n, Infinite.pow N.2 hn⟩
+
+end Hyperfinite
 
 /-! ### Additional ordering lemmas -/
 

@@ -14,7 +14,21 @@ import Mathlib.Algebra.Order.Ring.Defs
 import Mathlib.Algebra.Order.Monoid.Basic
 import Mathlib.Algebra.Order.Group.Basic
 import Mathlib.Algebra.Order.Ring.Basic
+import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
+import Mathlib.Data.Finset.Lattice.Fold
+import Mathlib.Data.Nat.Lattice
+import Mathlib.Order.Lattice
+import Mathlib.Topology.Basic
+import Mathlib.Topology.Compactness.Compact
+import Mathlib.Topology.Order
+import Mathlib.Topology.Order.Basic
+import Mathlib.Topology.Order.DenselyOrdered
+import Mathlib.Order.ConditionallyCompleteLattice.Basic
+import Mathlib.Tactic.Linarith
+import Mathlib.Algebra.Field.Defs
+
+set_option linter.style.longFile 2000
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -100,6 +114,20 @@ theorem ofSeq_eq_ofSeq {f g : ι → α} :
 /-- `std a` is the constant sequence `fun _ => a`. -/
 theorem std_eq_ofSeq_const (a : α) : (std a : Hyper ι α) = ofSeq (fun _ => a) := rfl
 
+/-- Universal quantification over Hyper is equivalent to quantification over sequences. -/
+theorem forall_ofSeq_iff (P : Hyper ι α → Prop) :
+    (∀ x, P x) ↔ (∀ f : ι → α, P (ofSeq f)) := by
+  constructor
+  · intro h f; exact h (ofSeq f)
+  · intro h x; obtain ⟨f, rfl⟩ := ofSeq_surjective x; exact h f
+
+/-- Existential quantification over Hyper is equivalent to quantification over sequences. -/
+theorem exists_ofSeq_iff (P : Hyper ι α → Prop) :
+    (∃ x, P x) ↔ (∃ f : ι → α, P (ofSeq f)) := by
+  constructor
+  · rintro ⟨x, hx⟩; obtain ⟨f, rfl⟩ := ofSeq_surjective x; exact ⟨f, hx⟩
+  · rintro ⟨f, hf⟩; exact ⟨ofSeq f, hf⟩
+
 /-! ## Lifting Functions -/
 
 /-- Lift a unary function to the nonstandard extension.
@@ -166,6 +194,133 @@ theorem liftRel_std (R : α → β → Prop) (a : α) (b : β) :
 theorem liftRel_ofSeq (R : α → β → Prop) (f : ι → α) (g : ι → β) :
     liftRel R (ofSeq f : Hyper ι α) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ι, R (f n) (g n) :=
   Germ.liftRel_coe
+
+theorem liftRel_lift_left (R : β → γ → Prop) (f : α → β) (x : Hyper ι α) (y : Hyper ι γ) :
+    liftRel R (lift f x) y ↔ liftRel (fun a b => R (f a) b) x y := by
+  induction x using Germ.inductionOn
+  induction y using Germ.inductionOn
+  simp [liftRel, lift, Germ.map_coe, Germ.liftRel_coe]
+
+theorem liftRel_std_right (R : α → β → Prop) (x : Hyper ι α) (b : β) :
+    liftRel R x (std b) ↔ liftPred (fun a => R a b) x := by
+  induction x using Germ.inductionOn with | h f =>
+  dsimp [liftRel, std, Germ.const, liftPred]
+  rfl
+
+theorem lift_lift₂_diagonal (f : α → β → γ) (g : α → β) (x : Hyper ι α) :
+    lift₂ f x (lift g x) = lift (fun a => f a (g a)) x := by
+  induction x using Germ.inductionOn with | h f =>
+  dsimp [lift₂, lift]
+  rfl
+
+theorem liftPred_lift (P : β → Prop) (f : α → β) (x : Hyper ι α) :
+    liftPred P (lift f x) ↔ liftPred (P ∘ f) x := by
+  induction x using Germ.inductionOn with | h f =>
+  dsimp [liftPred, lift]
+  rfl
+
+theorem lift₂_std_left (f : α → β → γ) (a : α) (y : Hyper ι β) :
+    lift₂ f (std a) y = lift (f a) y := by
+  induction y using Germ.inductionOn with | h g =>
+  dsimp [lift₂, lift, std, Germ.const]
+  rfl
+
+theorem lift₂_std_right (f : α → β → γ) (x : Hyper ι α) (b : β) :
+    lift₂ f x (std b) = lift (fun a => f a b) x := by
+  induction x using Germ.inductionOn with | h f =>
+  dsimp [lift₂, lift, std, Germ.const]
+  rfl
+
+theorem liftRel_lift_right (R : β → γ → Prop) (x : Hyper ι β) (g : α → γ) (y : Hyper ι α) :
+    liftRel R x (lift g y) ↔ liftRel (fun a b => R a (g b)) x y := by
+  induction x using Germ.inductionOn with | h f =>
+  induction y using Germ.inductionOn with | h g =>
+  dsimp [liftRel, lift]
+  rfl
+
+theorem liftRel_lift₂_lift₂ {γ δ : Type*} (R : γ → δ → Prop) (f : α → β → γ) (g : α → β → δ)
+    (x : Hyper ι α) (y : Hyper ι β) :
+    liftRel R (lift₂ f x y) (lift₂ g x y) ↔ liftRel (fun a b => R (f a b) (g a b)) x y := by
+  induction x using Germ.inductionOn with | h f =>
+  induction y using Germ.inductionOn with | h g =>
+  dsimp [liftRel, lift₂]
+  rfl
+
+theorem forall_liftRel (R : α → β → Prop) (x : Hyper ι α) :
+    (∀ y : Hyper ι β, liftRel R x y) ↔ liftPred (fun a => ∀ b, R a b) x := by
+  induction x using Germ.inductionOn with | h f =>
+  change _ ↔ liftPred _ (ofSeq f)
+  rw [liftPred_ofSeq]
+  constructor
+  · intro h
+    rcases isEmpty_or_nonempty β with hβ | hβ
+    · filter_upwards with i b; exact (IsEmpty.false b).elim
+    haveI := hβ
+    let S := {i | ∀ b, R (f i) b}
+    by_contra hS
+    have hSc : {i | ∃ b, ¬ R (f i) b} ∈ hyperfilter ι := by
+      have : {i | ∀ b, R (f i) b}ᶜ ∈ hyperfilter ι := by
+        rwa [Ultrafilter.compl_mem_iff_notMem]
+      rw [Set.compl_setOf] at this
+      simp only [not_forall] at this
+      exact this
+    let g := fun i => Classical.epsilon (fun b => ¬ R (f i) b)
+    have hg : ∀ i, (∃ b, ¬ R (f i) b) → ¬ R (f i) (g i) := by
+      intro i hi
+      exact Classical.epsilon_spec hi
+    have : {i | ¬ R (f i) (g i)} ∈ hyperfilter ι := by
+      filter_upwards [hSc] with i hi
+      exact hg i hi
+    have : ¬ liftRel R (ofSeq f) (ofSeq g) := by
+      dsimp [liftRel, ofSeq]
+      change ¬ Germ.LiftRel R (ofSeq f) (ofSeq g)
+      erw [Germ.liftRel_coe]
+      intro h
+      have : {i | R (f i) (g i)} ∩ {i | ¬ R (f i) (g i)} ∈ hyperfilter ι := Filter.inter_mem h ‹_›
+      change {i | R (f i) (g i)} ∩ {i | R (f i) (g i)}ᶜ ∈ hyperfilter ι at this
+      rw [Set.inter_compl_self] at this
+      change ∅ ∈ hyperfilter ι at this
+      exact False.elim (Ultrafilter.empty_notMem this)
+    specialize h (ofSeq g)
+    dsimp [liftRel, ofSeq] at h
+    change Germ.LiftRel R (ofSeq f) (ofSeq g) at h
+    erw [Germ.liftRel_coe] at h
+    exact this h
+  · intro h y
+    induction y using Germ.inductionOn with | h g =>
+    dsimp [liftRel, ofSeq]
+    change Germ.LiftRel R (ofSeq f) (ofSeq g)
+    erw [Germ.liftRel_coe]
+    filter_upwards [h] with i hi
+    exact hi (g i)
+
+theorem exists_liftRel (R : α → β → Prop) (x : Hyper ι α) :
+    (∃ y : Hyper ι β, liftRel R x y) ↔ liftPred (fun a => ∃ b, R a b) x := by
+  induction x using Germ.inductionOn with | h f =>
+  change _ ↔ liftPred _ (ofSeq f)
+  rw [liftPred_ofSeq]
+  constructor
+  · rintro ⟨y, hy⟩
+    induction y using Germ.inductionOn with | h g =>
+    dsimp [liftRel, ofSeq] at hy
+    change Germ.LiftRel R (ofSeq f) (ofSeq g) at hy
+    erw [Germ.liftRel_coe] at hy
+    filter_upwards [hy] with i hi
+    exact ⟨g i, hi⟩
+  · intro h
+    rcases isEmpty_or_nonempty β with hβ | hβ
+    · have : ∀ i, ¬ ∃ b, R (f i) b := fun i ⟨b, _⟩ => IsEmpty.false b
+      rcases (hyperfilter ι).nonempty_of_mem h with ⟨i, hi⟩
+      exact (this i hi).elim
+    haveI := hβ
+    let g := fun i => Classical.epsilon (fun b => R (f i) b)
+    have hg : ∀ i, (∃ b, R (f i) b) → R (f i) (g i) := fun i => Classical.epsilon_spec
+    exists ofSeq g
+    dsimp [liftRel, ofSeq]
+    change Germ.LiftRel R (ofSeq f) (ofSeq g)
+    erw [Germ.liftRel_coe]
+    filter_upwards [h] with i hi
+    exact hg i hi
 
 /-! ## Transfer Principle -/
 
@@ -317,31 +472,238 @@ noncomputable instance instPreorderHyper [Preorder α] : Preorder (Hyper ι α) 
       intro _
       rw [Ultrafilter.eventually_not] }
 
+noncomputable instance instPartialOrderHyper [PartialOrder α] : PartialOrder (Hyper ι α) :=
+  { instPreorderHyper with
+    le_antisymm := fun x y h1 h2 => by
+      induction x using Germ.inductionOn with | h f =>
+      induction y using Germ.inductionOn with | h g =>
+      rw [Germ.coe_le] at h1 h2
+      rw [Germ.coe_eq]
+      exact h1.and h2 |>.mono fun i h => le_antisymm h.1 h.2 }
+
+noncomputable instance instLinearOrderHyper [LinearOrder α] : LinearOrder (Hyper ι α) :=
+  { instPartialOrderHyper with
+    le_total := fun x y => by
+      induction x using Germ.inductionOn; next f =>
+      induction y using Germ.inductionOn; next g =>
+      simp only [LE.le, Germ.liftRel_coe]
+      exact (hyperfilter ι).eventually_or.1 (Eventually.of_forall fun i => le_total (f i) (g i))
+    toDecidableLE := Classical.decRel _ }
+
+noncomputable instance instSemiringHyper [Semiring α] : Semiring (Hyper ι α) :=
+  Filter.Germ.instSemiring
+noncomputable instance instRingHyper [Ring α] : Ring (Hyper ι α) := Filter.Germ.instRing
+noncomputable instance instCommRingHyper [CommRing α] : CommRing (Hyper ι α) :=
+  Filter.Germ.instCommRing
+
+noncomputable instance instIsOrderedRingHyper [Ring α] [PartialOrder α] [IsOrderedRing α] :
+    IsOrderedRing (Hyper ι α) :=
+  { @Filter.Germ.instRing ι (hyperfilter ι) α _,
+    @instPartialOrderHyper ι _ α _ with
+    add_le_add_left := fun a b h c => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      induction c using Germ.inductionOn; next k =>
+      dsimp [LE.le] at h ⊢
+      rw [← Germ.coe_add, ← Germ.coe_add, Germ.liftRel_coe]
+      rw [Germ.liftRel_coe] at h
+      exact h.mono fun i hi => add_le_add_left hi (k i)
+    mul_le_mul_of_nonneg_left := fun c hc a b hab => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      induction c using Germ.inductionOn; next k =>
+      dsimp [LE.le] at hab hc ⊢
+      rw [← Germ.coe_zero] at hc
+      simp only [Germ.liftRel_coe] at hab hc ⊢
+      rw [← Germ.coe_mul, ← Germ.coe_mul, Germ.liftRel_coe]
+      filter_upwards [hab, hc] with i hab hc
+      exact mul_le_mul_of_nonneg_left hab hc
+    mul_le_mul_of_nonneg_right := fun c hc a b hab => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      induction c using Germ.inductionOn; next k =>
+      dsimp [LE.le] at hab hc ⊢
+      rw [← Germ.coe_zero] at hc
+      simp only [Germ.liftRel_coe] at hab hc ⊢
+      rw [← Germ.coe_mul, ← Germ.coe_mul, Germ.liftRel_coe]
+      filter_upwards [hab, hc] with i hab hc
+      exact mul_le_mul_of_nonneg_right hab hc
+    zero_le_one := Eventually.of_forall fun _ => zero_le_one }
+
 noncomputable instance [AddCommMonoid α] : AddCommMonoid (Hyper ι α) :=
   Filter.Germ.instAddCommMonoid
 
 noncomputable instance [AddCommGroup α] : AddCommGroup (Hyper ι α) :=
   Filter.Germ.instAddCommGroup
 
-noncomputable instance instPartialOrderHyper [PartialOrder α] : PartialOrder (Hyper ι α) :=
-  { instPreorderHyper with
-    le_antisymm := fun x y => Germ.inductionOn₂ x y fun _ _ h1 h2 =>
-      Germ.coe_eq.2 <| (h1.and h2).mono fun _ h => le_antisymm h.1 h.2 }
-
-noncomputable instance [AddCommMonoid α] [PartialOrder α] [IsOrderedAddMonoid α] :
-    IsOrderedAddMonoid (Hyper ι α) :=
-  { inferInstanceAs (AddCommMonoid (Hyper ι α)),
-    (instPartialOrderHyper : PartialOrder (Hyper ι α)) with
-    add_le_add_left := fun x y h z =>
-      Germ.inductionOn₃ x y z (fun f g k H => by
-        rw [Germ.coe_le] at H
-        exact Germ.coe_le.2 (H.mono fun i hi => add_le_add_left hi (k i))) h }
+noncomputable instance [Ring α] : Ring (Hyper ι α) := Filter.Germ.instRing
+noncomputable instance [CommRing α] : CommRing (Hyper ι α) := Filter.Germ.instCommRing
 
 @[simp]
 theorem std_le [LE α] (a b : α) : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := liftRel_std _ _ _
 
 @[simp]
-theorem std_lt [LT α] (a b : α) : (std a : Hyper ι α) < std b ↔ a < b := liftRel_std _ _ _
+theorem std_lt [Preorder α] (a b : α) : (std a : Hyper ι α) < std b ↔ a < b := by
+  simp only [lt_iff_le_not_ge, std_le]
+
+/-- The `<` relation on `Hyper` is defined as `liftRel`. -/
+theorem lt_def [Preorder α] (x y : Hyper ι α) : x < y ↔ liftRel (· < ·) x y := by
+  induction x using Germ.inductionOn with | h f =>
+  induction y using Germ.inductionOn with | h g =>
+  simp only [lt_iff_le_not_ge]
+  change (∀ᶠ i in hyperfilter ι, f i ≤ g i) ∧ ¬(∀ᶠ i in hyperfilter ι, g i ≤ f i) ↔
+      (∀ᶠ i in hyperfilter ι, f i ≤ g i ∧ ¬(g i ≤ f i))
+  rw [← Ultrafilter.eventually_not, ← Filter.eventually_and]
+
+instance [AddCommSemigroup α] [PartialOrder α] [i_mono : AddLeftMono α] : AddLeftMono (Hyper ι α) :=
+  ⟨fun x y z => Germ.inductionOn₃ x y z fun f g k H => by
+    change liftRel (· ≤ ·) (ofSeq g) (ofSeq k) at H
+    change liftRel (· ≤ ·) (ofSeq (f + g)) (ofSeq (f + k))
+    rw [Hyper.liftRel_ofSeq] at H ⊢
+    filter_upwards [H] with i hi
+    exact @CovariantClass.elim α α (· + ·) (· ≤ ·) i_mono (f i) (g i) (k i) hi⟩
+
+instance [AddCommSemigroup α] [PartialOrder α] [i_mono : AddRightMono α] :
+    AddRightMono (Hyper ι α) :=
+  ⟨fun x y z => Germ.inductionOn₃ x y z fun f g k H => by
+    change liftRel (· ≤ ·) (ofSeq g) (ofSeq k) at H
+    change liftRel (· ≤ ·) (ofSeq (g + f)) (ofSeq (k + f))
+    rw [Hyper.liftRel_ofSeq] at H ⊢
+    filter_upwards [H] with i hi
+    exact @CovariantClass.elim α α (Function.swap (· + ·)) (· ≤ ·) i_mono
+      (f i) (g i) (k i) hi⟩
+
+instance [AddCommSemigroup α] [PartialOrder α] [i_mono : AddLeftStrictMono α] :
+    AddLeftStrictMono (Hyper ι α) :=
+  ⟨fun x y z => Germ.inductionOn₃ x y z fun f g k H => by
+    rw [lt_def] at H ⊢
+    change liftRel (· < ·) (ofSeq g) (ofSeq k) at H
+    change liftRel (· < ·) (ofSeq (f + g)) (ofSeq (f + k))
+    rw [Hyper.liftRel_ofSeq] at H ⊢
+    filter_upwards [H] with i hi
+    exact @CovariantClass.elim α α (· + ·) (· < ·) i_mono (f i) (g i) (k i) hi⟩
+
+instance [AddCommSemigroup α] [PartialOrder α] [i_mono : AddRightStrictMono α] :
+    AddRightStrictMono (Hyper ι α) :=
+  ⟨fun x y z => Germ.inductionOn₃ x y z fun f g k H => by
+    rw [lt_def] at H ⊢
+    change liftRel (· < ·) (ofSeq g) (ofSeq k) at H
+    change liftRel (· < ·) (ofSeq (g + f)) (ofSeq (k + f))
+    rw [Hyper.liftRel_ofSeq] at H ⊢
+    filter_upwards [H] with i hi
+    exact @CovariantClass.elim α α (fun x y => y + x) (· < ·) i_mono
+      (f i) (g i) (k i) hi⟩
+
+instance [AddCommMonoid α] [PartialOrder α] [IsOrderedAddMonoid α] :
+    IsOrderedAddMonoid (Hyper ι α) where
+  add_le_add_left := fun _ _ h c => add_le_add_left h c
+
+theorem add_eq_lift₂ [Add α] (x y : Hyper ι α) : x + y = lift₂ (· + ·) x y := rfl
+theorem mul_eq_lift₂ [Mul α] (x y : Hyper ι α) : x * y = lift₂ (· * ·) x y := rfl
+theorem sub_eq_lift₂ [Sub α] (x y : Hyper ι α) : x - y = lift₂ (· - ·) x y := rfl
+theorem neg_eq_lift [Neg α] (x : Hyper ι α) : -x = lift (-·) x := rfl
+theorem zero_eq_std [Zero α] : (0 : Hyper ι α) = std 0 := rfl
+theorem std_le_std [Preorder α] {a b : α} : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := by
+  constructor
+  · intro h
+    have : {i | a ≤ b} ∈ (hyperfilter ι : Filter ι) := h
+    by_contra hab
+    have h_empty : ({i | a ≤ b} : Set ι) = ∅ := by
+      ext (i : ι)
+      simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
+      exact hab
+    rw [h_empty] at this
+    exact absurd (Filter.empty_mem_iff_bot.mp this)
+      (NeBot.ne (inferInstance : NeBot (hyperfilter ι : Filter ι)))
+  · intro h
+    filter_upwards with _ using h
+
+theorem std_lt_std [Preorder α] {a b : α} : (std a : Hyper ι α) < std b ↔ a < b := by
+  constructor
+  · intro h
+    have : {i | a < b} ∈ (hyperfilter ι : Filter ι) := h
+    by_contra hab
+    have h_empty : ({i | a < b} : Set ι) = ∅ := by
+      ext (i : ι)
+      simp only [Set.mem_setOf_eq, Set.mem_empty_iff_false, iff_false]
+      exact hab
+    rw [h_empty] at this
+    exact absurd (Filter.empty_mem_iff_bot.mp this)
+      (NeBot.ne (inferInstance : NeBot (hyperfilter ι : Filter ι)))
+  · intro h
+    filter_upwards with _ using h
+
+/-- An element is infinitesimal if it is bounded by any positive standard element. -/
+def IsInfinitesimal [AddCommGroup α] [Preorder α] (x : Hyper ι α) : Prop :=
+  ∀ r : α, 0 < r → -std r < x ∧ x < std r
+
+theorem IsInfinitesimal.zero [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+    [AddLeftStrictMono α] [AddRightStrictMono α] : IsInfinitesimal (0 : Hyper ι α) :=
+  fun r hr => ⟨by rw [← std_neg, ← std_zero, std_lt]; exact neg_lt_zero.2 hr,
+               by rw [← std_zero, std_lt]; exact hr⟩
+
+theorem liftRel_neg_neg [Neg α] {R : α → α → Prop} {x y : Hyper ι α} :
+    liftRel R (-x) (-y) ↔ liftRel (fun a b => R (-a) (-b)) x y := by
+  induction x using Germ.inductionOn
+  induction y using Germ.inductionOn
+  simp only [neg_eq_lift, liftRel_lift_left, liftRel_lift_right]
+
+theorem liftRel_flip {R : α → β → Prop} {x : Hyper ι α} {y : Hyper ι β} :
+    liftRel (flip R) y x ↔ liftRel R x y := by
+  refine Germ.inductionOn x fun f => ?_
+  refine Germ.inductionOn y fun g => ?_
+  change liftRel (flip R) (ofSeq g) (ofSeq f) ↔ liftRel R (ofSeq f) (ofSeq g)
+  rw [Hyper.liftRel_ofSeq, Hyper.liftRel_ofSeq]
+  rfl
+
+theorem IsInfinitesimal.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+    [AddLeftStrictMono α] [AddRightStrictMono α] {x : Hyper ι α}
+    (hx : IsInfinitesimal x) : IsInfinitesimal (-x) :=
+  fun r hr => by
+    obtain ⟨h1, h2⟩ := hx r hr
+    have h_neg : ∀ {R : α → α → Prop} {x y : Hyper ι α},
+        liftRel R (-x) (-y) ↔ liftRel (fun a b => R (-a) (-b)) x y :=
+      fun {R x y} => by
+        induction x using Germ.inductionOn; next f =>
+        induction y using Germ.inductionOn; next g =>
+        rw [neg_eq_lift, neg_eq_lift]
+        exact Iff.refl (∀ᶠ i in @hyperfilter ι (by infer_instance), R (-f i) (-g i))
+    constructor
+    · -- -std r < -x ↔ x < std r
+      rw [lt_def]
+      erw [h_neg]
+      simp only [neg_lt_neg_iff]
+
+      rw [← liftRel_flip]
+      exact h2
+    · -- -x < std r ↔ -std r < x
+      rw [lt_def]
+      have : (std r : Hyper ι α) = -(-std r) := (neg_neg _).symm
+      rw [this]
+      erw [h_neg]
+      simp only [neg_lt_neg_iff]
+
+      rw [← liftRel_flip]
+      exact h1
+
+theorem IsInfinitesimal.add [Field α] [LinearOrder α] [IsOrderedRing α] {x y : Hyper ι α}
+    (hx : IsInfinitesimal x) (hy : IsInfinitesimal y) : IsInfinitesimal (x + y) :=
+  fun r hr => by
+    have hr2 : 0 < r / 2 := half_pos hr
+    obtain ⟨hx1, hx2⟩ := hx (r / 2) hr2
+    obtain ⟨hy1, hy2⟩ := hy (r / 2) hr2
+    constructor
+    · rw [← add_halves r, std_add, neg_add]
+      exact add_lt_add hx1 hy1
+    · rw [← add_halves r, std_add]
+      exact add_lt_add hx2 hy2
+
+theorem IsInfinitesimal.sub [Field α] [LinearOrder α] [IsOrderedRing α] {x y : Hyper ι α}
+    (hx : IsInfinitesimal x) (hy : IsInfinitesimal y) : IsInfinitesimal (x - y) := by
+  rw [sub_eq_add_neg]
+  exact IsInfinitesimal.add hx (IsInfinitesimal.neg hy)
+
+
 
 theorem ofSeq_le_ofSeq [LE α] (f g : ι → α) :
     (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i ≤ g i :=
@@ -351,8 +713,13 @@ theorem ofSeq_lt_ofSeq [LT α] (f g : ι → α) :
     (ofSeq f : Hyper ι α) < ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i < g i :=
   Germ.liftRel_coe
 
-/-- The `<` relation on `Hyper` is defined as `liftRel`. -/
-theorem lt_def [LT α] (x y : Hyper ι α) : x < y ↔ liftRel (· < ·) x y := Iff.rfl
+theorem eq_iff_liftRel_eq {ι : Type*} [Infinite ι] {α : Type*} (x y : Hyper ι α) :
+    x = y ↔ liftRel (· = ·) x y := by
+  induction x using Germ.inductionOn with | h f =>
+  induction y using Germ.inductionOn with | h g =>
+  dsimp [liftRel]
+  rw [Germ.liftRel_coe]
+  exact Germ.coe_eq
 
 theorem liftRel_const_coe {R : α → α → Prop} {c : α} {f : ι → α} :
     liftRel R (std c) (ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, R c (f i) :=
@@ -361,7 +728,7 @@ theorem liftRel_const_coe {R : α → α → Prop} {c : α} {f : ι → α} :
 /-- `std a < ofSeq f` iff `a < f n` for almost all `n`. -/
 theorem std_lt_ofSeq [LT α] (x : α) (f : ι → α) :
     (std x : Hyper ι α) < ofSeq f ↔ ∀ᶠ i in hyperfilter ι, x < f i := by
-  rw [lt_def]
+  change liftRel (· < ·) (std x) (ofSeq f) ↔ _
   exact liftRel_const_coe
 
 end Order
@@ -450,6 +817,45 @@ theorem IsFinite.sub [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
     (hx : IsFinite x) (hy : IsFinite y) : IsFinite (x - y) := by
   rw [sub_eq_add_neg]
   exact hx.add hy.neg
+
+theorem IsFinite_iff_abs_le [CommRing α] [LinearOrder α] [IsOrderedRing α] {x : Hyper ι α} :
+    IsFinite x ↔ ∃ r : α, abs x ≤ std r := by
+  constructor
+  · rintro ⟨a, b, ha, hb⟩
+    use abs a + abs b
+    rw [abs_le]
+    constructor
+    · trans std a
+      · rw [← std_neg, std_le]
+        rw [neg_add]
+        have h1 : -|b| + -|a| ≤ 0 + -|a| :=
+          add_le_add (neg_nonpos.2 (abs_nonneg b)) (le_refl (-|a|))
+        rw [add_comm] at h1
+        rw [zero_add] at h1
+        have h2 : -|a| ≤ a := neg_le.2 (le_trans (le_abs_self (-a)) (le_of_eq (abs_neg a)))
+        exact le_trans h1 h2
+      · exact ha
+    · trans std b
+      · exact hb
+      · rw [std_le]; exact le_add_of_nonneg_of_le (abs_nonneg a) (le_abs_self b)
+  · rintro ⟨r, hr⟩
+    rw [abs_le] at hr
+    exact ⟨-r, r, hr.1, hr.2⟩
+
+theorem IsFinite.mul [CommRing α] [LinearOrder α] [IsOrderedRing α] {x y : Hyper ι α}
+    (hx : IsFinite x) (hy : IsFinite y) : IsFinite (x * y) := by
+  rw [IsFinite_iff_abs_le] at hx hy ⊢
+  obtain ⟨r, hr⟩ := hx
+  obtain ⟨s, hs⟩ := hy
+  use abs r * abs s + 1
+  have hr' : abs x ≤ std (abs r) := le_trans hr ((std_le r (abs r)).mpr (le_abs_self r))
+  have hs' : abs y ≤ std (abs s) := le_trans hs ((std_le s (abs s)).mpr (le_abs_self s))
+  rw [abs_mul]
+  calc abs x * abs y ≤ std (abs r) * std (abs s) :=
+      mul_le_mul hr' hs' (abs_nonneg y) ((std_le 0 (abs r)).mpr (abs_nonneg r))
+    _ = std (abs r * abs s) := by rw [← std_mul]
+    _ ≤ std (abs r * abs s) + 1 := le_add_of_nonneg_right zero_le_one
+    _ = std (abs r * abs s + 1) := by rw [std_add, std_one]
 
 theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinitePos x) :
     IsInfinite x := by
@@ -806,5 +1212,433 @@ set_option quotPrecheck false in
 scoped[NonstandardAnalysis] notation:max "⟦" f "⟧" => Hyper.ofSeq f
 
 end Notation
+
+
+/-! ## Overspill and Underspill
+
+These principles relate properties of standard elements to properties of infinite elements.
+-/
+
+section Overspill
+
+/-- **Overspill Principle** for standard predicates:
+If a predicate holds for arbitrarily large standard naturals, it holds for some infinite
+hypernatural. -/
+theorem exists_infinite_of_forall_exists_gt {P : ℕ → Prop}
+    (h : ∀ n : ℕ, ∃ m : ℕ, P m ∧ m > n) :
+    ∃ x : Hyper ℕ ℕ, IsInfinite x ∧ liftPred P x := by
+  -- We use countable saturation on the family Q_n(x) := P x ∧ x > n
+  let Q (n : ℕ) (x : ℕ) := P x ∧ x > n
+  have hsat : ∃ x : Hyper ℕ ℕ, ∀ n, liftPred (Q n) x := by
+    apply countable_saturation
+    intro F
+    -- Let m be a witness for max F
+    let max_n := if h : F.Nonempty then F.max' h else 0
+    obtain ⟨m, hm, hm_gt⟩ := h (max_n)
+    use std m
+    intro n hn
+    rw [liftPred_std]
+    refine ⟨hm, lt_of_le_of_lt ?_ hm_gt⟩
+    have hF : F.Nonempty := ⟨n, hn⟩
+    dsimp only [max_n]
+    rw [dif_pos hF]
+    exact Finset.le_max' F n hn
+  obtain ⟨x, hx⟩ := hsat
+  use x
+  constructor
+  · rw [IsInfinite, IsFinite]
+    push_neg
+    intro a b _
+    -- x > n for all n. In particular x > b.
+    -- hx b gives liftPred (Q b) x => liftPred (fun y => y > b) x => x > std b
+    have : x > std b := by
+      specialize hx b
+      rw [liftPred_and] at hx
+      exact hx.2
+    exact this
+  · -- liftPred P x follows from hx 0 (or any n)
+    specialize hx 0
+    rw [liftPred_and] at hx
+    exact hx.1
+
+/-- **Underspill Principle** for standard predicates:
+If a predicate holds for all infinite hypernaturals, it holds for all sufficiently large
+standard naturals. -/
+theorem exists_forall_ge_of_forall_infinite {P : ℕ → Prop}
+    (h : ∀ x : Hyper ℕ ℕ, IsInfinite x → liftPred P x) :
+    ∃ n : ℕ, ∀ m ≥ n, P m := by
+  by_contra hnot
+  push_neg at hnot
+  -- hnot says ∀ n, ∃ m ≥ n, ¬P m
+  -- By overspill applied to ¬P, there exists infinite x such that ¬P x
+  have hover : ∃ x : Hyper ℕ ℕ, IsInfinite x ∧ liftPred (fun k => ¬P k) x := by
+    apply exists_infinite_of_forall_exists_gt
+    intro n
+    obtain ⟨m, hm_ge, hm_not⟩ := hnot (n + 1)
+    exact ⟨m, hm_not, lt_of_lt_of_le (Nat.lt_succ_self n) hm_ge⟩
+  obtain ⟨x, hinf, hnotP⟩ := hover
+  rw [liftPred_not] at hnotP
+  exact hnotP (h x hinf)
+
+end Overspill
+
+/-! ## Topology and Compactness -/
+
+section Topology
+
+open scoped NonstandardAnalysis
+
+variable [TopologicalSpace α]
+
+/-- The monad of a filter `F` is the set of hyperreal points that are in the star of every set
+in `F`. -/
+def monad (F : Filter α) : Set (Hyper ι α) :=
+  {x | ∀ U ∈ F, liftPred (· ∈ U) x}
+
+/-- A point `x` is near standard to `y` if `x` is in the monad of the neighborhood filter of `y`. -/
+def IsNearStandard (x : Hyper ι α) (y : α) : Prop :=
+  x ∈ monad (nhds y)
+
+set_option quotPrecheck false
+/-- Notation for near standard: `x ≈ y` -/
+local infix:50 " ≈ " => IsNearStandard
+
+/-- The ultrafilter corresponding to a hyperreal `x`. -/
+noncomputable def asUltrafilter (x : Hyper ι α) : Ultrafilter α :=
+  Ultrafilter.map (Classical.choose (Hyper.exists_seq_rep x)) (hyperfilter ι)
+
+omit [TopologicalSpace α] in
+theorem mem_star_iff_mem_asUltrafilter (x : Hyper ι α) (S : Set α) :
+    liftPred (· ∈ S) x ↔ S ∈ (asUltrafilter x : Filter α) := by
+  simp only [asUltrafilter, Ultrafilter.mem_coe, Ultrafilter.mem_map]
+  let f := Classical.choose (Hyper.exists_seq_rep x)
+  have hf : ofSeq f = x := Classical.choose_spec (Hyper.exists_seq_rep x)
+  conv_lhs => rw [← hf, liftPred_ofSeq]
+  rfl
+
+omit [TopologicalSpace α] in
+/-- If the model is sufficiently saturated, every ultrafilter is represented by some hyperreal. -/
+theorem exists_hyper_of_ultrafilter [Nonempty (Set α ↪ ι)] (F : Ultrafilter α) :
+    ∃ x : Hyper ι α, asUltrafilter x = F := by
+  classical
+  obtain ⟨e⟩ := ‹Nonempty (Set α ↪ ι)›
+  let P : Set α → α → Prop := fun S x => S ∈ F → x ∈ S
+  have hfin : ∀ G : Finset (Set α), ∃ x : Hyper ι α, ∀ S ∈ G, liftPred (P S) x := by
+    intro G
+    let G_in_F := G.filter (fun S => S ∈ F)
+    have h_inter_mem : ⋂₀ (G_in_F : Set (Set α)) ∈ (F : Filter α) := by
+      rw [Set.sInter_eq_biInter]
+      rw [Filter.biInter_mem G_in_F.finite_toSet]
+      intro S hS
+      rw [Finset.mem_coe, Finset.mem_filter] at hS
+      exact hS.2
+    have h_nonempty : (⋂₀ (G_in_F : Set (Set α))).Nonempty :=
+      Filter.nonempty_of_mem h_inter_mem
+    obtain ⟨a, ha⟩ := h_nonempty
+    use std a
+    intro S hS
+    rw [liftPred_std]
+    simp only [P]
+    intro hSF
+    apply Set.mem_sInter.mp ha S
+    change S ∈ G.filter (fun S => S ∈ F)
+    rw [Finset.mem_filter]
+    exact ⟨hS, hSF⟩
+  obtain ⟨x, hx⟩ := cardinal_saturation e hfin
+  use x
+  apply Ultrafilter.ext
+  intro S
+  change S ∈ (asUltrafilter x : Filter α) ↔ S ∈ F
+  rw [← mem_star_iff_mem_asUltrafilter]
+  constructor
+  · intro hxS
+    by_contra hS_not
+    have hSc : Sᶜ ∈ F := Ultrafilter.compl_mem_iff_notMem.mpr hS_not
+    specialize hx Sᶜ
+    have hxSc : x ∈★ Sᶜ := by
+      have h_eq : P Sᶜ = (fun x => x ∈ Sᶜ) := by
+        ext a
+        simp only [P, hSc, true_implies]
+      rwa [h_eq] at hx
+    have h_inter : x ∈★ (S ∩ Sᶜ) := by
+      change liftPred (fun x => x ∈ S ∧ x ∈ Sᶜ) x
+      rw [liftPred_and x]
+      exact ⟨hxS, hxSc⟩
+    rw [Set.inter_compl_self] at h_inter
+    -- x ∈★ ∅
+    have h_false : x ∈★ (∅ : Set α) ↔ False := by
+      change liftPred (fun _ => False) x ↔ False
+      obtain ⟨f, rfl⟩ := Hyper.ofSeq_surjective x
+      rw [Hyper.liftPred_ofSeq]
+      simp only [Filter.eventually_false_iff_eq_bot]
+      exact iff_false_intro (hyperfilter ι).neBot.ne
+    rwa [h_false] at h_inter
+  · intro hSF
+    specialize hx S
+    have h_eq : P S = (fun x => x ∈ S) := by
+      ext a
+      simp only [P, hSF, true_implies]
+    rwa [h_eq] at hx
+
+/-- Characterization of compactness using nonstandard analysis.
+A set `K` is compact iff every point in `*K` is near standard to some point in `K`.
+(Reverse direction requires saturation). -/
+theorem isCompact_iff_nearStd [Nonempty (Set α ↪ ι)] (K : Set α) :
+    IsCompact K ↔ ∀ x : Hyper ι α, x ∈★ K → ∃ y ∈ K, x ≈ y := by
+  constructor
+  · intro hK x hx
+    let U := asUltrafilter x
+    have hUK : K ∈ (U : Filter α) := (mem_star_iff_mem_asUltrafilter x K).mp hx
+    obtain ⟨y, hyK, hy⟩ := IsCompact.ultrafilter_le_nhds hK U (le_principal_iff.mpr hUK)
+    use y, hyK
+    intro V hV
+    rw [mem_star_iff_mem_asUltrafilter]
+    exact hy hV
+  · intro h
+    rw [isCompact_iff_ultrafilter_le_nhds]
+    intro F hFK
+    obtain ⟨x, hx⟩ := exists_hyper_of_ultrafilter (ι := ι) F
+    have hxK : x ∈★ K := by
+      rw [mem_star_iff_mem_asUltrafilter, hx]
+      exact le_principal_iff.mp hFK
+    obtain ⟨y, hyK, hy⟩ := h x hxK
+    use y, hyK
+    rw [← hx]
+    intro V hV
+    rw [← mem_star_iff_mem_asUltrafilter]
+    exact hy V hV
+
+end Topology
+
+
+section StandardPart
+
+scoped infix:50 " ≈ " => IsNearStandard
+
+
+
+variable [Infinite ι] [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α]
+variable [TopologicalSpace α] [OrderTopology α] [DenselyOrdered α] [NoMaxOrder α] [NoMinOrder α]
+
+open scoped NonstandardAnalysis
+open Topology
+
+theorem isNearStandard_def (x : Hyper ι α) (y : α) : IsNearStandard x y ↔ ∀ U ∈ 𝓝 y, x ∈★ U := by
+  rw [IsNearStandard, monad]
+  rfl
+
+theorem mem_star_Iio (x : Hyper ι α) (a : α) : x ∈★ Set.Iio a ↔ x < std a := by
+  induction x using Germ.inductionOn with | h f =>
+  erw [Hyper.liftPred_ofSeq, Hyper.lt_def, Hyper.std, Hyper.liftRel_ofSeq]
+  rfl
+
+theorem mem_star_Ioi (x : Hyper ι α) (a : α) : x ∈★ Set.Ioi a ↔ std a < x := by
+  induction x using Germ.inductionOn with | h f =>
+  erw [Hyper.liftPred_ofSeq, Hyper.lt_def, Hyper.std, Hyper.liftRel_ofSeq]
+  rfl
+
+theorem mem_star_inter (x : Hyper ι α) (s t : Set α) : x ∈★ (s ∩ t) ↔ x ∈★ s ∧ x ∈★ t := by
+  induction x using Germ.inductionOn with | h f =>
+  change (∀ᶠ i in hyperfilter ι, f i ∈ s ∩ t) ↔ (∀ᶠ i in hyperfilter ι, f i ∈ s) ∧ (∀ᶠ i in hyperfilter ι, f i ∈ t)
+  simp only [Set.mem_inter_iff, Filter.eventually_and]
+
+theorem mem_star_Ici (x : Hyper ι α) (a : α) : x ∈★ Set.Ici a ↔ std a ≤ x := by
+  change liftPred (fun y => a ≤ y) x ↔ std a ≤ x
+  change liftRel (· ≤ ·) (std a) x ↔ std a ≤ x
+  rfl
+
+theorem mem_star_Iic (x : Hyper ι α) (a : α) : x ∈★ Set.Iic a ↔ x ≤ std a := by
+  change liftPred (fun y => y ≤ a) x ↔ x ≤ std a
+  change liftRel (· ≤ ·) x (std a) ↔ x ≤ std a
+  rfl
+
+theorem mem_star_Icc (x : Hyper ι α) (a b : α) : x ∈★ Set.Icc a b ↔ std a ≤ x ∧ x ≤ std b := by
+  rw [← Set.Ici_inter_Iic, mem_star_inter, mem_star_Ici, mem_star_Iic]
+
+theorem mem_star_Ioo (x : Hyper ι α) (a b : α) : x ∈★ Set.Ioo a b ↔ std a < x ∧ x < std b := by
+  rw [← Set.Ioi_inter_Iio, mem_star_inter, mem_star_Ioi, mem_star_Iio]
+
+theorem mem_star_std {s : Set α} {a : α} : (a : Hyper ι α) ∈★ s ↔ a ∈ s := by
+  change liftPred (· ∈ s) (std a) ↔ a ∈ s
+  rw [liftPred_std]
+
+theorem star_mono {s t : Set α} (h : s ⊆ t) {x : Hyper ι α} : x ∈★ s → x ∈★ t := by
+  induction x using Germ.inductionOn
+  intro hx
+  exact Filter.Eventually.mono hx (fun i hi => h hi)
+
+/-- The standard part of a finite hyperreal. -/
+noncomputable def st (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
+
+theorem st_eq_sSup (x : Hyper ι α) : st x = sSup {r : α | std r ≤ x} := rfl
+
+theorem isFinite_iff_exists_st (x : Hyper ι α) : IsFinite x ↔ ∃ r : α, IsNearStandard x r := by
+  constructor
+  · intro hx
+    dsimp [IsFinite] at hx
+    let a := Classical.choose hx
+    have hx_a := Classical.choose_spec hx
+    let b := Classical.choose hx_a
+    have h_ab := Classical.choose_spec hx_a
+    obtain ⟨ha, hb⟩ := h_ab
+    let S := {r : α | (r : Hyper ι α) ≤ x}
+    have hS_nonempty : S.Nonempty := ⟨a, ha⟩
+    have hS_bddAbove : BddAbove S := ⟨b, fun r hr => by
+      have : (r : Hyper ι α) ≤ b := hr.trans hb
+      simp at this ⊢
+      exact this⟩
+    let y := sSup S
+    use y
+    rw [IsNearStandard, monad]
+    intro U hU
+    rw [mem_nhds_iff] at hU
+    obtain ⟨V, hVU, hV_open, hyV⟩ := hU
+    have h_exists := mem_nhds_iff_exists_Ioo_subset.mp (IsOpen.mem_nhds hV_open hyV)
+    let u := h_exists.choose
+    let v := h_exists.choose_spec.choose
+    have huv := h_exists.choose_spec.choose_spec
+    have h_mem_Ioo : y ∈ Set.Ioo u v := huv.1
+    have h_subset : Set.Ioo u v ⊆ V := huv.2
+    have h_lt : u < y := h_mem_Ioo.1
+    have h_gt : y < v := h_mem_Ioo.2
+    have h_x_lt : x < (v : Hyper ι α) := by
+      by_contra h_not
+      have : (v : Hyper ι α) ≤ x := le_of_not_gt h_not
+      have : v ∈ S := this
+      have : v ≤ y := le_csSup hS_bddAbove this
+      have : v < v := lt_of_le_of_lt this h_gt
+      exact lt_irrefl v this
+    have h_u_lt_x : (u : Hyper ι α) < x := by
+      obtain ⟨r, hr_in, hr_gt⟩ := exists_lt_of_lt_csSup hS_nonempty h_lt
+      have h_lt : u < r := hr_gt
+      have h_lt_std : (u : Hyper ι α) < (r : Hyper ι α) := by simp [h_lt]
+      exact lt_of_lt_of_le h_lt_std hr_in
+    have h_std_mem : ∀ r, u < r ∧ r < v → (r : Hyper ι α) ∈★ V := by
+      intro r hr
+      have : r ∈ V := h_subset hr
+      exact mem_star_std.mpr this
+    have h_x_mem_Ioo : x ∈★ Set.Ioo u v := by
+      rw [mem_star_Ioo]
+      exact ⟨h_u_lt_x, h_x_lt⟩
+    have h_x_mem_V : x ∈★ V := star_mono h_subset h_x_mem_Ioo
+    exact star_mono hVU h_x_mem_V
+
+  · intro ⟨r, hr⟩
+    have h_mem : x ∈★ Set.Ioo (r - 1) (r + 1) :=
+      (isNearStandard_def x r).mp hr _ (Ioo_mem_nhds (sub_one_lt r) (lt_add_one r))
+    have h_and : x ∈★ Set.Ioi (r - 1) ∧ x ∈★ Set.Iio (r + 1) := by
+      rw [← mem_star_inter]
+      exact h_mem
+    exact ⟨r - 1, r + 1, ((mem_star_Ioi x (r - 1)).mp h_and.1).le,
+      ((mem_star_Iio x (r + 1)).mp h_and.2).le⟩
+
+theorem st_of_isFinite (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st x) := by
+  obtain ⟨r, hr⟩ := (isFinite_iff_exists_st x).mp h
+  let S := {s : α | std s ≤ x}
+  obtain ⟨a, b, ha, hb⟩ := h
+  have hS_bddAbove : BddAbove S := ⟨b, fun s hs => (std_le_std.mp (hs.trans hb))⟩
+  have h_eq : st x = r := by
+    apply le_antisymm
+    · apply csSup_le
+      · use a
+        exact ha
+      · intro s hs
+        by_contra h_sr
+        have h_rs : r < s := lt_of_not_ge h_sr
+        have h_mem : x ∈★ (Set.Iio s) := (isNearStandard_def x r).mp hr (Set.Iio s) (Iio_mem_nhds h_rs)
+        rw [mem_star_Iio] at h_mem
+        have h_sx : std s ≤ x := hs
+        have h_xs : x < std s := h_mem
+        exact lt_irrefl _ (lt_of_le_of_lt h_sx h_xs)
+    · have h_subset : Set.Iio r ⊆ S := by
+        intro s hs
+        have h_mem : x ∈★ (Set.Ioi s) := (isNearStandard_def x r).mp hr (Set.Ioi s) (Ioi_mem_nhds hs)
+        rw [mem_star_Ioi] at h_mem
+        exact h_mem.le
+      rw [← csSup_Iio (a := r)]
+      apply csSup_le_csSup hS_bddAbove ⟨r - 1, sub_one_lt r⟩ h_subset
+  rw [h_eq]
+  exact hr
+
+end StandardPart
+
+section HeineBorel
+
+open scoped Topology
+open scoped NonstandardAnalysis
+
+variable [Infinite ι] [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α]
+variable [TopologicalSpace α] [OrderTopology α] [DenselyOrdered α] [NoMaxOrder α] [NoMinOrder α]
+variable [Nonempty (Set α ↪ ι)]
+
+set_option linter.style.longLine false in
+theorem isCompact_Icc {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b : α} : IsCompact (Set.Icc a b) := by
+  rw [isCompact_iff_nearStd (ι := ι) (α := α)]
+  intro x hx
+  rw [mem_star_Icc] at hx
+  have h_fin : IsFinite x := ⟨a, b, hx.1, hx.2⟩
+  obtain ⟨y, hy⟩ := (isFinite_iff_exists_st x).mp h_fin
+  use y
+  constructor
+  · simp only [Set.mem_Icc]
+    rw [isNearStandard_def] at hy
+    refine ⟨?_, ?_⟩
+    · by_contra h_lt
+      have h_y_lt_a : y < a := lt_of_not_ge h_lt
+      have h_sep : ∃ u, y < u ∧ u < a := exists_between h_y_lt_a
+      obtain ⟨u, hyu, hua⟩ := h_sep
+      have h_mem : x ∈★ (Set.Iio u) := hy (Set.Iio u) (Iio_mem_nhds hyu)
+      rw [mem_star_Iio] at h_mem
+      have h_ua : (std u : Hyper ι α) < std a := std_lt_std.mpr hua
+      have h_xu : x < std u := h_mem
+      have h_ax : std a ≤ x := hx.1
+      exact (h_xu.trans h_ua).not_ge h_ax
+    · by_contra h_gt
+      have h_b_lt_y : b < y := lt_of_not_ge h_gt
+      have h_sep : ∃ u, b < u ∧ u < y := exists_between h_b_lt_y
+      obtain ⟨u, hbu, huy⟩ := h_sep
+      have h_mem : x ∈★ (Set.Ioi u) := hy (Set.Ioi u) (Ioi_mem_nhds huy)
+      rw [mem_star_Ioi] at h_mem
+      have h_bu : (std b : Hyper ι α) < std u := std_lt_std.mpr hbu
+      have h_ux : std u < x := h_mem
+      have h_xb : x ≤ std b := hx.2
+      exact (h_bu.trans h_ux).not_ge h_xb
+  · exact hy
+
+theorem not_isCompact_Ioo {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b : α} (h : a < b) :
+    ¬ IsCompact (Set.Ioo a b) := by
+  rw [isCompact_iff_nearStd (ι := ι) (α := α)]
+  push_neg
+  have h_closure : ClusterPt a (𝓟 (Set.Ioo a b)) := by
+    rw [← mem_closure_iff_clusterPt]
+    rw [closure_Ioo h.ne]
+    exact Set.left_mem_Icc.mpr (le_of_lt h)
+  haveI : NeBot (𝓝 a ⊓ 𝓟 (Set.Ioo a b)) := h_closure
+  obtain ⟨U, hU⟩ := Ultrafilter.exists_le (𝓝 a ⊓ 𝓟 (Set.Ioo a b))
+  obtain ⟨x, hx_eq⟩ := exists_hyper_of_ultrafilter (ι := ι) U
+  use x
+  constructor
+  · rw [mem_star_iff_mem_asUltrafilter, hx_eq]
+    apply hU
+    exact mem_inf_of_right (mem_principal_self _)
+  · intro y hy h_near
+    have h_near_a : x ≈ a := by
+      intro V hV
+      rw [mem_star_iff_mem_asUltrafilter, hx_eq]
+      apply hU
+      apply mem_of_superset (inter_mem_inf hV (mem_principal_self _))
+      exact Set.inter_subset_left
+    have h_ne : y ≠ a := ne_of_gt hy.1
+    obtain ⟨U1, V1, hU1_open, hV1_open, hy_in_U1, ha_in_V1, h_disj⟩ := t2_separation h_ne
+    have h_x_U1 : x ∈★ U1 := h_near U1 (hU1_open.mem_nhds hy_in_U1)
+    have h_x_V1 : x ∈★ V1 := h_near_a V1 (hV1_open.mem_nhds ha_in_V1)
+    have h_inter : x ∈★ (U1 ∩ V1) := (mem_star_inter x U1 V1).mpr ⟨h_x_U1, h_x_V1⟩
+    rw [Set.disjoint_iff_inter_eq_empty.mp h_disj] at h_inter
+    have h_ne_bot : (x.asUltrafilter : Filter α) ≠ ⊥ := @NeBot.ne _ (x.asUltrafilter : Filter α) (Ultrafilter.neBot x.asUltrafilter)
+    rw [ne_eq, ← Filter.empty_mem_iff_bot] at h_ne_bot
+    rw [mem_star_iff_mem_asUltrafilter] at h_inter
+    exact h_ne_bot h_inter
+
+end HeineBorel
 
 end Hyper

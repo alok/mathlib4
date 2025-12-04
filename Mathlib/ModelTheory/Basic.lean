@@ -7,6 +7,7 @@ module
 
 public import Mathlib.SetTheory.Cardinal.Basic
 
+
 /-!
 # Basics on First-Order Structures
 
@@ -49,7 +50,6 @@ open Cardinal
 namespace FirstOrder
 
 /-! ### Languages and Structures -/
-
 
 -- intended to be used with explicit universe parameters
 /-- A first-order language consists of a type of functions of every natural-number arity and a

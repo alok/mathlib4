@@ -27,7 +27,9 @@ Finds the index type `ι` in a `Hyper ι α` type within the given expression.
 -/
 def findIndexType (e : Expr) : Option Expr :=
   if let some t := e.find? (·.isAppOfArity ``Hyper 3) then
-    some (t.getArg! 0)
+    some (t.getAppArgs[0]!)
+  else if let some t := e.find? (·.isAppOfArity ``Filter.hyperfilter 2) then
+    some (t.getAppArgs[0]!)
   else
     none
 
@@ -46,6 +48,11 @@ syntax transferDir := "+" &"upward" <|> "+" &"downward"
 syntax "transfer" (ppSpace transferDir)? ("[" Lean.Parser.Tactic.simpLemma,* "]")?
   (ppSpace Lean.Parser.Tactic.location)? : tactic
 
+/-- Checks if a domain is a Hyper type. -/
+def isHyperDomain (dom : Expr) : MetaM Bool := do
+  let dom ← whnfR dom
+  return dom.isAppOf ``Hyper || dom.isAppOf ``Filter.Germ
+
 elab_rules : tactic
   | `(tactic| transfer $[$dir]? $[ [ $args,* ] ]? $[$loc]?) => do
     let locVal := (loc.map expandLocation).getD (Location.targets #[] true)
@@ -59,8 +66,55 @@ elab_rules : tactic
       return none
 
     -- Collect expressions to search for ι
-    -- Always include the target, as it likely contains the Hyper type
-    let mut exprsToSearch : List Expr := [(← getMainTarget)]
+    let mut exprsToSearch : List Expr := []
+
+    -- Add initial target
+    let initialTarget ← getMainTarget
+    exprsToSearch := exprsToSearch ++ [initialTarget]
+
+    -- Add lctx types (BEFORE revert)
+    let lctx ← getLCtx
+    for ldecl in lctx do
+      if !ldecl.isImplementationDetail then
+        try
+          exprsToSearch := exprsToSearch ++ [← whnf ldecl.type]
+        catch _ =>
+          pure ()
+
+
+    -- Auto-revert    -- Check auto-revert
+    let lctx ← getLCtx
+    let mut fvarsToRevert : Array FVarId := #[]
+    for ldecl in lctx do
+      if ldecl.isImplementationDetail then continue
+      let isHyp ← (try isHyperDomain ldecl.type catch _ => pure false)
+      if isHyp then
+        fvarsToRevert := fvarsToRevert.push ldecl.fvarId
+
+    if !fvarsToRevert.isEmpty then
+      -- Construct syntax for revert
+      let fvarsStx : Array (TSyntax `ident) ← fvarsToRevert.mapM fun fvarId => do
+        let ldecl ← fvarId.getDecl
+        return mkIdent ldecl.userName
+      try
+        evalTactic (← `(tactic| revert $fvarsStx*))
+      catch _ => pure ()
+
+    -- Add new target (after revert)
+    let newTarget ← getMainTarget
+    exprsToSearch := exprsToSearch ++ [newTarget]
+
+    -- If target is forall/exists, check domain (on new target)
+    if newTarget.isForall then
+      try
+        exprsToSearch := exprsToSearch ++ [← whnf newTarget.bindingDomain!]
+      catch _ =>
+        pure ()
+    else if newTarget.isAppOfArity ``Exists 2 then
+      try
+        exprsToSearch := exprsToSearch ++ [← whnf newTarget.getAppArgs[0]!]
+      catch _ =>
+        pure ()
 
     match locVal with
     | Location.targets hyps _ =>
@@ -70,10 +124,10 @@ elab_rules : tactic
         else
           logInfo m!"[transfer] Could not find hypothesis {hStx.getId}"
     | Location.wildcard =>
-      let lctx ← getLCtx
-      for ldecl in lctx do
-        if !ldecl.isImplementationDetail then
-          exprsToSearch := exprsToSearch ++ [ldecl.type]
+      -- We already collected lctx types before revert.
+      -- But if revert happened, lctx is smaller.
+      -- So we don't need to collect again.
+      pure ()
 
     -- Infer ι
     let ι? ← inferFromExprs exprsToSearch
@@ -95,6 +149,8 @@ elab_rules : tactic
       ``Hyper.liftRel_std,
       ``Hyper.lift_std,
       ``Hyper.lift₂_std,
+      ``Hyper.lift_ofSeq,
+      ``Hyper.lift₂_ofSeq,
       ``Hyper.std_inj,
       ``Hyper.std_le,
       ``Hyper.std_lt,
@@ -103,7 +159,22 @@ elab_rules : tactic
       ``Hyper.liftRel_const_coe,
       ``Hyper.ofSeq_le_ofSeq,
       ``Hyper.ofSeq_lt_ofSeq,
-      ``Hyper.std_lt_ofSeq
+      ``Hyper.std_lt_ofSeq,
+      ``Hyper.add_eq_lift₂,
+      ``Hyper.eq_iff_liftRel_eq,
+      ``Hyper.liftRel_lift_left,
+      ``Hyper.liftRel_std_right,
+      ``Hyper.lift_lift₂_diagonal,
+      ``Hyper.lift_comp,
+      ``Hyper.liftPred_lift,
+      ``Hyper.lift₂_std_left,
+      ``Hyper.lift₂_std_right,
+      ``Hyper.liftRel_lift_right,
+      ``Hyper.mul_eq_lift₂,
+      ``Hyper.sub_eq_lift₂,
+      ``Hyper.neg_eq_lift,
+      ``Hyper.zero_eq_std,
+      ``Hyper.one_eq_std
     ]
 
     -- Lemmas that distribute/commute structure (need reversal for upward transfer)
@@ -177,16 +248,77 @@ elab_rules : tactic
 
       if (← getGoals).isEmpty then return
 
+      -- Custom post-processing for quantifiers (upward)
+      -- We need to repeatedly apply forall_std_iff / exists_std_iff
+      -- We do this by iterating on the goal
+      let mut currentGoal ← getMainGoal
+      let mut changed := true
+      while changed do
+        changed := false
+        let target ← currentGoal.getType
+        let target ← whnf target
+        dbg_trace "Target: {target}"
+        dbg_trace "Target kind: {target.ctorName}"
+        dbg_trace "Target isForall: {target.isForall}"
+
+        if target.isForall && !target.isAppOf ``Filter.Eventually then
+          -- Check if domain is Hyper
+          if (← (try isHyperDomain target.bindingDomain! catch _ => pure false)) then
+             try
+               if let some ι := ι? then
+                 let ιStx ← PrettyPrinter.delab ι
+                 evalTactic (← `(tactic| rw [Hyper.forall_ofSeq_iff (ι := $ιStx)]))
+               else
+                 evalTactic (← `(tactic| rw [Hyper.forall_ofSeq_iff]))
+               changed := true
+               currentGoal ← getMainGoal -- update goal
+             catch _ => pure ()
+          else
+             -- Not Hyper, intro and recurse
+             let name := target.bindingName!
+             liftMetaTactic fun mvarId => do
+               let (_, mvarId) ← mvarId.intro name
+               return [mvarId]
+             evalTactic (← `(tactic| transfer))
+             return
+        else if target.isAppOfArity ``Exists 2 then
+           -- Check domain
+           let domain := target.getAppArgs[0]!
+           if (← (try isHyperDomain domain catch _ => pure false)) then
+             try
+               if let some ι := ι? then
+                 let ιStx ← PrettyPrinter.delab ι
+                 evalTactic (← `(tactic| rw [Hyper.exists_ofSeq_iff (ι := $ιStx)]))
+               else
+                 evalTactic (← `(tactic| rw [Hyper.exists_ofSeq_iff]))
+               changed := true
+               evalTactic (← `(tactic| transfer))
+               return
+             catch _ => pure ()
+
+        if !changed then
+           -- Try to look inside?
+           -- For now, we only handle top-level quantifiers.
+           -- If the quantifier is under `liftRel`, we might need to use `simp` again?
+           -- But `simp` should have handled `liftRel`.
+           pure ()
+
+      -- Run simp again to reduce ofSeq introduced by quantifiers
+      evalTactic (← `(tactic|
+        simp (config := { failIfUnchanged := false }) only [$simpArgsStx,*] $[$loc]?))
+
+      if (← getGoals).isEmpty then return
+
       -- Custom post-processing for quantifiers
       let goal ← getMainGoal
       let tgt ← instantiateMVars (← goal.getType)
 
-      let isHyperDomain (dom : Expr) : Bool :=
-        dom.isAppOf ``Hyper
-
       if tgt.isForall then
         let dom := tgt.bindingDomain!
-        if isHyperDomain dom then
+        -- dbg_trace "Checking domain: {dom}"
+        let isHyp ← isHyperDomain dom
+        if isHyp then
+           -- dbg_trace "Domain is Hyper!"
            -- Rewrite (∀ x, liftPred P x) -> (∀ a, P a) using forall_std_iff (backward)
            -- We use Simp.rewrite? to handle unification
            let mut thms : SimpTheorems := {}
@@ -195,10 +327,15 @@ elab_rules : tactic
            let (res, _) ← (Simp.rewrite? tgt thms.post {} "transfer" (rflOnly := false)).run ctx {}
            if let some res := res then
              replaceMainGoal [← applySimpResultToTarget goal tgt res]
+             -- Recursively call transfer on the new goal
+
+             evalTactic (← `(tactic| transfer))
+             return
 
       else if tgt.isAppOfArity ``Exists 2 then
          let dom := tgt.getArg! 0
-         if isHyperDomain dom then
+         let isHyp ← isHyperDomain dom
+         if isHyp then
            -- Rewrite (∃ x, liftPred P x) -> (∃ a, P a) using exists_std_iff (backward)
            let mut thms : SimpTheorems := {}
            thms ← thms.addConst ``Hyper.exists_std_iff (inv := true)
@@ -206,6 +343,10 @@ elab_rules : tactic
            let (res, _) ← (Simp.rewrite? tgt thms.post {} "transfer" (rflOnly := false)).run ctx {}
            if let some res := res then
              replaceMainGoal [← applySimpResultToTarget goal tgt res]
+
+      -- Final attempt to close goal
+      if (← getGoals).isEmpty then return
+      try evalTactic (← `(tactic| assumption)) catch _ => pure ()
 
 /--
 The `saturation` tactic automates the application of saturation principles.
@@ -232,10 +373,51 @@ elab_rules : tactic
            evalTactic (← `(tactic| refine countable_saturation ?_))
            return
         else
-           throwError "saturation: currently only supports index type ℕ"
+           -- Try cardinal_saturation
+           -- We leave the embedding as a subgoal
+           evalTactic (← `(tactic| refine cardinal_saturation ?_ ?_))
+           return
       else
         throwError "saturation: goal must be of the form ∃ x, ∀ k, ..."
     else
       throwError "saturation: goal must be of the form ∃ x, ..."
+
+/--
+The `overspill` tactic applies the overspill principle.
+Given a hypothesis `h : ∀ n : ℕ, ∃ m > n, P m`, it produces
+`∃ x : Hyper ℕ ℕ, IsInfinite x ∧ liftPred P x`.
+Usage: `overspill h` or `overspill h with x hx`.
+-/
+syntax "overspill" term ("with" ident ident)? : tactic
+
+elab_rules : tactic
+  | `(tactic| overspill $h:term $[with $x:ident $hx:ident]?) => do
+    -- Check if hType matches ∀ n, ∃ m > n, P m
+    -- For now, we just apply the theorem and let Lean check unification
+    evalTactic (← `(tactic| have := exists_infinite_of_forall_exists_gt $h))
+    if let (some xId, some hxId) := (x, hx) then
+      evalTactic (← `(tactic| obtain ⟨$xId, $hxId⟩ := this))
+      evalTactic (← `(tactic| clear this))
+    else
+      -- If no names provided, keep 'this'
+      pure ()
+
+/--
+The `underspill` tactic applies the underspill principle.
+Given a hypothesis `h : ∀ x : Hyper ℕ ℕ, IsInfinite x → liftPred P x`, it produces
+`∃ n : ℕ, ∀ m ≥ n, P m`.
+Usage: `underspill h` or `underspill h with n hn`.
+-/
+syntax "underspill" term ("with" ident ident)? : tactic
+
+elab_rules : tactic
+  | `(tactic| underspill $h:term $[with $n:ident $hn:ident]?) => do
+    -- Apply theorem
+    evalTactic (← `(tactic| have := exists_forall_ge_of_forall_infinite $h))
+    if let (some nId, some hnId) := (n, hn) then
+      evalTactic (← `(tactic| obtain ⟨$nId, $hnId⟩ := this))
+      evalTactic (← `(tactic| clear this))
+    else
+      pure ()
 
 end Mathlib.Tactic.Nonstandard

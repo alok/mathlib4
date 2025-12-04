@@ -8,6 +8,7 @@ import Mathlib.Topology.Basic
 import Mathlib.Topology.Separation.Basic
 import Mathlib.Topology.MetricSpace.Basic
 import Mathlib.Analysis.Normed.Group.Basic
+import Mathlib.Analysis.Normed.Ring.Basic
 import Mathlib.Topology.Sequences
 import Mathlib.Topology.UniformSpace.HeineCantor
 
@@ -47,10 +48,26 @@ concepts like continuity, compactness, and convergence using hyperstructures.
 -/
 
 open Filter Topology Set
+open scoped NonstandardAnalysis
 
 namespace Hyper
 
 variable {ι : Type*} [Infinite ι] {α β : Type*}
+
+/-! ## Topology Notation
+
+Additional notation for topological NSA concepts. See `Mathlib.Order.Filter.Germ.Star` for
+the core `★` notation.
+
+* `𝔪 x` - the monad (halo) of `x` (`monad x`)
+* `°y` - the standard part of near-standard `y` (`stdPart y`)
+* `x ≈ y` - infinitesimally close (`InfClose x y`)
+* `x ≃ᵤ y` - entourage-close for uniform spaces (`EntourageClose x y`)
+-/
+
+set_option quotPrecheck false in
+-- Monad notation: 𝔪 x for monad x
+scoped[NonstandardAnalysis] prefix:max "𝔪" => Hyper.monad
 
 /-! ## The Monad (Halo) of a Point
 
@@ -233,7 +250,7 @@ def Infinitesimal (x : Hyper ι α) : Prop :=
 
 /-- Alternative definition using monad. -/
 theorem infinitesimal_iff_mem_monad_zero (x : Hyper ι α) :
-    Infinitesimal x ↔ x ∈ monad (0 : α) := by
+    Infinitesimal x ↔ x ∈ monad 0 := by
   constructor
   · -- Infinitesimal → monad 0
     intro hinf
@@ -319,6 +336,152 @@ theorem Infinitesimal.add {x y : Hyper ι α} (hx : Infinitesimal x) (hy : Infin
 
 end Infinitesimal
 
+/-! ### Infinitesimals as an Ideal
+
+We now show that the infinitesimals form an ideal in the ring of finite hyperelements.
+For a NormedRing, multiplication of a finite element by an infinitesimal is infinitesimal.
+
+The notion of "finite" (or "limited") for normed spaces means bounded norm:
+there exists a standard real M with ‖x‖ < M. This differs from the order-theoretic
+`IsFinite` defined in `Germ/Star.lean`.
+-/
+
+section InfinitesimalIdeal
+
+variable [NormedRing α]
+
+/-- An element is **norm-bounded** (finite in norm) if its norm is less than some standard real.
+This is the appropriate notion for the ideal structure on infinitesimals. -/
+def IsBoundedNorm (x : Hyper ι α) : Prop :=
+  ∃ M : ℝ, 0 < M ∧ lift (‖·‖) x < (std M : Hyper ι ℝ)
+
+/-- Zero has bounded norm. -/
+theorem isBoundedNorm_zero : IsBoundedNorm (0 : Hyper ι α) := by
+  use 1, one_pos
+  simp only [← std_zero, lift_std, norm_zero, std_lt, one_pos]
+
+/-- Standard elements have bounded norm. -/
+theorem isBoundedNorm_std (x : α) : IsBoundedNorm (std x : Hyper ι α) := by
+  use ‖x‖ + 1, by linarith [norm_nonneg x]
+  simp only [lift_std, std_lt]
+  linarith
+
+/-- Infinitesimals have bounded norm. -/
+theorem Infinitesimal.isBoundedNorm {x : Hyper ι α} (hx : Infinitesimal x) : IsBoundedNorm x := by
+  use 1, one_pos
+  exact hx 1 one_pos
+
+/-- Negation preserves bounded norm. -/
+theorem IsBoundedNorm.neg {x : Hyper ι α} (hx : IsBoundedNorm x) : IsBoundedNorm (-x) := by
+  obtain ⟨M, hM, hbound⟩ := hx
+  use M, hM
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hbound ⊢
+  have hneg : (-ofSeq f : Hyper ι α) = ofSeq (fun n => -f n) := by
+    change lift Neg.neg (ofSeq f) = ofSeq (fun n => -f n)
+    rw [lift_ofSeq]; rfl
+  rw [hneg, lift_ofSeq, ofSeq_lt_ofSeq]
+  convert hbound using 1
+  ext n
+  simp only [Function.comp_apply, norm_neg]
+
+/-- Sum of norm-bounded elements is norm-bounded. -/
+theorem IsBoundedNorm.add {x y : Hyper ι α} (hx : IsBoundedNorm x) (hy : IsBoundedNorm y) :
+    IsBoundedNorm (x + y) := by
+  obtain ⟨Mx, hMx, hboundx⟩ := hx
+  obtain ⟨My, hMy, hboundy⟩ := hy
+  use Mx + My, by linarith
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hboundx hboundy ⊢
+  have hadd : (ofSeq f : Hyper ι α) + ofSeq g = ofSeq (fun n => f n + g n) := by
+    change lift₂ Add.add (ofSeq f) (ofSeq g) = ofSeq (fun n => f n + g n)
+    rw [lift₂_ofSeq]; rfl
+  rw [hadd, lift_ofSeq, ofSeq_lt_ofSeq]
+  have hboth := hboundx.and hboundy
+  apply hboth.mono
+  intro n ⟨hn_f, hn_g⟩
+  simp only [Function.comp_apply] at hn_f hn_g ⊢
+  calc ‖f n + g n‖ ≤ ‖f n‖ + ‖g n‖ := norm_add_le _ _
+    _ < Mx + My := by linarith
+
+/-- Product of norm-bounded and infinitesimal (left multiplication) is infinitesimal.
+This is the key property making infinitesimals an ideal. -/
+theorem IsBoundedNorm.mul_infinitesimal {r : Hyper ι α} {x : Hyper ι α}
+    (hr : IsBoundedNorm r) (hx : Infinitesimal x) : Infinitesimal (r * x) := by
+  obtain ⟨M, hM, hbound_r⟩ := hr
+  intro ε hε
+  have hεM : 0 < ε / M := div_pos hε hM
+  have hx' := hx (ε / M) hεM
+  obtain ⟨f, rfl⟩ := ofSeq_surjective r
+  obtain ⟨g, rfl⟩ := ofSeq_surjective x
+  simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hbound_r hx' ⊢
+  have hmul : (ofSeq f : Hyper ι α) * ofSeq g = ofSeq (fun n => f n * g n) := by
+    change lift₂ Mul.mul (ofSeq f) (ofSeq g) = ofSeq (fun n => f n * g n)
+    rw [lift₂_ofSeq]; rfl
+  rw [hmul, lift_ofSeq, ofSeq_lt_ofSeq]
+  have hboth := hbound_r.and hx'
+  apply hboth.mono
+  intro n ⟨hn_r, hn_x⟩
+  simp only [Function.comp_apply] at hn_r hn_x ⊢
+  calc ‖f n * g n‖ ≤ ‖f n‖ * ‖g n‖ := norm_mul_le _ _
+    _ < M * (ε / M) := by
+      apply mul_lt_mul' (le_of_lt hn_r) hn_x (norm_nonneg _) hM
+    _ = ε := mul_div_cancel₀ ε (ne_of_gt hM)
+
+/-- Product of infinitesimal and norm-bounded (right multiplication) is infinitesimal. -/
+theorem Infinitesimal.mul_isBoundedNorm {x : Hyper ι α} {r : Hyper ι α}
+    (hx : Infinitesimal x) (hr : IsBoundedNorm r) : Infinitesimal (x * r) := by
+  obtain ⟨M, hM, hbound_r⟩ := hr
+  intro ε hε
+  have hεM : 0 < ε / M := div_pos hε hM
+  have hx' := hx (ε / M) hεM
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective r
+  simp only [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hbound_r hx' ⊢
+  have hmul : (ofSeq f : Hyper ι α) * ofSeq g = ofSeq (fun n => f n * g n) := by
+    change lift₂ Mul.mul (ofSeq f) (ofSeq g) = ofSeq (fun n => f n * g n)
+    rw [lift₂_ofSeq]; rfl
+  rw [hmul, lift_ofSeq, ofSeq_lt_ofSeq]
+  have hboth := hx'.and hbound_r
+  apply hboth.mono
+  intro n ⟨hn_x, hn_r⟩
+  simp only [Function.comp_apply] at hn_x hn_r ⊢
+  calc ‖f n * g n‖ ≤ ‖f n‖ * ‖g n‖ := norm_mul_le _ _
+    _ < (ε / M) * M := by
+      apply mul_lt_mul' (le_of_lt hn_x) hn_r (norm_nonneg _) hεM
+    _ = ε := div_mul_cancel₀ ε (ne_of_gt hM)
+
+/-- Product of two infinitesimals is infinitesimal. -/
+theorem Infinitesimal.mul {x y : Hyper ι α} (hx : Infinitesimal x) (hy : Infinitesimal y) :
+    Infinitesimal (x * y) :=
+  hx.mul_isBoundedNorm hy.isBoundedNorm
+
+/-- Multiplication by standard element (which is always norm-bounded) preserves infinitesimals. -/
+theorem Infinitesimal.smul_std {x : Hyper ι α} (hx : Infinitesimal x) (r : α) :
+    Infinitesimal ((std r : Hyper ι α) * x) :=
+  (isBoundedNorm_std r).mul_infinitesimal hx
+
+/-- The monad of 0 is closed under addition (subgroup property). -/
+theorem monad_zero_add_closed {x y : Hyper ι α}
+    (hx : x ∈ monad (0 : α)) (hy : y ∈ monad (0 : α)) : x + y ∈ monad (0 : α) := by
+  rw [← infinitesimal_iff_mem_monad_zero] at hx hy ⊢
+  exact hx.add hy
+
+/-- The monad of 0 is closed under negation (subgroup property). -/
+theorem monad_zero_neg_closed {x : Hyper ι α}
+    (hx : x ∈ monad (0 : α)) : -x ∈ monad (0 : α) := by
+  rw [← infinitesimal_iff_mem_monad_zero] at hx ⊢
+  exact hx.neg
+
+/-- The monad of 0 absorbs norm-bounded elements under multiplication (ideal property). -/
+theorem monad_zero_mul_bounded_closed {x r : Hyper ι α}
+    (hx : x ∈ monad (0 : α)) (hr : IsBoundedNorm r) : r * x ∈ monad (0 : α) := by
+  rw [← infinitesimal_iff_mem_monad_zero] at hx ⊢
+  exact hr.mul_infinitesimal hx
+
+end InfinitesimalIdeal
+
 /-! ## Infinitesimal Closeness (≈)
 
 Two elements are infinitesimally close if their difference is infinitesimal.
@@ -335,6 +498,7 @@ def InfClose (x y : Hyper ι α) : Prop :=
 
 @[inherit_doc] scoped infixl:50 " ≈ " => InfClose
 
+@[refl]
 theorem InfClose.refl (x : Hyper ι α) : x ≈ x := by
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
   unfold InfClose Infinitesimal
@@ -350,6 +514,7 @@ theorem InfClose.refl (x : Hyper ι α) : x ≈ x := by
   rw [ofSeq_lt_ofSeq]
   exact Filter.Eventually.of_forall fun n => by simp only [Function.comp_apply, norm_zero, hε]
 
+@[symm]
 theorem InfClose.symm {x y : Hyper ι α} (h : x ≈ y) : y ≈ x := by
   unfold InfClose at h ⊢
   -- y - x = -(x - y), so use neg
@@ -365,6 +530,8 @@ theorem InfClose.symm {x y : Hyper ι α} (h : x ≈ y) : y ≈ x := by
   rw [heq]
   exact h.neg
 
+
+@[trans]
 theorem InfClose.trans {x y z : Hyper ι α} (hxy : x ≈ y) (hyz : y ≈ z) : x ≈ z := by
   unfold InfClose at hxy hyz ⊢
   -- x - z = (x - y) + (y - z)
@@ -396,7 +563,6 @@ theorem std_infClose_std (x y : α) : (std x : Hyper ι α) ≈ std y ↔ x = y 
     linarith
   · intro h
     rw [h]
-    exact InfClose.refl _
 
 end InfClose
 
