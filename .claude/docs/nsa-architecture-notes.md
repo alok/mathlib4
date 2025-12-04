@@ -100,44 +100,53 @@ class HasInfinitesimals (α : Type*) (α* : Type*) [Zero α]
   Infinitesimal : α* → Prop := fun x => HasIsSt.IsSt x 0
 ```
 
-### Standard Part: Two Approaches
+### Standard Part: The Most General Definition
 
-1. **Supremum-based** (in `Hyper.st`):
-   ```lean
-   st x := sSup {r : α | std r ≤ x}
-   ```
-   - Requires: `ConditionallyCompleteLinearOrder α`
-   - Works for: ℝ, ℚ, and even ℕ, ℤ with discrete order
-   - For discrete: gives exact value when x is standard
-   - For dense: gives standard part of finite elements
-   - **This is the more general definition**
+**The topological definition is most general** (already exists in codebase!):
 
-2. **Choice-based** (in type-specific files):
-   ```lean
-   st x := if h : ∃ r, IsSt x r then Classical.choose h else 0
-   ```
-   - More flexible about what `IsSt` means
-   - Falls back to default for elements without standard part
+```lean
+-- halo x = all hyperelements "infinitely close" to x (NonstandardAnalysis.lean:93)
+def halo (x : α) [TopologicalSpace α] : Set (Hyper ι α) :=
+  ⋂ U ∈ 𝓝 x, {y | liftPred (· ∈ U) y}
 
-**Recommendation**: Use supremum-based as primary, derive type-specific ones as special cases.
+-- IsSt defined via halo membership
+def IsSt (y : Hyper ι α) (x : α) : Prop := y ∈ halo x
+-- Equivalently: IsNearStandard in Star.lean:1543
+```
 
-### Unification Strategy
+This works for **any topological space**:
+- **ℝ, ℚ** - order topology, halo = infinitesimal neighborhood
+- **ℂ** - product topology (automatically handles re/im components!)
+- **Normed spaces** - halo = {y | ‖y - std x‖ infinitesimal}
+- **Discrete types (ℕ, ℤ)** - discrete topology, halo x = {std x}
 
-1. Keep `Hyper ι α` as the universal framework in `Star.lean`
-2. Define typeclasses for `NonstandardExtension`, `HasIsSt`, etc.
-3. Make `ℝ*`, `ℕ*`, etc. instances of these classes
-4. Prove that type-specific `st` agrees with general `Hyper.st`
-5. Delete duplicate code from specific files, replacing with instances
+**Uniqueness** comes from T2 (Hausdorff) - already proved:
+```lean
+theorem halo_eq_of_mem_halo [T2Space α] {x y : α} {z : Hyper ι α}
+    (hx : z ∈ halo x) (hy : z ∈ halo y) : x = y
+```
 
-### For Hypercomplex (ℂ*)
+**Standard part function**:
+```lean
+-- General: choice-based, requires proof of near-standardness
+noncomputable def st (y : Hyper ι α) (h : IsNearStd y) : α := h.choose
 
-Since ℂ is not ordered, supremum-based `st` won't work directly.
-Options:
-1. Define `st` component-wise: `st z = (st z.re, st z.im)`
-2. Use norm-based characterization
-3. Lean into type-specific definition
+-- For ordered complete types: supremum gives explicit construction (avoids choice)
+noncomputable def st_ordered (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
+```
 
-Best: Component-wise, then prove it matches the IsSt relation.
+**Key insight**:
+- The **halo/monad definition is conceptually primary** (works for all topological spaces)
+- The **supremum definition is a computational shortcut** for ordered types (avoids choice)
+- For ℂ, ℝⁿ, etc., the topological definition automatically gives the right behavior
+
+### Unification Strategy (Revised)
+
+1. **Primary definition**: `IsSt y x := y ∈ halo x` (topological)
+2. Keep `Hyper ι α` as universal framework in `Star.lean`
+3. For ordered types, prove: `y ∈ halo x ↔ sSup {r | std r ≤ y} = x` (when y finite)
+4. Define typeclasses that encode structure, not alternative definitions
+5. `Hypercomplex` comes for free via product topology - no special case needed!
 
 ## TODO
 
