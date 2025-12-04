@@ -7,6 +7,7 @@ import Mathlib.Order.Filter.Germ.Star
 import Mathlib.Topology.Basic
 import Mathlib.Topology.Separation.Basic
 import Mathlib.Topology.MetricSpace.Basic
+import Mathlib.Topology.Algebra.Monoid.Defs
 import Mathlib.Analysis.Normed.Group.Basic
 import Mathlib.Analysis.Normed.Ring.Basic
 import Mathlib.Analysis.Normed.Field.Basic
@@ -770,6 +771,57 @@ theorem Continuous.halo_map {f : α → β} (hf : Continuous f) (x : α) :
     ∀ y ∈ halo (ι := ι) x, lift f y ∈ halo (f x) := by
   intro y hy
   exact (continuousAt_iff_halo (ι := ι)).mp hf.continuousAt y hy
+
+/-! ### Continuity of Algebraic Operations via NSA
+
+The NSA approach makes proofs of algebraic continuity particularly elegant:
+addition is continuous iff sums of infinitesimally close elements are infinitesimally close.
+-/
+
+section AlgebraicContinuity
+
+variable {G : Type*} [TopologicalSpace G] [Add G] [ContinuousAdd G]
+
+/-- **NSA proof that addition is continuous**: If `x ≈ a` and `y ≈ b`, then `x + y ≈ a + b`.
+
+This is the classic NSA proof: infinitesimally close elements have infinitesimally close sums.
+
+The proof uses the standard topology characterization: addition is continuous, so for any
+neighborhood U of a + b, there exist neighborhoods V of a and W of b with V + W ⊆ U.
+Since x ∈ halo a and y ∈ halo b, we have x ∈ V* and y ∈ W*, hence x + y ∈ U*. -/
+theorem halo_add {a b : G} {x y : Hyper ι G} (hx : x ∈ halo a) (hy : y ∈ halo b) :
+    x + y ∈ halo (a + b) := by
+  rw [mem_halo_iff] at hx hy ⊢
+  intro U hU
+  -- U is a neighborhood of a + b
+  -- By continuity of addition, the preimage of U under (·+·) is a neighborhood of (a, b)
+  have hadd_cont : Continuous fun p : G × G => p.1 + p.2 := continuous_add
+  have hU' : {p : G × G | p.1 + p.2 ∈ U} ∈ 𝓝 (a, b) := hadd_cont.continuousAt hU
+  -- In product topology, this means there exist V ∈ 𝓝 a and W ∈ 𝓝 b with V × W ⊆ preimage
+  rw [nhds_prod_eq] at hU'
+  obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hU'
+  -- x ∈ V* and y ∈ W*
+  have hxV := hx V hV
+  have hyW := hy W hW
+  -- Need to show x + y ∈ U*
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  rw [liftPred_ofSeq] at hxV hyW
+  -- x + y = ofSeq (fun n => f n + g n)
+  have hadd_eq : (ofSeq f : Hyper ι G) + ofSeq g = ofSeq (fun n => f n + g n) := by
+    change lift₂ Add.add (ofSeq f) (ofSeq g) = ofSeq (fun n => f n + g n)
+    rw [lift₂_ofSeq]
+    rfl
+  rw [hadd_eq]
+  rw [liftPred_ofSeq]
+  -- Eventually f n ∈ V and g n ∈ W, so f n + g n ∈ U
+  have hboth := hxV.and hyW
+  apply hboth.mono
+  intro n ⟨hn_V, hn_W⟩
+  -- (f n, g n) ∈ V ×ˢ W, so (f n, g n).1 + (f n, g n).2 = f n + g n ∈ U
+  exact hVW (Set.mk_mem_prod hn_V hn_W)
+
+end AlgebraicContinuity
 
 end Continuity
 
