@@ -32,7 +32,7 @@ public import Mathlib.Algebra.Field.Defs
 
 open scoped Classical
 
-set_option linter.style.longFile 2200
+set_option linter.style.longFile 2400
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -967,6 +967,47 @@ theorem std_lt_ofSeq [LT α] (x : α) (f : ι → α) :
   exact liftRel_const_coe
 
 end Order
+
+/-! ## Standard Embedding as Bundled Homomorphisms
+
+The standard embedding `std : α → Hyper ι α` is a structural embedding that preserves
+all algebraic and order structure. These bundled homomorphisms make composing with
+other morphisms convenient and provide the foundation for the transfer principle. -/
+
+section BundledHoms
+
+variable {ι : Type*} [Infinite ι] {α : Type*}
+
+/-- The standard embedding as a ring homomorphism. -/
+noncomputable def stdRingHom [Ring α] : α →+* Hyper ι α where
+  toFun := std
+  map_zero' := std_zero
+  map_one' := std_one
+  map_add' := std_add
+  map_mul' := std_mul
+
+@[simp] theorem stdRingHom_apply [Ring α] (a : α) : stdRingHom a = (std a : Hyper ι α) := rfl
+
+/-- `std` as an additive monoid homomorphism. -/
+noncomputable def stdAddMonoidHom [AddCommMonoid α] : α →+ Hyper ι α where
+  toFun := std
+  map_zero' := std_zero
+  map_add' := std_add
+
+@[simp] theorem stdAddMonoidHom_apply [AddCommMonoid α] (a : α) :
+    stdAddMonoidHom a = (std a : Hyper ι α) := rfl
+
+/-- The standard embedding as an order embedding.
+This captures the key property that `std` preserves and reflects the order structure. -/
+noncomputable def stdOrderEmbedding [Preorder α] : α ↪o Hyper ι α where
+  toFun := std
+  inj' := std_injective
+  map_rel_iff' := by simp [std_le]
+
+@[simp] theorem stdOrderEmbedding_apply [Preorder α] (a : α) :
+    stdOrderEmbedding a = (std a : Hyper ι α) := rfl
+
+end BundledHoms
 
 /-! ## Internal Set Theory (IST) Axioms
 

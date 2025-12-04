@@ -595,63 +595,67 @@ lemma Infinite.exists_pred {x : ℕ*} (hx : Infinite x) : ∃ y : ℕ*, x = y + 
   filter_upwards [hf] with i hi
   exact (Nat.sub_add_cancel (Nat.one_le_iff_ne_zero.mpr (Nat.pos_iff_ne_zero.mp hi))).symm
 
-/-! ### Hyperfinite: The type of infinite hypernaturals
+/-! ### Unlimited: The type of infinite hypernaturals
 
-In NSA, infinite hypernaturals (often called "hyperfinite" or "unlimited" naturals) play a
-crucial role as indices for characterizing limits, Cauchy sequences, and convergence.
+In NSA, infinite hypernaturals (also called "unlimited" naturals) play a crucial role
+as indices for characterizing limits, Cauchy sequences, and convergence.
 
 The key NSA characterization of sequential convergence is:
-  `f n → L  ↔  ∀ N : Hyperfinite, f*(N) ≈ L`
+  `f n → L  ↔  ∀ N : Unlimited, f*(N) ≈ L`
 
 That is, a sequence converges to L iff evaluating the nonstandard extension at any
 infinite index gives a value infinitely close to L.
+
+Note: The term "hyperfinite" in NSA literature refers to *finite* internal objects
+(elements of `★ (Finset α)`), not infinite ones. We use `Unlimited` to avoid confusion.
 -/
 
-/-- The type of infinite (unlimited) hypernaturals.
-These are hypernaturals larger than every standard natural number. -/
-def Hyperfinite : Type := {N : ℕ* // Infinite N}
+/-- The type of unlimited (infinite) hypernaturals.
+These are hypernaturals larger than every standard natural number.
+Named `Unlimited` to avoid confusion with "hyperfinite" which in NSA refers to finite internal sets. -/
+def Unlimited : Type := {N : ℕ* // Infinite N}
 
-namespace Hyperfinite
+namespace Unlimited
 
-instance : CoeOut Hyperfinite ℕ* := ⟨Subtype.val⟩
+instance : CoeOut Unlimited ℕ* := ⟨Subtype.val⟩
 
-/-- Omega as a Hyperfinite element. -/
-noncomputable def omega' : Hyperfinite := ⟨ω, infinite_omega⟩
+/-- Omega as an Unlimited element. -/
+noncomputable def omega' : Unlimited := ⟨ω, infinite_omega⟩
 
-/-- Any Hyperfinite is positive. -/
-theorem pos (N : Hyperfinite) : 0 < (N : ℕ*) := N.2 0
+/-- Any Unlimited is positive. -/
+theorem pos (N : Unlimited) : 0 < (N : ℕ*) := N.2 0
 
-/-- Any Hyperfinite is greater than any standard natural. -/
-theorem coe_lt (N : Hyperfinite) (n : ℕ) : (n : ℕ*) < N := N.2 n
+/-- Any Unlimited is greater than any standard natural. -/
+theorem coe_lt (N : Unlimited) (n : ℕ) : (n : ℕ*) < N := N.2 n
 
-/-- Hyperfinite is nonempty (witnessed by ω). -/
-instance : Nonempty Hyperfinite := ⟨omega'⟩
+/-- Unlimited is nonempty (witnessed by ω). -/
+instance : Nonempty Unlimited := ⟨omega'⟩
 
-/-- Hyperfinite is inhabited (by ω). -/
-noncomputable instance : Inhabited Hyperfinite := ⟨omega'⟩
+/-- Unlimited is inhabited (by ω). -/
+noncomputable instance : Inhabited Unlimited := ⟨omega'⟩
 
-/-- Successor of Hyperfinite is Hyperfinite. -/
-noncomputable def succ (N : Hyperfinite) : Hyperfinite :=
+/-- Successor of Unlimited is Unlimited. -/
+noncomputable def succ (N : Unlimited) : Unlimited :=
   ⟨N.val + 1, N.2.add_right 1⟩
 
-/-- Sum of Hyperfinite with any hypernatural is Hyperfinite. -/
-noncomputable def add (N : Hyperfinite) (m : ℕ*) : Hyperfinite :=
+/-- Sum of Unlimited with any hypernatural is Unlimited. -/
+noncomputable def add (N : Unlimited) (m : ℕ*) : Unlimited :=
   ⟨N.val + m, N.2.add_right m⟩
 
-/-- Product of Hyperfinite with positive hypernatural is Hyperfinite. -/
-noncomputable def mul_pos (N : Hyperfinite) {m : ℕ*} (hm : 0 < m) : Hyperfinite :=
+/-- Product of Unlimited with positive hypernatural is Unlimited. -/
+noncomputable def mul_pos (N : Unlimited) {m : ℕ*} (hm : 0 < m) : Unlimited :=
   ⟨N.val * m, N.2.mul_pos hm⟩
 
-/-- Double of a Hyperfinite is Hyperfinite. -/
-noncomputable def double (N : Hyperfinite) : Hyperfinite :=
+/-- Double of an Unlimited is Unlimited. -/
+noncomputable def double (N : Unlimited) : Unlimited :=
   ⟨N.val + N.val, N.2.add_right N.val⟩
 
-/-- Any hypernatural ≥ a Hyperfinite is also infinite. -/
-theorem infinite_of_le {N : Hyperfinite} {M : ℕ*} (h : N.val ≤ M) : Infinite M :=
+/-- Any hypernatural ≥ an Unlimited is also infinite. -/
+theorem infinite_of_le {N : Unlimited} {M : ℕ*} (h : N.val ≤ M) : Infinite M :=
   Infinite.of_le N.2 h
 
-/-- Construct Hyperfinite from sequence that tends to infinity. -/
-noncomputable def ofSeqInfinite (f : ℕ → ℕ) (hf : ∀ n, ∃ m, ∀ k ≥ m, n < f k) : Hyperfinite := by
+/-- Construct Unlimited from sequence that tends to infinity. -/
+noncomputable def ofSeqInfinite (f : ℕ → ℕ) (hf : ∀ n, ∃ m, ∀ k ≥ m, n < f k) : Unlimited := by
   refine ⟨ofSeq f, ?_⟩
   intro n
   obtain ⟨m, hm⟩ := hf n
@@ -660,15 +664,32 @@ noncomputable def ofSeqInfinite (f : ℕ → ℕ) (hf : ∀ n, ∃ m, ∀ k ≥ 
   filter_upwards [Filter.eventually_ge_atTop m] with k hk
   exact hm k hk
 
-end Hyperfinite
+end Unlimited
 
-/-- Coercion from Hyperfinite to ℕ* is injective. -/
-theorem hyperfinite_val_injective : Function.Injective (Subtype.val : Hyperfinite → ℕ*) :=
+/-- Coercion from Unlimited to ℕ* is injective. -/
+theorem unlimited_val_injective : Function.Injective (Subtype.val : Unlimited → ℕ*) :=
   Subtype.val_injective
 
-/-- Two Hyperfinite are equal iff their underlying hypernaturals are equal. -/
-theorem hyperfinite_ext {N M : Hyperfinite} : N = M ↔ (N : ℕ*) = (M : ℕ*) :=
+/-- Two Unlimited are equal iff their underlying hypernaturals are equal. -/
+theorem unlimited_ext {N M : Unlimited} : N = M ↔ (N : ℕ*) = (M : ℕ*) :=
   Subtype.ext_iff
+
+/-! ### Deprecated aliases
+
+The type `Hyperfinite` has been renamed to `Unlimited` to avoid confusion with the NSA term
+"hyperfinite" which refers to *finite* internal objects (internal extensions of finite sets).
+-/
+
+@[deprecated Unlimited (since := "2025-05-25")]
+abbrev Hyperfinite : Type := Unlimited
+
+@[deprecated unlimited_val_injective (since := "2025-05-25")]
+theorem hyperfinite_val_injective : Function.Injective (Subtype.val : Unlimited → ℕ*) :=
+  unlimited_val_injective
+
+@[deprecated unlimited_ext (since := "2025-05-25")]
+theorem hyperfinite_ext {N M : Unlimited} : N = M ↔ (N : ℕ*) = (M : ℕ*) :=
+  unlimited_ext
 
 /-- Standard part of multiplication for HFinite numbers. -/
 lemma st_mul {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) : st (x * y) = st x * st y := by
@@ -928,22 +949,22 @@ lemma st_factorial {x : ℕ*} (hx : HFinite x) : st (factorial x) = Nat.factoria
   conv_lhs => rw [hx']
   simp only [factorial_coe, st_coe]
 
-/-! ### Hyperfinite extensions
+/-! ### Unlimited extensions
 
-Additional operations on `Hyperfinite` that require definitions from later in the file.
+Additional operations on `Unlimited` that require definitions from later in the file.
 -/
 
-namespace Hyperfinite
+namespace Unlimited
 
-/-- Factorial of Hyperfinite is Hyperfinite. -/
-noncomputable def factorial (N : Hyperfinite) : Hyperfinite :=
+/-- Factorial of Unlimited is Unlimited. -/
+noncomputable def factorial (N : Unlimited) : Unlimited :=
   ⟨Hypernatural.factorial N.val, Infinite.factorial N.2⟩
 
-/-- Power of Hyperfinite by positive natural is Hyperfinite. -/
-noncomputable def pow (N : Hyperfinite) {n : ℕ} (hn : 0 < n) : Hyperfinite :=
+/-- Power of Unlimited by positive natural is Unlimited. -/
+noncomputable def pow (N : Unlimited) {n : ℕ} (hn : 0 < n) : Unlimited :=
   ⟨N.val ^ n, Infinite.pow N.2 hn⟩
 
-end Hyperfinite
+end Unlimited
 
 /-! ### Additional ordering lemmas -/
 
