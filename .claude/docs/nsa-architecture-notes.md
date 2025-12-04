@@ -148,6 +148,33 @@ noncomputable def st_ordered (x : Hyper ι α) : α := sSup {r : α | std r ≤ 
 4. Define typeclasses that encode structure, not alternative definitions
 5. `Hypercomplex` comes for free via product topology - no special case needed!
 
+## Naming Refactor: IsSt → IsNearStandard
+
+**Problem**: `IsSt` is a confusing name - it sounds like "is standard" but means "has standard part".
+
+**Current state**:
+| File | `IsSt` means | Occurrences |
+|------|--------------|-------------|
+| Hyperreal.lean | ε-δ closeness | 65 |
+| Hypernatural.lean | equality `x = std r` | 27 |
+| Hyperinteger.lean | equality `x = std r` | 10 |
+| Star.lean | `IsNearStandard` (topological) | canonical |
+
+**Target**: Use `IsNearStandard` everywhere (the topological definition from Star.lean).
+
+**Why not just replace?**
+- Hyperreal.lean is a `module` file, can't import non-module Star.lean
+- 129 total occurrences across 4 files
+- Many proofs use the ε-δ definition directly
+
+**Refactor plan**:
+1. Add equivalence theorem: `IsSt x r ↔ IsNearStandard x r` (for each type)
+2. Deprecate `IsSt` with `@[deprecated]` pointing to `IsNearStandard`
+3. Gradually migrate proofs
+4. Eventually delete `IsSt` definitions
+
+**Alternative**: Make Star.lean a `module` file, then Hyperreal can import it.
+
 ## TODO
 
 - [ ] Audit aristotle files for useful lemmas
@@ -155,3 +182,4 @@ noncomputable def st_ordered (x : Hyper ι α) : α := sSup {r : α | std r ≤ 
 - [ ] Make hyperstructures instances
 - [ ] Unify standard part definitions
 - [ ] Add `Hypercomplex` (`ℂ*`)
+- [ ] Refactor `IsSt` → `IsNearStandard` (see above)
