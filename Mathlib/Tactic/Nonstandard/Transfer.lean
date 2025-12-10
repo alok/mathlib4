@@ -73,17 +73,36 @@ syntax (name := transfer) "transfer" : tactic
 
 /-- The `transfer` tactic simplifies goals involving `std` using transfer lemmas.
 It uses `simp only` with the standard embedding lemmas to reduce goals about
-nonstandard elements to their standard counterparts. -/
+nonstandard elements to their standard counterparts.
+
+The tactic handles:
+- Arithmetic operations: `std (a + b) = std a + std b`, etc.
+- Order relations: `std a ≤ std b ↔ a ≤ b`
+- Logical connectives through `liftPred`
+- Quantifiers via `forall_std_iff` and related lemmas
+-/
 @[tactic transfer]
 def evalTransfer : Tactic := fun _ => do
   evalTactic (← `(tactic|
     simp only [
+      -- Arithmetic operations
       Hyper.std_add, Hyper.std_mul, Hyper.std_neg, Hyper.std_sub,
       Hyper.std_inv, Hyper.std_div, Hyper.std_zero, Hyper.std_one,
+      -- Order relations
       Hyper.std_le, Hyper.std_lt, Hyper.std_inj,
+      Hyper.std_le_std, Hyper.std_lt_std,
+      -- Basic liftPred/liftRel
       Hyper.liftPred_std, Hyper.liftRel_std,
+      -- Logical connectives
       Hyper.liftPred_and, Hyper.liftPred_or, Hyper.liftPred_not,
-      Hyper.liftPred_imp
+      Hyper.liftPred_imp,
+      -- Quantifiers (the key transfer theorems)
+      Hyper.forall_std_iff, Hyper.exists_std_iff,
+      Hyper.forall_liftRel, Hyper.exists_liftRel,
+      Hyper.forall_forall_std_iff,
+      Hyper.liftPred_exists_iff,
+      -- Lifting through operations
+      Hyper.liftPred_lift, Hyper.liftRel_lift_left, Hyper.liftRel_lift_right
     ]))
 
 end Mathlib.Tactic.Nonstandard

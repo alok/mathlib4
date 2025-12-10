@@ -29,6 +29,7 @@ public import Mathlib.Topology.Order.DenselyOrdered
 public import Mathlib.Order.ConditionallyCompleteLattice.Basic
 public import Mathlib.Tactic.Linarith
 public import Mathlib.Algebra.Field.Defs
+public import Mathlib.Algebra.Order.Field.Defs
 
 open scoped Classical
 
@@ -77,6 +78,8 @@ variable {ι κ : Type*} [Infinite ι] {α β γ : Type*}
 This is the ultraproduct `∏_U α` where `U` is the hyperfilter on `ι`. -/
 def Hyper (ι : Type*) [Infinite ι] (α : Type*) : Type _ :=
   Germ (hyperfilter ι : Filter ι) α
+
+
 
 /-- Hypernatural numbers are the nonstandard extension of ℕ indexed by ℕ. -/
 abbrev Hypernatural := Hyper ℕ ℕ
@@ -276,7 +279,7 @@ theorem star_empty : star (ι := ι) (∅ : Set α) = (∅ : Set (Hyper ι α)) 
 
 theorem star_univ : star (ι := ι) (Set.univ : Set α) = (Set.univ : Set (Hyper ι α)) := by
   ext x
-  simp only [mem_star_iff, Set.mem_univ, true_iff]
+  simp only [mem_star_iff, Set.mem_univ]
   induction x using Germ.inductionOn
   simp only [liftPred, Germ.liftPred_coe, Filter.eventually_true]
 
@@ -284,19 +287,19 @@ theorem star_union (s t : Set α) : star (ι := ι) (s ∪ t) = ⋆s ∪ ⋆t :=
   ext x
   simp only [mem_star_iff, Set.mem_union]
   induction x using Germ.inductionOn
-  simp only [liftPred, Germ.liftPred_coe, Set.mem_union, Ultrafilter.eventually_or]
+  simp only [liftPred, Germ.liftPred_coe, Ultrafilter.eventually_or]
 
 theorem star_inter (s t : Set α) : star (ι := ι) (s ∩ t) = ⋆s ∩ ⋆t := by
   ext x
   simp only [mem_star_iff, Set.mem_inter_iff]
   induction x using Germ.inductionOn
-  simp only [liftPred, Germ.liftPred_coe, Set.mem_inter_iff, Filter.eventually_and]
+  simp only [liftPred, Germ.liftPred_coe, Filter.eventually_and]
 
 theorem star_compl (s : Set α) : star (ι := ι) (sᶜ) = (⋆s)ᶜ := by
   ext x
   simp only [mem_star_iff, Set.mem_compl_iff]
   induction x using Germ.inductionOn
-  simp only [liftPred, Germ.liftPred_coe, Set.mem_compl_iff, Ultrafilter.eventually_not]
+  simp only [liftPred, Germ.liftPred_coe, Ultrafilter.eventually_not]
 
 theorem star_subset {s t : Set α} (h : s ⊆ t) : star (ι := ι) s ⊆ ⋆t := by
   intro x hx
@@ -573,6 +576,72 @@ theorem std_inv [Inv α] (a : α) : (std a⁻¹ : Hyper ι α) = (std a)⁻¹ :=
 theorem std_div [Div α] (a b : α) : (std (a / b) : Hyper ι α) = std a / std b := by
   simp [HDiv.hDiv, Div.div, lift₂_std]
 
+noncomputable instance [Semigroup α] : Semigroup (Hyper ι α) :=
+  { instMulHyper with
+    mul_assoc := fun a b c => Germ.inductionOn₃ a b c fun f g k =>
+      Eventually.of_forall fun i => mul_assoc (f i) (g i) (k i) }
+
+noncomputable instance [commSemigroup : CommSemigroup α] : CommSemigroup (Hyper ι α) :=
+  { (inferInstance : Semigroup (Hyper ι α)) with
+    mul_comm := fun a b => Germ.inductionOn₂ a b fun f g =>
+      Eventually.of_forall fun i => mul_comm (f i) (g i) }
+
+noncomputable instance [Monoid α] : Monoid (Hyper ι α) :=
+  { instMulHyper, instOneHyper, (inferInstance : Semigroup (Hyper ι α)) with
+    one_mul := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => one_mul (f i)
+    mul_one := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => mul_one (f i)
+    npow := fun n x => x ^ n
+    npow_zero := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => pow_zero (f i)
+    npow_succ := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => pow_succ (f i) n }
+
+noncomputable instance [CommMonoid α] : CommMonoid (Hyper ι α) :=
+  { (inferInstance : Monoid (Hyper ι α)), (inferInstance : CommSemigroup (Hyper ι α)) with }
+
+noncomputable instance [Group α] : Group (Hyper ι α) :=
+  { (inferInstance : Monoid (Hyper ι α)), instInvHyper, instDivHyper with
+    inv_mul_cancel := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => inv_mul_cancel (f i)
+    div_eq_mul_inv := fun a b => Germ.inductionOn₂ a b fun f g => Eventually.of_forall fun i => div_eq_mul_inv (f i) (g i)
+    zpow := fun n x => x ^ n
+    zpow_zero' := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zpow_zero (f i)
+    zpow_succ' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zpow_succ (f i) n
+    zpow_neg' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zpow_neg (f i) n }
+
+noncomputable instance [CommGroup α] : CommGroup (Hyper ι α) :=
+  { (inferInstance : Group (Hyper ι α)), (inferInstance : CommMonoid (Hyper ι α)) with }
+
+noncomputable instance [AddSemigroup α] : AddSemigroup (Hyper ι α) :=
+  { instAddHyper with
+    add_assoc := fun a b c => Germ.inductionOn₃ a b c fun f g k =>
+      Eventually.of_forall fun i => add_assoc (f i) (g i) (k i) }
+
+noncomputable instance [AddCommSemigroup α] : AddCommSemigroup (Hyper ι α) :=
+  { (inferInstance : AddSemigroup (Hyper ι α)) with
+    add_comm := fun a b => Germ.inductionOn₂ a b fun f g =>
+      Eventually.of_forall fun i => add_comm (f i) (g i) }
+
+noncomputable instance [AddMonoid α] : AddMonoid (Hyper ι α) :=
+  { instAddHyper, instZeroHyper, (inferInstance : AddSemigroup (Hyper ι α)) with
+    zero_add := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => zero_add (f i)
+    add_zero := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => add_zero (f i)
+    nsmul := fun n x => n • x
+    nsmul_zero := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zero_smul _ (f i)
+    nsmul_succ := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => succ_nsmul (f i) n }
+
+noncomputable instance [AddCommMonoid α] : AddCommMonoid (Hyper ι α) :=
+  { (inferInstance : AddMonoid (Hyper ι α)), (inferInstance : AddCommSemigroup (Hyper ι α)) with }
+
+noncomputable instance [AddGroup α] : AddGroup (Hyper ι α) :=
+  { (inferInstance : AddMonoid (Hyper ι α)), instNegHyper, instSubHyper with
+    add_left_neg := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => add_left_neg (f i)
+    sub_eq_add_neg := fun a b => Germ.inductionOn₂ a b fun f g => Eventually.of_forall fun i => sub_eq_add_neg (f i) (g i)
+    zsmul := fun n x => n • x
+    zsmul_zero' := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zero_zsmul (f i)
+    zsmul_succ' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => natCast_zsmul (f i) n
+    zsmul_neg' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => negSucc_zsmul (f i) n }
+
+noncomputable instance [AddCommGroup α] : AddCommGroup (Hyper ι α) :=
+  { (inferInstance : AddGroup (Hyper ι α)), (inferInstance : AddCommMonoid (Hyper ι α)) with }
+
 end Algebra
 
 /-! ## Order Operations -/
@@ -626,6 +695,39 @@ noncomputable instance instCommRingHyper [CommRing α] : CommRing (Hyper ι α) 
 
 
 
+
+
+
+
+
+
+
+noncomputable instance instFieldHyper [Field α] : Field (Hyper ι α) :=
+  { instCommRingHyper, (inferInstance : Inv (Hyper ι α)), (inferInstance : Div (Hyper ι α)) with
+    mul_inv_cancel := fun x hx => by
+      induction x using Germ.inductionOn; next f =>
+      rw [ne_eq, ← Germ.coe_zero, Germ.coe_eq] at hx
+      rw [← Germ.coe_inv, ← Germ.coe_mul, ← Germ.coe_one, Germ.coe_eq]
+      filter_upwards [Iff.mpr (hyperfilter ι).eventually_not hx] with i hi
+      simp only [Pi.mul_apply, Pi.inv_apply, Pi.one_apply]
+      exact GroupWithZero.mul_inv_cancel (f i) hi
+    inv_zero := by
+      change (↑(0 : α) : Hyper ι α)⁻¹ = 0
+      have h : (↑(0 : α) : Hyper ι α)⁻¹ = ↑(0⁻¹ : α) := rfl
+      rw [h, _root_.inv_zero]
+      exact Germ.coe_zero
+    div_eq_mul_inv := fun a b => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      rw [← Germ.coe_div, ← Germ.coe_inv, ← Germ.coe_mul, Germ.coe_eq]
+      filter_upwards with i
+      exact div_eq_mul_inv (f i) (g i)
+    exists_pair_ne := ⟨0, 1, by
+      rw [ne_eq, ← Germ.coe_zero, ← Germ.coe_one, Germ.coe_eq]
+      exact Iff.mp (hyperfilter ι).eventually_not (Eventually.of_forall fun _ => zero_ne_one)⟩
+    nnqsmul := _
+    qsmul := _ }
+
 noncomputable instance instIsOrderedRingHyper [Ring α] [PartialOrder α] [IsOrderedRing α] :
     IsOrderedRing (Hyper ι α) :=
   { @Filter.Germ.instRing ι (hyperfilter ι) α _,
@@ -660,45 +762,43 @@ noncomputable instance instIsOrderedRingHyper [Ring α] [PartialOrder α] [IsOrd
       exact mul_le_mul_of_nonneg_right hab hc
     zero_le_one := Eventually.of_forall fun _ => zero_le_one }
 
--- noncomputable instance instOrderedSemiringHyper [OrderedSemiring α] : OrderedSemiring (Hyper ι α) :=
---   { instSemiringHyper, instPartialOrderHyper with
---     add_le_add_left := fun a b h c => by
---       induction a using Germ.inductionOn; next f =>
---       induction b using Germ.inductionOn; next g =>
---       induction c using Germ.inductionOn; next k =>
---       dsimp [LE.le] at h ⊢
---       rw [← Germ.coe_add, ← Germ.coe_add, Germ.liftRel_coe]
---       rw [Germ.liftRel_coe] at h
---       exact h.mono fun i hi => add_le_add_left hi (k i)
---     mul_le_mul_of_nonneg_left := fun c hc a b hab => by
---       induction a using Germ.inductionOn; next f =>
---       induction b using Germ.inductionOn; next g =>
---       induction c using Germ.inductionOn; next k =>
---       dsimp [LE.le] at hab hc ⊢
---       rw [← Germ.coe_zero] at hc
---       simp only [Germ.liftRel_coe] at hab hc ⊢
---       rw [← Germ.coe_mul, ← Germ.coe_mul, Germ.liftRel_coe]
---       filter_upwards [hab, hc] with i hab hc
---       exact mul_le_mul_of_nonneg_left hab hc
---     mul_le_mul_of_nonneg_right := fun c hc a b hab => by
---       induction a using Germ.inductionOn; next f =>
---       induction b using Germ.inductionOn; next g =>
---       induction c using Germ.inductionOn; next k =>
---       dsimp [LE.le] at hab hc ⊢
---       rw [← Germ.coe_zero] at hc
---       simp only [Germ.liftRel_coe] at hab hc ⊢
---       rw [← Germ.coe_mul, ← Germ.coe_mul, Germ.liftRel_coe]
---       filter_upwards [hab, hc] with i hab hc
---       exact mul_le_mul_of_nonneg_right hab hc
---     zero_le_one := Eventually.of_forall fun _ => zero_le_one }
 
--- noncomputable instance instLinearOrderedSemiringHyper [LinearOrderedSemiring α] :
---     LinearOrderedSemiring (Hyper ι α) :=
---   { instOrderedSemiringHyper, instLinearOrderHyper with }
 
--- noncomputable instance instLinearOrderedCommSemiringHyper [LinearOrderedCommSemiring α] :
---     LinearOrderedCommSemiring (Hyper ι α) :=
---   { instLinearOrderedSemiringHyper, Filter.Germ.instCommSemiring with }
+
+
+noncomputable instance instIsStrictOrderedRingHyper
+    [Ring α] [PartialOrder α] [IsStrictOrderedRing α] :
+    IsStrictOrderedRing (Hyper ι α) :=
+  { instIsOrderedRingHyper, (Filter.Germ.instNontrivial : Nontrivial (Hyper ι α)) with
+    le_of_add_le_add_left := fun a b c h => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      induction c using Germ.inductionOn; next k =>
+      dsimp [LE.le] at h ⊢
+      rw [← Germ.coe_add, ← Germ.coe_add, Germ.liftRel_coe] at h
+      rw [Germ.liftRel_coe]
+      exact h.mono fun i hi => le_of_add_le_add_left hi
+    mul_lt_mul_of_pos_left := fun c hc a b hab => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      induction c using Germ.inductionOn; next k =>
+      rw [← Germ.coe_zero] at hc
+      have hc' : ∀ᶠ i in hyperfilter ι, 0 < k i := hc
+      have hab' : ∀ᶠ i in hyperfilter ι, f i < g i := hab
+      filter_upwards [hab', hc'] with i hab hc
+      exact mul_lt_mul_of_pos_left hab hc
+    mul_lt_mul_of_pos_right := fun c hc a b hab => by
+      induction a using Germ.inductionOn; next f =>
+      induction b using Germ.inductionOn; next g =>
+      induction c using Germ.inductionOn; next k =>
+      rw [← Germ.coe_zero] at hc
+      have hc' : ∀ᶠ i in hyperfilter ι, 0 < k i := hc
+      have hab' : ∀ᶠ i in hyperfilter ι, f i < g i := hab
+      filter_upwards [hab', hc'] with i hab hc
+      exact mul_lt_mul_of_pos_right hab hc }
+
+
+
 
 -- Factorial
 def factorial [Infinite ι] (n : Hyper ι ℕ) : Hyper ι ℕ := lift Nat.factorial n
@@ -832,7 +932,6 @@ theorem internal_induction (P : Set (Hyper ι ℕ)) (h_int : IsInternal P)
       filter_upwards [hk] with i hi using hi.2
     -- Contradiction with hs
     exact hn_succ_notin (hs n_bad hn_in)
-
   -- Now combine h0_seq and hs_seq
   filter_upwards [h0_seq, hs_seq] with i h0i hsi
   -- For each i, A i is a set of naturals containing 0 and closed under successor.
@@ -908,7 +1007,6 @@ theorem IsInfinitesimal.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMon
       rw [lt_def]
       erw [h_neg]
       simp only [neg_lt_neg_iff]
-
       rw [← liftRel_flip]
       exact h2
     · -- -x < std r ↔ -std r < x
@@ -917,7 +1015,6 @@ theorem IsInfinitesimal.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMon
       rw [this]
       erw [h_neg]
       simp only [neg_lt_neg_iff]
-
       rw [← liftRel_flip]
       exact h1
 
@@ -1184,7 +1281,7 @@ theorem coe_nat_eq_std (n : ℕ) : (n : Hypernatural) = std n := rfl
 
 theorem omega_gt_nat (n : ℕ) : (n : Hypernatural) < omega := by
   rw [lt_def]
-  simp only [omega, coe_nat_eq_std, std_def, Germ.const, Germ.liftRel_coe, ofSeq, Germ.ofFun]
+  simp only [omega, coe_nat_eq_std, std_def, Germ.const, ofSeq, Germ.ofFun]
   apply Filter.mem_hyperfilter_of_finite_compl
   dsimp
   simp only [Set.compl_setOf, not_lt]
@@ -1441,9 +1538,7 @@ theorem cardinal_saturation (e : κ ↪ ι) {α : Type*} {P : κ → α → Prop
     intro k hke
     have hk : k ∈ K_i := Finset.mem_preimage.mpr hke
     exact hj k hk
-
   choose f hf using h_exists
-
   use Hyper.ofSeq f
   intro k
   rw [Hyper.liftPred_ofSeq]
@@ -1697,6 +1792,58 @@ theorem isCompact_iff_nearStd [Nonempty (Set α ↪ ι)] (K : Set α) :
 end Topology
 
 
+section HyperfiniteSets
+
+variable {ι : Type*} [Infinite ι] {α : Type*}
+
+theorem liftPredSeq_mono {P Q : ι → α → Prop} (h : ∀ i x, P i x → Q i x) (x : Hyper ι α) :
+    liftPredSeq P x → liftPredSeq Q x := by
+  induction x using Germ.inductionOn
+  intro hP
+  unfold liftPredSeq at *
+  filter_upwards [hP] with i hi
+  exact h i _ hi
+
+
+/-- A set in `Hyper ι α` is hyperfinite if it is the internal extension of a sequence of finite sets. -/
+def IsHyperfinite (A : Set (Hyper ι α)) : Prop :=
+  ∃ S : ι → Set α, (∀ i, (S i).Finite) ∧ ∀ x, x ∈ A ↔ liftPredSeq (fun i y => y ∈ S i) x
+
+theorem IsHyperfinite.isInternal {A : Set (Hyper ι α)} (h : IsHyperfinite A) : IsInternal A := by
+  obtain ⟨S, _, hS⟩ := h
+  use S, hS
+
+theorem IsHyperfinite.inter_isInternal {H : Set (Hyper ι α)} (hH : IsHyperfinite H)
+    {A : Set (Hyper ι α)} (hA : IsInternal A) : IsHyperfinite (H ∩ A) := by
+  obtain ⟨SH, hSH_fin, hSH_eq⟩ := hH
+  obtain ⟨SA, hSA_eq⟩ := hA
+  use fun i => SH i ∩ SA i
+  constructor
+  · intro i
+    exact (hSH_fin i).inter_of_left (SA i)
+  · intro x
+    rw [Set.mem_inter_iff, hSH_eq, hSA_eq]
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    simp only [liftPredSeq_ofSeq, Set.mem_inter_iff]
+    exact Filter.eventually_and.symm
+
+theorem IsInternal.inter_isHyperfinite {A : Set (Hyper ι α)} (hA : IsInternal A)
+    {H : Set (Hyper ι α)} (hH : IsHyperfinite H) : IsHyperfinite (A ∩ H) := by
+  rw [Set.inter_comm]
+  exact hH.inter_isInternal hA
+
+/-- **Approximation Theorem**: For any infinite set `A`, there exists a hyperfinite set `H`
+such that `{std a | a ∈ A} ⊆ H ⊆ A*` and H contains nonstandard elements. -/
+theorem exists_hyperfinite_approximation [Countable ι] {A : Set α} (hA : A.Countable)
+    (hA_inf : A.Infinite) :
+    ∃ H : Set (Hyper ι α), IsHyperfinite H ∧
+      (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
+      (∀ x ∈ H, liftPred (· ∈ A) x) ∧
+      (std '' A : Set (Hyper ι α)) ⊂ H := by
+  sorry
+
+end HyperfiniteSets
+
 section StandardPart
 
 scoped infix:50 " ≈ " => IsNearStandard
@@ -1764,38 +1911,22 @@ theorem isFinite_iff_exists_st (x : Hyper ι α) : IsFinite x ↔ ∃ r : α, Is
 def galaxy (S : Set (Set α)) : Set (Hyper ι α) :=
   ⋃ s ∈ S, {x | liftPred (· ∈ s) x}
 
+/-- The `monad'` of a family of sets is the intersection of their stars.
+
+Captures idea of set of points so close, they can't be separated by any open set. -/
+def monad' (S : Set (Set α)) : Set (Hyper ι α) :=
+  ⋂ s ∈ S, {x | liftPred (· ∈ s) x}
+
+-- example : @monad = @monad' := by
+--   ext x
+--   simp only [monad, monad']
+--   rw [Set.inter_univ]
+
 theorem galaxy_mem (S : Set (Set α)) (x : Hyper ι α) :
     x ∈ galaxy S ↔ ∃ s ∈ S, liftPred (· ∈ s) x := by
   simp [galaxy]
 
-omit [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α]
-  [TopologicalSpace α] [OrderTopology α] [DenselyOrdered α] [NoMaxOrder α] [NoMinOrder α] in
-theorem liftPredSeq_mono {P Q : ι → α → Prop} (h : ∀ i x, P i x → Q i x) (x : Hyper ι α) :
-    liftPredSeq P x → liftPredSeq Q x := by
-  induction x using Germ.inductionOn
-  intro hP
-  unfold liftPredSeq at *
-  filter_upwards [hP] with i hi
-  exact h i _ hi
 
-
-/-- A set in `Hyper ι α` is hyperfinite if it is the internal extension of a sequence of finite sets. -/
-def IsHyperfinite (A : Set (Hyper ι α)) : Prop :=
-  ∃ S : ι → Set α, (∀ i, (S i).Finite) ∧ ∀ x, x ∈ A ↔ liftPredSeq (fun i y => y ∈ S i) x
-
-theorem IsHyperfinite.isInternal {A : Set (Hyper ι α)} (h : IsHyperfinite A) : IsInternal A := by
-  obtain ⟨S, _, hS⟩ := h
-  use S, hS
-
-/-- **Approximation Theorem**: For any infinite set `A`, there exists a hyperfinite set `H`
-such that `{std a | a ∈ A} ⊆ H ⊆ A*` and H contains nonstandard elements. -/
-theorem exists_hyperfinite_approximation [Countable ι] {A : Set α} (hA : A.Countable)
-    (hA_inf : A.Infinite) :
-    ∃ H : Set (Hyper ι α), IsHyperfinite H ∧
-      (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
-      (∀ x ∈ H, liftPred (· ∈ A) x) ∧
-      (std '' A : Set (Hyper ι α)) ⊂ H := by
-  sorry
 
 theorem st_of_isFinite (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st x) := by
   obtain ⟨r, hr⟩ := (isFinite_iff_exists_st x).mp h
@@ -1810,14 +1941,16 @@ theorem st_of_isFinite (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st
       · intro s hs
         by_contra h_sr
         have h_rs : r < s := lt_of_not_ge h_sr
-        have h_mem : x ∈★ (Set.Iio s) := (isNearStandard_def x r).mp hr (Set.Iio s) (Iio_mem_nhds h_rs)
+        have h_mem : x ∈★ (Set.Iio s) :=
+          (isNearStandard_def x r).mp hr (Set.Iio s) (Iio_mem_nhds h_rs)
         rw [mem_star_Iio] at h_mem
         have h_sx : std s ≤ x := hs
         have h_xs : x < std s := h_mem
         exact lt_irrefl _ (lt_of_le_of_lt h_sx h_xs)
     · have h_subset : Set.Iio r ⊆ S := by
         intro s hs
-        have h_mem : x ∈★ (Set.Ioi s) := (isNearStandard_def x r).mp hr (Set.Ioi s) (Ioi_mem_nhds hs)
+        have h_mem : x ∈★ (Set.Ioi s) :=
+          (isNearStandard_def x r).mp hr (Set.Ioi s) (Ioi_mem_nhds hs)
         rw [mem_star_Ioi] at h_mem
         exact h_mem.le
       rw [← csSup_Iio (a := r)]
@@ -1899,7 +2032,8 @@ theorem not_isCompact_Ioo {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] 
     have h_x_V1 : x ∈★ V1 := h_near_a V1 (hV1_open.mem_nhds ha_in_V1)
     have h_inter : x ∈★ (U1 ∩ V1) := (mem_star_inter x U1 V1).mpr ⟨h_x_U1, h_x_V1⟩
     rw [Set.disjoint_iff_inter_eq_empty.mp h_disj] at h_inter
-    have h_ne_bot : (x.asUltrafilter : Filter α) ≠ ⊥ := @NeBot.ne _ (x.asUltrafilter : Filter α) (Ultrafilter.neBot x.asUltrafilter)
+    have h_ne_bot : (x.asUltrafilter : Filter α) ≠ ⊥ :=
+      @NeBot.ne _ (x.asUltrafilter : Filter α) (Ultrafilter.neBot x.asUltrafilter)
     rw [ne_eq, ← Filter.empty_mem_iff_bot] at h_ne_bot
     rw [mem_star_iff_mem_asUltrafilter] at h_inter
     exact h_ne_bot h_inter
@@ -2034,7 +2168,8 @@ hypernatural represented by `|S_i|`. -/
 noncomputable def hyperfiniteCard (H : Set (Hyper ι α)) (hH : IsHyperfinite H) : Hyper ι ℕ :=
   ofSeq (fun i => (hH.choose_spec.1 i).toFinset.card)
 
-/-- A hyperfinite set with cardinality exceeding all standard naturals contains nonstandard elements.
+/-- A hyperfinite set with cardinality exceeding all standard naturals
+contains nonstandard elements.
 
 This is a fundamental principle: if |H| > n for all standard n, then H cannot consist only of
 standard elements (which would make it at most countably infinite in the standard sense). -/
