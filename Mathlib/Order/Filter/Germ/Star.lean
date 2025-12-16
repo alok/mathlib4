@@ -35,7 +35,7 @@ public import Mathlib.Topology.MetricSpace.Pseudo.Defs
 
 open scoped Classical
 
-set_option linter.style.longFile 3200
+set_option linter.style.longFile 3500
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -844,6 +844,31 @@ theorem mul_eq_lift₂ [Mul α] (x y : Hyper ι α) : x * y = lift₂ (· * ·) 
 theorem sub_eq_lift₂ [Sub α] (x y : Hyper ι α) : x - y = lift₂ (· - ·) x y := rfl
 theorem neg_eq_lift [Neg α] (x : Hyper ι α) : -x = lift (-·) x := rfl
 theorem zero_eq_std [Zero α] : (0 : Hyper ι α) = std 0 := rfl
+
+/-- Contravariant class for left addition: `c + a ≤ c + b → a ≤ b` for hyperreals. -/
+instance [AddCommSemigroup α] [PartialOrder α] [i_contra : AddLeftReflectLE α] :
+    AddLeftReflectLE (Hyper ι α) :=
+  ⟨fun c a b => Germ.inductionOn₃ c a b fun f g k H => by
+    -- H : ↑f + ↑g ≤ ↑f + ↑k (i.e., c + a ≤ c + b), Goal: ↑g ≤ ↑k (i.e., a ≤ b)
+    show liftRel (· ≤ ·) (ofSeq g) (ofSeq k)
+    rw [liftRel_ofSeq]
+    have H' : liftRel (· ≤ ·) (ofSeq f + ofSeq g) (ofSeq f + ofSeq k) := H
+    simp only [add_eq_lift₂, lift₂_ofSeq, liftRel_ofSeq] at H'
+    filter_upwards [H'] with i hi
+    exact @ContravariantClass.elim α α (· + ·) (· ≤ ·) i_contra (f i) (g i) (k i) hi⟩
+
+/-- Contravariant class for right addition: `a + c ≤ b + c → a ≤ b` for hyperreals. -/
+instance [AddCommSemigroup α] [PartialOrder α] [i_contra : AddRightReflectLE α] :
+    AddRightReflectLE (Hyper ι α) :=
+  ⟨fun c a b => Germ.inductionOn₃ c a b fun f g k H => by
+    -- H : ↑g + ↑f ≤ ↑k + ↑f (i.e., a + c ≤ b + c), Goal: ↑g ≤ ↑k (i.e., a ≤ b)
+    show liftRel (· ≤ ·) (ofSeq g) (ofSeq k)
+    rw [liftRel_ofSeq]
+    have H' : liftRel (· ≤ ·) (ofSeq g + ofSeq f) (ofSeq k + ofSeq f) := H
+    simp only [add_eq_lift₂, lift₂_ofSeq, liftRel_ofSeq] at H'
+    filter_upwards [H'] with i hi
+    exact @ContravariantClass.elim α α (Function.swap (· + ·)) (· ≤ ·) i_contra
+      (f i) (g i) (k i) hi⟩
 
 /-- The transfer of the induction axiom for *internal* sets of hypernaturals.
 If an internal set `P` contains 0 and is closed under successor, it contains all hypernaturals. -/
@@ -3267,6 +3292,27 @@ theorem st_eq_isNearStandard (x : Hyper ℕ ℝ) (hx : IsFinite x) :
   exact st_of_isFinite x hx
 
 end StandardPartReal
+
+/-! ### Grind integration tests
+
+Verify that the `grind` tactic can solve linear arithmetic goals over hyperreals.
+These tests confirm that `Grind.OrderedAdd` instances are correctly derived.
+-/
+section GrindTests
+
+variable (a b c : Hyper ℕ ℝ)
+
+-- Basic linear arithmetic
+example : a + b = b + a := by grind
+example (h : a ≤ b) : a + c ≤ b + c := by grind
+example (h : a ≤ b) (h' : b ≤ c) : a ≤ c := by grind
+example : 2 * a + b ≥ b + a + a := by grind
+
+-- With hypotheses
+example (h : a + c ≤ b + c) : a ≤ b := by grind
+example (h₁ : a ≤ b) (h₂ : c ≤ a) : c ≤ b := by grind
+
+end GrindTests
 
 end Hyper
 
