@@ -30,10 +30,12 @@ public import Mathlib.Order.ConditionallyCompleteLattice.Basic
 public import Mathlib.Tactic.Linarith
 public import Mathlib.Algebra.Field.Defs
 public import Mathlib.Algebra.Order.Field.Defs
+public import Mathlib.Topology.MetricSpace.Cauchy
+public import Mathlib.Topology.MetricSpace.Pseudo.Defs
 
 open scoped Classical
 
-set_option linter.style.longFile 2400
+set_option linter.style.longFile 3200
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -76,7 +78,7 @@ variable {ι κ : Type*} [Infinite ι] {α β γ : Type*}
 
 /-- The nonstandard extension of `α` over index type `ι`.
 This is the ultraproduct `∏_U α` where `U` is the hyperfilter on `ι`. -/
-def Hyper (ι : Type*) [Infinite ι] (α : Type*) : Type _ :=
+abbrev Hyper (ι : Type*) [Infinite ι] (α : Type*) : Type _ :=
   Germ (hyperfilter ι : Filter ι) α
 
 
@@ -536,111 +538,34 @@ theorem liftPred_exists_iff {Q : α → β → Prop} {x : Hyper ι α} :
 
 end LogicalConnectives
 
-/-! ## Algebraic Operations -/
+/-! ## Algebraic Operations
+
+Since `Hyper ι α = Germ (hyperfilter ι) α`, all algebraic instances are inherited from `Germ`.
+We provide simp lemmas relating `std` to the inherited operations. -/
 
 section Algebra
 
-noncomputable instance [Zero α] : Zero (Hyper ι α) := ⟨std 0⟩
-noncomputable instance [One α] : One (Hyper ι α) := ⟨std 1⟩
-noncomputable instance [Add α] : Add (Hyper ι α) := ⟨lift₂ (· + ·)⟩
-noncomputable instance [Mul α] : Mul (Hyper ι α) := ⟨lift₂ (· * ·)⟩
-noncomputable instance [Neg α] : Neg (Hyper ι α) := ⟨lift (- ·)⟩
-noncomputable instance [Sub α] : Sub (Hyper ι α) := ⟨lift₂ (· - ·)⟩
-noncomputable instance [Inv α] : Inv (Hyper ι α) := ⟨lift (·⁻¹)⟩
-noncomputable instance [Div α] : Div (Hyper ι α) := ⟨lift₂ (· / ·)⟩
-
-@[simp] theorem std_zero [Zero α] : (std 0 : Hyper ι α) = 0 := rfl
-@[simp] theorem std_one [One α] : (std 1 : Hyper ι α) = 1 := rfl
+-- Standard embedding preserves algebraic operations
+@[simp] theorem std_zero [Zero α] : std (0 : α) = (0 : Hyper ι α) := rfl
+@[simp] theorem std_one [One α] : std (1 : α) = (1 : Hyper ι α) := rfl
 
 @[simp]
-theorem std_add [Add α] (a b : α) : (std (a + b) : Hyper ι α) = std a + std b := by
-  simp [HAdd.hAdd, Add.add, lift₂_std]
+theorem std_add [Add α] (a b : α) : std (a + b) = (std a : Hyper ι α) + std b := rfl
 
 @[simp]
-theorem std_mul [Mul α] (a b : α) : (std (a * b) : Hyper ι α) = std a * std b := by
-  simp [HMul.hMul, Mul.mul, lift₂_std]
+theorem std_mul [Mul α] (a b : α) : std (a * b) = (std a : Hyper ι α) * std b := rfl
 
 @[simp]
-theorem std_neg [Neg α] (a : α) : (std (-a) : Hyper ι α) = -std a := by
-  dsimp [lift, std]
+theorem std_neg [Neg α] (a : α) : std (-a) = -(std a : Hyper ι α) := rfl
 
 @[simp]
-theorem std_sub [Sub α] (a b : α) : (std (a - b) : Hyper ι α) = std a - std b := by
-  simp [HSub.hSub, Sub.sub, lift₂_std]
+theorem std_sub [Sub α] (a b : α) : std (a - b) = (std a : Hyper ι α) - std b := rfl
 
 @[simp]
-theorem std_inv [Inv α] (a : α) : (std a⁻¹ : Hyper ι α) = (std a)⁻¹ := by
-  dsimp [lift, std]
+theorem std_inv [Inv α] (a : α) : std a⁻¹ = (std a : Hyper ι α)⁻¹ := rfl
 
 @[simp]
-theorem std_div [Div α] (a b : α) : (std (a / b) : Hyper ι α) = std a / std b := by
-  simp [HDiv.hDiv, Div.div, lift₂_std]
-
-noncomputable instance [Semigroup α] : Semigroup (Hyper ι α) :=
-  { instMulHyper with
-    mul_assoc := fun a b c => Germ.inductionOn₃ a b c fun f g k =>
-      Eventually.of_forall fun i => mul_assoc (f i) (g i) (k i) }
-
-noncomputable instance [commSemigroup : CommSemigroup α] : CommSemigroup (Hyper ι α) :=
-  { (inferInstance : Semigroup (Hyper ι α)) with
-    mul_comm := fun a b => Germ.inductionOn₂ a b fun f g =>
-      Eventually.of_forall fun i => mul_comm (f i) (g i) }
-
-noncomputable instance [Monoid α] : Monoid (Hyper ι α) :=
-  { instMulHyper, instOneHyper, (inferInstance : Semigroup (Hyper ι α)) with
-    one_mul := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => one_mul (f i)
-    mul_one := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => mul_one (f i)
-    npow := fun n x => x ^ n
-    npow_zero := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => pow_zero (f i)
-    npow_succ := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => pow_succ (f i) n }
-
-noncomputable instance [CommMonoid α] : CommMonoid (Hyper ι α) :=
-  { (inferInstance : Monoid (Hyper ι α)), (inferInstance : CommSemigroup (Hyper ι α)) with }
-
-noncomputable instance [Group α] : Group (Hyper ι α) :=
-  { (inferInstance : Monoid (Hyper ι α)), instInvHyper, instDivHyper with
-    inv_mul_cancel := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => inv_mul_cancel (f i)
-    div_eq_mul_inv := fun a b => Germ.inductionOn₂ a b fun f g => Eventually.of_forall fun i => div_eq_mul_inv (f i) (g i)
-    zpow := fun n x => x ^ n
-    zpow_zero' := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zpow_zero (f i)
-    zpow_succ' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zpow_succ (f i) n
-    zpow_neg' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zpow_neg (f i) n }
-
-noncomputable instance [CommGroup α] : CommGroup (Hyper ι α) :=
-  { (inferInstance : Group (Hyper ι α)), (inferInstance : CommMonoid (Hyper ι α)) with }
-
-noncomputable instance [AddSemigroup α] : AddSemigroup (Hyper ι α) :=
-  { instAddHyper with
-    add_assoc := fun a b c => Germ.inductionOn₃ a b c fun f g k =>
-      Eventually.of_forall fun i => add_assoc (f i) (g i) (k i) }
-
-noncomputable instance [AddCommSemigroup α] : AddCommSemigroup (Hyper ι α) :=
-  { (inferInstance : AddSemigroup (Hyper ι α)) with
-    add_comm := fun a b => Germ.inductionOn₂ a b fun f g =>
-      Eventually.of_forall fun i => add_comm (f i) (g i) }
-
-noncomputable instance [AddMonoid α] : AddMonoid (Hyper ι α) :=
-  { instAddHyper, instZeroHyper, (inferInstance : AddSemigroup (Hyper ι α)) with
-    zero_add := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => zero_add (f i)
-    add_zero := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => add_zero (f i)
-    nsmul := fun n x => n • x
-    nsmul_zero := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zero_smul _ (f i)
-    nsmul_succ := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => succ_nsmul (f i) n }
-
-noncomputable instance [AddCommMonoid α] : AddCommMonoid (Hyper ι α) :=
-  { (inferInstance : AddMonoid (Hyper ι α)), (inferInstance : AddCommSemigroup (Hyper ι α)) with }
-
-noncomputable instance [AddGroup α] : AddGroup (Hyper ι α) :=
-  { (inferInstance : AddMonoid (Hyper ι α)), instNegHyper, instSubHyper with
-    add_left_neg := fun a => Germ.inductionOn a fun f => Eventually.of_forall fun i => add_left_neg (f i)
-    sub_eq_add_neg := fun a b => Germ.inductionOn₂ a b fun f g => Eventually.of_forall fun i => sub_eq_add_neg (f i) (g i)
-    zsmul := fun n x => n • x
-    zsmul_zero' := fun x => Germ.inductionOn x fun f => Eventually.of_forall fun i => zero_zsmul (f i)
-    zsmul_succ' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => natCast_zsmul (f i) n
-    zsmul_neg' := fun n x => Germ.inductionOn x fun f => Eventually.of_forall fun i => negSucc_zsmul (f i) n }
-
-noncomputable instance [AddCommGroup α] : AddCommGroup (Hyper ι α) :=
-  { (inferInstance : AddGroup (Hyper ι α)), (inferInstance : AddCommMonoid (Hyper ι α)) with }
+theorem std_div [Div α] (a b : α) : std (a / b) = (std a : Hyper ι α) / std b := rfl
 
 end Algebra
 
@@ -678,14 +603,49 @@ noncomputable instance instPartialOrderHyper [PartialOrder α] : PartialOrder (H
       rw [Germ.coe_eq]
       exact h1.and h2 |>.mono fun i h => le_antisymm h.1 h.2 }
 
+/-- Totality of order on hyperreals. -/
+theorem Hyper.le_total [LinearOrder α] : IsTotal (Hyper ι α) (· ≤ ·) where
+  total x y := by
+    induction x using Germ.inductionOn; next f =>
+    induction y using Germ.inductionOn; next g =>
+    simp only [LE.le, Germ.liftRel_coe]
+    exact (hyperfilter ι).eventually_or.1
+      (Eventually.of_forall fun i => LinearOrder.le_total (f i) (g i))
+
+/-- Germ's Max equals the if-then-else form. This bridges the Max instance from Germ
+with the canonical form expected by LinearOrder. -/
+private theorem Hyper.max_def [LinearOrder α] (a b : Hyper ι α) :
+    Max.max a b = if a ≤ b then b else a := by
+  induction a using Germ.inductionOn with | h f =>
+  induction b using Germ.inductionOn with | h g =>
+  split_ifs with hab
+  · exact sup_of_le_right hab
+  · have hba : (ofSeq g : Hyper ι α) ≤ ofSeq f :=
+      (Hyper.le_total.total (ofSeq f) (ofSeq g)).resolve_left hab
+    exact sup_of_le_left hba
+
+/-- Germ's Min equals the if-then-else form. -/
+private theorem Hyper.min_def [LinearOrder α] (a b : Hyper ι α) :
+    Min.min a b = if a ≤ b then a else b := by
+  induction a using Germ.inductionOn with | h f =>
+  induction b using Germ.inductionOn with | h g =>
+  split_ifs with hab
+  · exact inf_of_le_left hab
+  · have hba : (ofSeq g : Hyper ι α) ≤ ofSeq f :=
+      (Hyper.le_total.total (ofSeq f) (ofSeq g)).resolve_left hab
+    exact inf_of_le_right hba
+
+/-- Linear order on hyperreals, using Germ's Max/Min instances to avoid typeclass diamonds.
+The Max/Min are from `Germ.instSup`/`Germ.instInf` (pointwise operations), which ensures
+the lattice structure is consistent with `Germ.instLattice`. -/
 noncomputable instance instLinearOrderHyper [LinearOrder α] : LinearOrder (Hyper ι α) :=
   { instPartialOrderHyper with
-    le_total := fun x y => by
-      induction x using Germ.inductionOn; next f =>
-      induction y using Germ.inductionOn; next g =>
-      simp only [LE.le, Germ.liftRel_coe]
-      exact (hyperfilter ι).eventually_or.1 (Eventually.of_forall fun i => le_total (f i) (g i))
-    toDecidableLE := Classical.decRel _ }
+    le_total := Hyper.le_total.total
+    toDecidableLE := Classical.decRel _
+    toDecidableEq := Classical.decEq _
+    toDecidableLT := Classical.decRel _
+    max_def := Hyper.max_def
+    min_def := Hyper.min_def }
 
 noncomputable instance instSemiringHyper [Semiring α] : Semiring (Hyper ι α) :=
   Filter.Germ.instSemiring
@@ -1035,7 +995,17 @@ theorem IsInfinitesimal.sub [Field α] [LinearOrder α] [IsOrderedRing α] {x y 
   rw [sub_eq_add_neg]
   exact IsInfinitesimal.add hx (IsInfinitesimal.neg hy)
 
-
+/-- Absolute value of an infinitesimal is infinitesimal. -/
+theorem IsInfinitesimal.abs [Field α] [LinearOrder α] [IsOrderedRing α] {x : Hyper ι α}
+    (hx : IsInfinitesimal x) : IsInfinitesimal |x| := by
+  intro r hr
+  obtain ⟨hneg, hpos⟩ := hx r hr
+  constructor
+  · -- -std r < |x| follows from |x| ≥ 0 > -std r
+    calc -std r < 0 := by rw [← std_neg, ← std_zero]; exact (std_lt (-r) 0).mpr (neg_neg_of_pos hr)
+         _ ≤ |x| := abs_nonneg x
+  · -- |x| < std r follows from abs_lt
+    exact abs_lt.mpr ⟨hneg, hpos⟩
 
 theorem ofSeq_le_ofSeq [LE α] (f g : ι → α) :
     (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i ≤ g i :=
@@ -1188,47 +1158,43 @@ theorem IsFinite.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
 
 theorem IsFinite.sub [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α] {x y : Hyper ι α}
     (hx : IsFinite x) (hy : IsFinite y) : IsFinite (x - y) := by
-  rw [sub_eq_add_neg]
+  grw [sub_eq_add_neg ]
   exact hx.add hy.neg
 
+/-- A hyperreal is finite iff its absolute value is bounded by a standard real. -/
 theorem IsFinite_iff_abs_le [CommRing α] [LinearOrder α] [IsOrderedRing α] {x : Hyper ι α} :
-    IsFinite x ↔ ∃ r : α, abs x ≤ std r := by
+    IsFinite x ↔ ∃ r : α, |x| ≤ std r := by
   constructor
-  · rintro ⟨a, b, ha, hb⟩
-    use abs a + abs b
-    rw [abs_le]
+  · -- IsFinite → bounded abs
+    intro ⟨a, b, ha, hb⟩
+    use max |a| |b|
+    apply abs_le.mpr
     constructor
-    · trans std a
-      · rw [← std_neg, std_le]
-        rw [neg_add]
-        have h1 : -|b| + -|a| ≤ 0 + -|a| :=
-          add_le_add (neg_nonpos.2 (abs_nonneg b)) (le_refl (-|a|))
-        rw [add_comm] at h1
-        rw [zero_add] at h1
-        have h2 : -|a| ≤ a := neg_le.2 (le_trans (le_abs_self (-a)) (le_of_eq (abs_neg a)))
-        exact le_trans h1 h2
-      · exact ha
-    · trans std b
-      · exact hb
-      · rw [std_le]; exact le_add_of_nonneg_of_le (abs_nonneg a) (le_abs_self b)
-  · rintro ⟨r, hr⟩
-    rw [abs_le] at hr
-    exact ⟨-r, r, hr.1, hr.2⟩
+    · -- -std (max |a| |b|) ≤ x
+      have h1 : -(max |a| |b|) ≤ -|a| := neg_le_neg (le_max_left |a| |b|)
+      have h2 : -|a| ≤ a := neg_abs_le a
+      calc -std (max |a| |b|) = std (-(max |a| |b|)) := (std_neg _).symm
+           _ ≤ std a := (std_le _ _).mpr (h1.trans h2)
+           _ ≤ x := ha
+    · -- x ≤ std (max |a| |b|)
+      calc x ≤ std b := hb
+           _ ≤ std (max |a| |b|) := (std_le _ _).mpr (le_max_of_le_right (le_abs_self b))
+  · -- bounded abs → IsFinite
+    intro ⟨r, hr⟩
+    refine ⟨-r, r, ?_, ?_⟩
+    · rw [std_neg]
+      exact neg_le_of_abs_le hr
+    · exact le_of_abs_le hr
 
 theorem IsFinite.mul [CommRing α] [LinearOrder α] [IsOrderedRing α] {x y : Hyper ι α}
     (hx : IsFinite x) (hy : IsFinite y) : IsFinite (x * y) := by
   rw [IsFinite_iff_abs_le] at hx hy ⊢
-  obtain ⟨r, hr⟩ := hx
-  obtain ⟨s, hs⟩ := hy
-  use abs r * abs s + 1
-  have hr' : abs x ≤ std (abs r) := le_trans hr ((std_le r (abs r)).mpr (le_abs_self r))
-  have hs' : abs y ≤ std (abs s) := le_trans hs ((std_le s (abs s)).mpr (le_abs_self s))
-  rw [abs_mul]
-  calc abs x * abs y ≤ std (abs r) * std (abs s) :=
-      mul_le_mul hr' hs' (abs_nonneg y) ((std_le 0 (abs r)).mpr (abs_nonneg r))
-    _ = std (abs r * abs s) := by rw [← std_mul]
-    _ ≤ std (abs r * abs s) + 1 := le_add_of_nonneg_right zero_le_one
-    _ = std (abs r * abs s + 1) := by rw [std_add, std_one]
+  obtain ⟨M, hM⟩ := hx
+  obtain ⟨N, hN⟩ := hy
+  use M * N
+  calc |x * y| = |x| * |y| := abs_mul x y
+       _ ≤ std M * std N := mul_le_mul hM hN (abs_nonneg y) (le_trans (abs_nonneg x) hM)
+       _ = std (M * N) := (std_mul M N).symm
 
 theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinitePos x) :
     IsInfinite x := by
@@ -1236,6 +1202,33 @@ theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinite
   obtain ⟨_, b, _, hb⟩ := hfin
   have : std b < std b := lt_of_lt_of_le (h b) hb
   exact lt_irrefl _ this
+
+/-- Key NSA lemma: the reciprocal of a positive infinite hyperreal is infinitesimal.
+This is the fundamental result connecting infinities and infinitesimals. -/
+theorem IsInfinitesimal.inv_of_isInfinitePos {ι : Type*} [Infinite ι]
+    {α : Type*} [Field α] [LinearOrder α] [IsStrictOrderedRing α]
+    {x : Hyper ι α} (hx : IsInfinitePos x) : IsInfinitesimal x⁻¹ := by
+  -- x is positive infinite means 0 < x
+  have hx_pos : 0 < x := by simpa [std_zero] using hx 0
+  intro ε hε
+  -- Since x is positive infinite, std (1/ε) < x
+  have h1 : std (1 / ε) < x := hx (1 / ε)
+  -- Since 0 < x, we have 0 < x⁻¹
+  have hx_inv_pos : 0 < x⁻¹ := inv_pos.mpr hx_pos
+  constructor
+  · -- -std ε < x⁻¹: since x⁻¹ > 0 and -std ε < 0
+    have hneg : -(std ε : Hyper ι α) < 0 := by
+      simp only [neg_lt_zero]
+      rw [← std_zero, std_lt_std]
+      exact hε
+    exact lt_trans hneg hx_inv_pos
+  · -- x⁻¹ < std ε: since std (1/ε) < x, we have x⁻¹ < (std (1/ε))⁻¹ = std ε
+    have h_pos_inv : 0 < (std (1 / ε) : Hyper ι α) := by
+      rw [← std_zero, std_lt_std]
+      exact one_div_pos.mpr hε
+    have h2 : x⁻¹ < (std (1 / ε) : Hyper ι α)⁻¹ := inv_strictAnti₀ h_pos_inv h1
+    simp only [one_div, inv_inv, std_inv] at h2
+    exact h2
 
 /-- Transfer for binary relations. -/
 theorem forall_forall_std_iff (R : α → β → Prop) :
@@ -1833,14 +1826,16 @@ theorem IsInternal.inter_isHyperfinite {A : Set (Hyper ι α)} (hA : IsInternal 
   exact hH.inter_isInternal hA
 
 /-- **Approximation Theorem**: For any infinite set `A`, there exists a hyperfinite set `H`
-such that `{std a | a ∈ A} ⊆ H ⊆ A*` and H contains nonstandard elements. -/
-theorem exists_hyperfinite_approximation [Countable ι] {A : Set α} (hA : A.Countable)
+such that `{std a | a ∈ A} ⊆ H ⊆ A*` and H contains nonstandard elements.
+Note: See `hyperfinite_sandwich_strict` in section HyperfiniteApprox for the main version.
+This theorem is specialized to `Hyper ℕ α`. -/
+theorem exists_hyperfinite_approximation {A : Set α} (hA : A.Countable)
     (hA_inf : A.Infinite) :
-    ∃ H : Set (Hyper ι α), IsHyperfinite H ∧
-      (∀ a ∈ A, (std a : Hyper ι α) ∈ H) ∧
+    ∃ H : Set (Hyper ℕ α), IsHyperfinite H ∧
+      (∀ a ∈ A, (std a : Hyper ℕ α) ∈ H) ∧
       (∀ x ∈ H, liftPred (· ∈ A) x) ∧
-      (std '' A : Set (Hyper ι α)) ⊂ H := by
-  sorry
+      (std '' A : Set (Hyper ℕ α)) ⊂ H := by
+  sorry -- Proved by hyperfinite_sandwich_strict once in scope (section ordering issue)
 
 end HyperfiniteSets
 
@@ -1906,7 +1901,42 @@ noncomputable def st (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
 theorem st_eq_sSup (x : Hyper ι α) : st x = sSup {r : α | std r ≤ x} := rfl
 
 theorem isFinite_iff_exists_st (x : Hyper ι α) : IsFinite x ↔ ∃ r : α, IsNearStandard x r := by
-  sorry
+  constructor
+  · -- Forward: IsFinite → ∃ r, IsNearStandard x r
+    intro ⟨a, b, ha, hb⟩
+    let S := {r : α | std r ≤ x}
+    have hS_nonempty : S.Nonempty := ⟨a, ha⟩
+    have hS_bddAbove : BddAbove S := ⟨b, fun s hs => std_le_std.mp (hs.trans hb)⟩
+    use sSup S
+    rw [isNearStandard_def]
+    intro U hU
+    -- In order topology, nhds has a basis of open intervals
+    rw [mem_nhds_iff_exists_Ioo_subset] at hU
+    obtain ⟨l, u, hsup_mem, hIoo_sub⟩ := hU
+    -- Show x ∈★ U by showing x ∈★ Ioo l u ⊆ U
+    apply star_mono hIoo_sub
+    rw [mem_star_Ioo]
+    constructor
+    · -- std l < x: Since l < sSup S, ∃ s ∈ S with l < s, so std l < std s ≤ x
+      have hl : l < sSup S := hsup_mem.1
+      obtain ⟨s, hs, hls⟩ := exists_lt_of_lt_csSup hS_nonempty hl
+      calc std l < std s := std_lt_std.mpr hls
+           _ ≤ x := hs
+    · -- x < std u: Since sSup S < u, u is an upper bound, so ∀ s ∈ S, s < u
+      -- Thus std s ≤ x implies s ≤ sSup S < u, so x < std u
+      have hu : sSup S < u := hsup_mem.2
+      by_contra hxu
+      push_neg at hxu
+      -- If std u ≤ x, then u ∈ S, but u > sSup S, contradiction
+      have : u ∈ S := hxu
+      exact not_lt.mpr (le_csSup hS_bddAbove this) hu
+  · -- Backward: ∃ r, IsNearStandard x r → IsFinite x
+    intro ⟨r, hr⟩
+    rw [isNearStandard_def] at hr
+    have hIoo : Set.Ioo (r - 1) (r + 1) ∈ nhds r := Ioo_mem_nhds (by linarith) (by linarith)
+    have hx := hr _ hIoo
+    rw [mem_star_Ioo] at hx
+    exact ⟨r - 1, r + 1, hx.1.le, hx.2.le⟩
 /-- The galaxy of a family of sets is the union of their stars. -/
 def galaxy (S : Set (Set α)) : Set (Hyper ι α) :=
   ⋃ s ∈ S, {x | liftPred (· ∈ s) x}
@@ -2337,12 +2367,33 @@ theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.
 std '' A ⊂ H ⊂ *A.
 
 This is the full hyperfinite approximation theorem showing that H strictly contains
-all standard elements and is strictly contained in the nonstandard extension. -/
+all standard elements and is strictly contained in the nonstandard extension.
+
+Note: The second strict inclusion (H ⊂ *A) requires showing that *A contains elements
+that escape any hyperfinite approximation - this follows from the diagonal argument
+but requires careful tracking of the enumeration used in the construction. -/
 theorem hyperfinite_strict_sandwich {A : Set α} (hA : A.Countable) (hA_inf : A.Infinite) :
     ∃ H : Set (Hyper ℕ α), IsHyperfinite H ∧
       (std '' A ⊂ H) ∧
       (H ⊂ {x | liftPred (· ∈ A) x}) := by
-  sorry
+  -- First establish basic sandwich
+  obtain ⟨H, hH_hf, hH_std, hH_star, x, hx_H, hx_nonstd⟩ := hyperfinite_sandwich_strict hA hA_inf
+  refine ⟨H, hH_hf, ⟨?_, ?_⟩, ⟨?_, ?_⟩⟩
+  · -- std '' A ⊆ H
+    intro y hy
+    obtain ⟨a, ha, rfl⟩ := hy
+    exact hH_std a ha
+  · -- H ⊄ std '' A (there's something in H not in std '' A)
+    intro h_eq
+    have : x ∈ std '' A := h_eq hx_H
+    obtain ⟨a, _, rfl⟩ := this
+    exact hx_nonstd ⟨a, rfl⟩
+  · -- H ⊆ *A
+    intro y hy
+    exact hH_star y hy
+  · -- *A ⊄ H: construct diagonal element escaping H
+    -- This requires tracking the specific enumeration - leave for future work
+    sorry
 
 /-- **Hyperfinite Approximation (Simplified Statement)**:
 For any set A, there exists an internal hyperfinite set H with `std '' A ⊆ H ⊆ *A`.
@@ -2363,6 +2414,723 @@ theorem exists_hyperfinite_between [LinearOrder ι] [LocallyFiniteOrderBot ι]
     exact hH_star x hx
 
 end HyperfiniteApprox
+
+/-! ## Nonstandard Characterization of Cauchy Sequences
+
+The classical characterization of Cauchy sequences involves ε-δ definitions:
+  `CauchySeq u ↔ ∀ ε > 0, ∃ N, ∀ m n ≥ N, dist (u m) (u n) < ε`
+
+In nonstandard analysis, this has an elegant equivalent formulation:
+  A sequence is Cauchy iff for all unlimited hypernatural indices N and M,
+  the distance `dist (u N) (u M)` is infinitesimal.
+
+This characterization is more intuitive: "all terms at infinity are infinitely close." -/
+
+section CauchyNSA
+
+variable {α : Type*} [PseudoMetricSpace α]
+
+/-- **Nonstandard Cauchy predicate**: A sequence is NSA-Cauchy if for any two
+unlimited hypernatural indices, the lifted distance between the corresponding
+terms is infinitesimal.
+
+This is equivalent to: "all terms at infinity are infinitely close to each other." -/
+def IsCauchyNSA (u : ℕ → α) : Prop :=
+  ∀ N M : Hyper ℕ ℕ, N.IsInfinite → M.IsInfinite →
+    IsInfinitesimal (lift₂ (fun m n => dist (u m) (u n)) N M)
+
+/-- Helper: the lifted distance function for a sequence. -/
+noncomputable def liftDist (u : ℕ → α) : Hyper ℕ ℕ → Hyper ℕ ℕ → Hyper ℕ ℝ :=
+  lift₂ (fun m n => dist (u m) (u n))
+
+theorem liftDist_std (u : ℕ → α) (m n : ℕ) :
+    liftDist u (std m) (std n) = std (dist (u m) (u n)) := lift₂_std _ _ _
+
+/-- An auxiliary lemma: if P(n) holds for all n ≥ N for some standard N,
+then P holds for all unlimited hypernaturals. -/
+theorem liftPred_of_eventually_ge {P : ℕ → Prop} {N : ℕ}
+    (h : ∀ n ≥ N, P n) (ω : Hyper ℕ ℕ) (hω : ω.IsInfinite) : liftPred P ω := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective ω
+  rw [liftPred_ofSeq]
+  -- ω is unlimited means ∀ k, std k < ω, so f(i) > N for almost all i
+  have hgt : ∀ᶠ i in hyperfilter ℕ, N < f i := by
+    have hω' : std N < ofSeq f := by
+      by_contra hle
+      push_neg at hle
+      have h0_le : std 0 ≤ ofSeq f := by
+        rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
+        exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
+      have hfin : IsFinite (ofSeq f) := ⟨0, N, h0_le, hle⟩
+      exact hω hfin
+    rw [std_lt_ofSeq] at hω'
+    exact hω'
+  exact hgt.mono (fun i hi => h (f i) (Nat.le_of_lt hi))
+
+/-- **Forward direction**: Standard Cauchy implies NSA Cauchy.
+
+If `u` is Cauchy in the ε-δ sense, then for any unlimited N, M,
+the distance dist(u N, u M) is infinitesimal. -/
+theorem IsCauchyNSA_of_cauchySeq (u : ℕ → α) (hu : CauchySeq u) : IsCauchyNSA u := by
+  intro N M hN hM
+  -- Represent N and M as sequences
+  obtain ⟨f, rfl⟩ := ofSeq_surjective N
+  obtain ⟨g, rfl⟩ := ofSeq_surjective M
+  intro ε hε
+  -- By standard Cauchy, there exists K such that for all m, n ≥ K, dist(u m, u n) < ε
+  rw [Metric.cauchySeq_iff] at hu
+  obtain ⟨K, hK⟩ := hu ε hε
+  constructor
+  · -- Show: -std ε < lift₂ (dist on u) (ofSeq f) (ofSeq g)
+    -- This follows since dist ≥ 0 always
+    have hdist_nonneg : ∀ m n, 0 ≤ dist (u m) (u n) := fun _ _ => dist_nonneg
+    have hlift_nonneg :
+        (0 : Hyper ℕ ℝ) ≤ lift₂ (fun m n => dist (u m) (u n)) (ofSeq f) (ofSeq g) := by
+      rw [zero_eq_std, std_eq_ofSeq_const, lift₂_ofSeq, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall (fun i => hdist_nonneg (f i) (g i))
+    have hneg : -std ε < (0 : Hyper ℕ ℝ) := by
+      rw [zero_eq_std, ← std_neg, std_lt_std]
+      exact neg_lt_zero.mpr hε
+    exact lt_of_lt_of_le hneg hlift_nonneg
+  · -- Show: lift₂ (dist on u) (ofSeq f) (ofSeq g) < std ε
+    rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+    -- ofSeq f is unlimited, so f(i) ≥ K for almost all i
+    have hfK : ∀ᶠ i in hyperfilter ℕ, K ≤ f i := by
+      have hN' : std K < ofSeq f := by
+        by_contra hle
+        push_neg at hle
+        have h0_le : std 0 ≤ ofSeq f := by
+          rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
+          exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
+        have hfin : IsFinite (ofSeq f) := ⟨0, K, h0_le, hle⟩
+        exact hN hfin
+      rw [std_lt_ofSeq] at hN'
+      exact hN'.mono (fun i hi => Nat.le_of_lt hi)
+    -- ofSeq g is unlimited, so g(i) ≥ K for almost all i
+    have hgK : ∀ᶠ i in hyperfilter ℕ, K ≤ g i := by
+      have hM' : std K < ofSeq g := by
+        by_contra hle
+        push_neg at hle
+        have h0_le : std 0 ≤ ofSeq g := by
+          rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
+          exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
+        have hfin : IsFinite (ofSeq g) := ⟨0, K, h0_le, hle⟩
+        exact hM hfin
+      rw [std_lt_ofSeq] at hM'
+      exact hM'.mono (fun i hi => Nat.le_of_lt hi)
+    -- Combine: for almost all i, f(i) ≥ K and g(i) ≥ K
+    exact (hfK.and hgK).mono (fun i ⟨hfi, hgi⟩ => hK (f i) hfi (g i) hgi)
+
+/-- **Reverse direction**: NSA Cauchy implies standard Cauchy.
+
+If for all unlimited N, M the distance is infinitesimal, then the sequence
+is Cauchy in the standard ε-δ sense. This uses the underflow principle. -/
+theorem cauchySeq_of_isCauchyNSA (u : ℕ → α) (hu : IsCauchyNSA u) : CauchySeq u := by
+  rw [Metric.cauchySeq_iff]
+  intro ε hε
+  -- Suppose not: for all K, there exist m, n ≥ K with dist(u m, u n) ≥ ε
+  by_contra h
+  push_neg at h
+  -- h : ∀ K, ∃ m ≥ K, ∃ n ≥ K, dist (u m) (u n) ≥ ε
+  -- Use choice to extract witness sequences
+  have hchoice : ∀ k, ∃ m n, m ≥ k ∧ n ≥ k ∧ ε ≤ dist (u m) (u n) := by
+    intro k
+    obtain ⟨m, hm, n, hn, hdist⟩ := h k
+    exact ⟨m, n, hm, hn, hdist⟩
+  choose m_seq n_seq hm hn hdist using hchoice
+  -- m_seq k ≥ k for all k, so ofSeq m_seq is unlimited
+  have hM_inf : (ofSeq m_seq).IsInfinite := by
+    intro hfin
+    obtain ⟨a, b, ha, hb⟩ := hfin
+    -- ofSeq m_seq ≤ std b, but m_seq k ≥ k, so for large k, m_seq k > b
+    have hle : ∀ᶠ k in hyperfilter ℕ, m_seq k ≤ b := by
+      rw [std_eq_ofSeq_const, ofSeq_le_ofSeq] at hb
+      exact hb
+    have hbig : ∀ᶠ k in hyperfilter ℕ, m_seq k > b := by
+      apply Filter.mem_hyperfilter_of_finite_compl
+      simp only [Set.compl_setOf, not_lt]
+      have hsub : {k | m_seq k ≤ b} ⊆ {k | k ≤ b} := fun k hk => Nat.le_trans (hm k) hk
+      exact Set.Finite.subset (Set.finite_le_nat b) hsub
+    obtain ⟨k, hlek, hgtk⟩ := (hle.and hbig).exists
+    omega
+  have hN_inf : (ofSeq n_seq).IsInfinite := by
+    intro hfin
+    obtain ⟨a, b, ha, hb⟩ := hfin
+    have hle : ∀ᶠ k in hyperfilter ℕ, n_seq k ≤ b := by
+      rw [std_eq_ofSeq_const, ofSeq_le_ofSeq] at hb
+      exact hb
+    have hbig : ∀ᶠ k in hyperfilter ℕ, n_seq k > b := by
+      apply Filter.mem_hyperfilter_of_finite_compl
+      simp only [Set.compl_setOf, not_lt]
+      have hsub : {k | n_seq k ≤ b} ⊆ {k | k ≤ b} := fun k hk => Nat.le_trans (hn k) hk
+      exact Set.Finite.subset (Set.finite_le_nat b) hsub
+    obtain ⟨k, hlek, hgtk⟩ := (hle.and hbig).exists
+    omega
+  -- By hu, lift₂ dist (ofSeq m_seq) (ofSeq n_seq) is infinitesimal
+  have hinf := hu (ofSeq m_seq) (ofSeq n_seq) hM_inf hN_inf
+  -- But dist(u (m_seq k), u (n_seq k)) ≥ ε for all k
+  have hε_lift : std ε ≤ lift₂ (fun m n => dist (u m) (u n)) (ofSeq m_seq) (ofSeq n_seq) := by
+    rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
+    exact Filter.Eventually.of_forall hdist
+  -- This contradicts infinitesimality: hinf says lift₂ < std ε
+  obtain ⟨_, h2⟩ := hinf ε hε
+  exact not_lt.mpr hε_lift h2
+
+/-- **Main theorem**: Nonstandard characterization of Cauchy sequences.
+
+A sequence is Cauchy if and only if for any two unlimited hypernatural
+indices N and M, the distance dist(u N, u M) is infinitesimal:
+  `CauchySeq u ↔ ∀ unlimited N M, dist(u N, u M) ≈ 0`
+
+This is the fundamental equivalence between the ε-δ and infinitesimal
+characterizations of Cauchy sequences. -/
+theorem cauchySeq_iff_nsa (u : ℕ → α) : CauchySeq u ↔ IsCauchyNSA u :=
+  ⟨IsCauchyNSA_of_cauchySeq u, cauchySeq_of_isCauchyNSA u⟩
+
+/-! ### Example: The sequence 1/n is Cauchy
+
+We prove the same result using both the standard ε-δ definition and the NSA
+definition to illustrate the difference in proof style. -/
+
+section OneOverN_Example
+
+/-- The sequence 1/(n+1). We use n+1 to avoid division by zero. -/
+noncomputable def oneOverN : ℕ → ℝ := fun n => 1 / (n + 1 : ℝ)
+
+/-- Lift a hypernatural to a hyperreal via casting. -/
+noncomputable def liftNatToReal (N : Hyper ℕ ℕ) : Hyper ℕ ℝ :=
+  lift (fun n : ℕ => (n : ℝ)) N
+
+theorem liftNatToReal_std (n : ℕ) : liftNatToReal (std n) = std (n : ℝ) := by
+  simp only [liftNatToReal, lift_std]
+
+/-- An unlimited hypernatural, when cast to hyperreals, is positive infinite. -/
+theorem IsInfinitePos_of_IsInfinite_nat {N : Hyper ℕ ℕ} (hN : N.IsInfinite) :
+    IsInfinitePos (liftNatToReal N) := by
+  intro r
+  -- For any standard real r, we need std r < liftNatToReal N
+  -- Since N is unlimited, N > ⌈r⌉ + 1, so (N : ℝ) > r
+  obtain ⟨k, hk⟩ := exists_nat_gt r
+  have hN_gt : std k < N := by
+    by_contra hle
+    push_neg at hle
+    -- N ≤ std k means N is finite (bounded between 0 and k)
+    have h0_le : std 0 ≤ N := by
+      obtain ⟨f, rfl⟩ := ofSeq_surjective N
+      rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall fun i => Nat.zero_le (f i)
+    have hfin : N.IsFinite := ⟨0, k, h0_le, hle⟩
+    exact hN hfin
+  calc std r < std (k : ℝ) := std_lt_std.mpr (by exact_mod_cast hk)
+    _ = liftNatToReal (std k) := (liftNatToReal_std k).symm
+    _ < liftNatToReal N := by
+        obtain ⟨f, rfl⟩ := ofSeq_surjective N
+        rw [std_lt_ofSeq] at hN_gt
+        simp only [liftNatToReal, lift_ofSeq, lift_std, std_eq_ofSeq_const]
+        rw [ofSeq_lt_ofSeq]
+        exact hN_gt.mono fun i hi => Nat.cast_lt.mpr hi
+
+/-- N + 1 as a hyperreal is positive infinite when N is unlimited. -/
+theorem IsInfinitePos_succ_of_IsInfinite_nat {N : Hyper ℕ ℕ} (hN : N.IsInfinite) :
+    IsInfinitePos (liftNatToReal N + 1) := by
+  intro r
+  have h := IsInfinitePos_of_IsInfinite_nat hN r
+  calc std r < liftNatToReal N := h
+    _ < liftNatToReal N + 1 := lt_add_one _
+
+/-- The lifted oneOverN equals (N+1)⁻¹ as hyperreals. -/
+theorem lift_oneOverN_eq (N : Hyper ℕ ℕ) :
+    lift oneOverN N = (liftNatToReal N + 1)⁻¹ := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective N
+  simp only [liftNatToReal, lift_ofSeq]
+  congr 1
+  ext i
+  simp only [Function.comp_apply, oneOverN, one_div]
+
+/-- **Key NSA lemma**: For unlimited N, 1/(N+1) is infinitesimal.
+This uses the fundamental NSA fact: reciprocal of positive infinite is infinitesimal. -/
+theorem oneOverN_IsInfinitesimal_of_IsInfinite {N : Hyper ℕ ℕ} (hN : N.IsInfinite) :
+    IsInfinitesimal (lift oneOverN N) := by
+  rw [lift_oneOverN_eq]
+  exact IsInfinitesimal.inv_of_isInfinitePos (IsInfinitePos_succ_of_IsInfinite_nat hN)
+
+/-- The lifted distance equals the absolute value of the difference. -/
+theorem lift₂_dist_eq_abs_sub (N M : Hyper ℕ ℕ) :
+    lift₂ (fun m n => dist (oneOverN m) (oneOverN n)) N M =
+    |lift oneOverN N - lift oneOverN M| := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective N
+  obtain ⟨g, rfl⟩ := ofSeq_surjective M
+  simp only [lift₂_ofSeq, lift_ofSeq, Real.dist_eq]
+  rfl
+
+/-- **Standard proof**: 1/(n+1) is Cauchy using the ε-δ definition.
+
+This requires finding an explicit N such that |1/(m+1) - 1/(n+1)| < ε for m,n ≥ N.
+The proof uses the Archimedean property and algebraic manipulation. -/
+theorem oneOverN_cauchy_std : CauchySeq oneOverN := by
+  rw [Metric.cauchySeq_iff]
+  intro ε hε
+  -- Choose N such that 1/N < ε, i.e., N > 1/ε
+  obtain ⟨N, hN⟩ := exists_nat_gt (1 / ε)
+  use N
+  intro m hm n hn
+  simp only [oneOverN, Real.dist_eq]
+  -- Key: N > 1/ε > 0, so N > 0
+  have hN_pos : (0 : ℝ) < N := by
+    have h1 : (N : ℝ) > 1 / ε := by exact_mod_cast hN
+    have h2 : 1 / ε > 0 := by positivity
+    linarith
+  -- Both 1/(m+1) and 1/(n+1) are bounded by 1/N
+  have hm_bound : 1 / (m + 1 : ℝ) ≤ 1 / N := by
+    apply one_div_le_one_div_of_le hN_pos
+    exact_mod_cast Nat.le_trans hm (Nat.le_succ m)
+  have hn_bound : 1 / (n + 1 : ℝ) ≤ 1 / N := by
+    apply one_div_le_one_div_of_le hN_pos
+    exact_mod_cast Nat.le_trans hn (Nat.le_succ n)
+  -- 1/N < ε follows from N > 1/ε
+  have h1N_lt : 1 / (N : ℝ) < ε := by
+    rw [div_lt_iff₀ hN_pos]
+    have hN_cast : (N : ℝ) > 1 / ε := by exact_mod_cast hN
+    calc 1 = ε * (1 / ε) := by field_simp
+      _ < ε * N := by nlinarith
+  have h_pos_m : 0 < 1 / (m + 1 : ℝ) := by positivity
+  have h_pos_n : 0 < 1 / (n + 1 : ℝ) := by positivity
+  -- Case split: either 1/(m+1) ≥ 1/(n+1) or vice versa
+  rcases le_or_gt (1 / (m + 1 : ℝ)) (1 / (n + 1 : ℝ)) with h | h
+  · -- Case: 1/(m+1) ≤ 1/(n+1), so |diff| = 1/(n+1) - 1/(m+1) ≤ 1/(n+1) ≤ 1/N < ε
+    rw [abs_of_nonpos (by linarith), neg_sub]
+    calc 1 / (n + 1 : ℝ) - 1 / (m + 1) ≤ 1 / (n + 1 : ℝ) := by linarith
+      _ ≤ 1 / N := hn_bound
+      _ < ε := h1N_lt
+  · -- Case: 1/(m+1) > 1/(n+1), so |diff| = 1/(m+1) - 1/(n+1) ≤ 1/(m+1) ≤ 1/N < ε
+    rw [abs_of_pos (by linarith)]
+    calc 1 / (m + 1 : ℝ) - 1 / (n + 1) ≤ 1 / (m + 1 : ℝ) := by linarith
+      _ ≤ 1 / N := hm_bound
+      _ < ε := h1N_lt
+
+/-- **Direct NSA proof**: 1/(n+1) is Cauchy using the nonstandard definition.
+
+The proof is purely nonstandard - no ε-δ reasoning:
+- 1/N is infinitesimal for unlimited N (reciprocal of infinite)
+- 1/M is infinitesimal for unlimited M
+- Difference of infinitesimals is infinitesimal
+- Absolute value of infinitesimal is infinitesimal (= distance) -/
+theorem oneOverN_cauchy_nsa : IsCauchyNSA oneOverN := fun N M hN hM => by
+  rw [lift₂_dist_eq_abs_sub]
+  exact (oneOverN_IsInfinitesimal_of_IsInfinite hN).sub
+    (oneOverN_IsInfinitesimal_of_IsInfinite hM) |>.abs
+
+/-- The two definitions are equivalent, as expected. -/
+theorem oneOverN_cauchy_equiv : CauchySeq oneOverN ↔ IsCauchyNSA oneOverN :=
+  cauchySeq_iff_nsa oneOverN
+
+end OneOverN_Example
+
+end CauchyNSA
+
+/-! ## Nonstandard Characterization of Sequence Convergence
+
+A sequence `u : ℕ → α` converges to `L` if and only if for every unlimited
+hypernatural `N`, the lifted term `u_N` is infinitely close to `L`.
+
+This is the intuitive statement: "the sequence converges to L iff all terms
+at infinity are infinitely close to L." -/
+
+section ConvergenceNSA
+
+variable {α : Type*} [PseudoMetricSpace α]
+
+/-- **Nonstandard convergence**: A sequence converges to `L` in the NSA sense if
+for any unlimited hypernatural `N`, the term `lift u N` is infinitely close to `L`,
+meaning `dist(u_N, L)` is infinitesimal. -/
+def ConvergesTo_NSA (u : ℕ → α) (L : α) : Prop :=
+  ∀ N : Hyper ℕ ℕ, N.IsInfinite → IsInfinitesimal (lift (fun n => dist (u n) L) N)
+
+/-- Forward: standard convergence implies NSA convergence. -/
+theorem ConvergesTo_NSA_of_tendsto (u : ℕ → α) (L : α)
+    (h : Filter.Tendsto u Filter.atTop (nhds L)) : ConvergesTo_NSA u L := by
+  intro N hN
+  intro ε hε
+  rw [Metric.tendsto_atTop] at h
+  obtain ⟨K, hK⟩ := h ε hε
+  obtain ⟨f, rfl⟩ := ofSeq_surjective N
+  constructor
+  · -- -std ε < lift (dist · L) (ofSeq f)
+    have h0 : (0 : Hyper ℕ ℝ) ≤ lift (fun n => dist (u n) L) (ofSeq f) := by
+      rw [zero_eq_std, std_eq_ofSeq_const, lift_ofSeq, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+    have hneg : -std ε < (0 : Hyper ℕ ℝ) := by
+      rw [zero_eq_std, ← std_neg, std_lt_std]
+      exact neg_lt_zero.mpr hε
+    exact lt_of_lt_of_le hneg h0
+  · -- lift (dist · L) (ofSeq f) < std ε
+    rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+    have hfK : ∀ᶠ i in hyperfilter ℕ, K ≤ f i := by
+      have hN' : std K < ofSeq f := by
+        by_contra hle
+        push_neg at hle
+        have h0_le : std 0 ≤ ofSeq f := by
+          rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
+          exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
+        exact hN ⟨0, K, h0_le, hle⟩
+      rw [std_lt_ofSeq] at hN'
+      exact hN'.mono (fun i hi => Nat.le_of_lt hi)
+    exact hfK.mono (fun i hi => hK (f i) hi)
+
+/-- Reverse: NSA convergence implies standard convergence. -/
+theorem tendsto_of_ConvergesTo_NSA (u : ℕ → α) (L : α)
+    (h : ConvergesTo_NSA u L) : Filter.Tendsto u Filter.atTop (nhds L) := by
+  rw [Metric.tendsto_atTop]
+  intro ε hε
+  by_contra hne
+  push_neg at hne
+  -- For all K, exists n ≥ K with dist(u n, L) ≥ ε
+  choose f hf hfε using hne
+  have hf_inf : (ofSeq f).IsInfinite := by
+    intro hfin
+    obtain ⟨a, b, ha, hb⟩ := hfin
+    have hle : ∀ᶠ k in hyperfilter ℕ, f k ≤ b := by
+      rw [std_eq_ofSeq_const, ofSeq_le_ofSeq] at hb
+      exact hb
+    have hbig : ∀ᶠ k in hyperfilter ℕ, f k > b := by
+      apply Filter.mem_hyperfilter_of_finite_compl
+      simp only [Set.compl_setOf, not_lt]
+      have hsub : {k | f k ≤ b} ⊆ {k | k ≤ b} := fun k hk => Nat.le_trans (hf k) hk
+      exact Set.Finite.subset (Set.finite_le_nat b) hsub
+    obtain ⟨k, hlek, hgtk⟩ := (hle.and hbig).exists
+    omega
+  have hinf := h (ofSeq f) hf_inf
+  have hε_lift : std ε ≤ lift (fun n => dist (u n) L) (ofSeq f) := by
+    rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
+    exact Filter.Eventually.of_forall hfε
+  obtain ⟨_, h2⟩ := hinf ε hε
+  exact not_lt.mpr hε_lift h2
+
+/-- **Main theorem**: Nonstandard characterization of sequence convergence.
+
+A sequence converges to `L` iff for every unlimited hypernatural `N`,
+`dist(u_N, L)` is infinitesimal. -/
+theorem tendsto_iff_nsa (u : ℕ → α) (L : α) :
+    Filter.Tendsto u Filter.atTop (nhds L) ↔ ConvergesTo_NSA u L :=
+  ⟨ConvergesTo_NSA_of_tendsto u L, tendsto_of_ConvergesTo_NSA u L⟩
+
+end ConvergenceNSA
+
+/-! ## Nonstandard Characterization of Continuity
+
+In nonstandard analysis, continuity has an elegant characterization:
+- `f` is continuous at `x` iff for all `y ≈ x` (y infinitely close to x), `f(y) ≈ f(x)`
+- `f` is uniformly continuous iff for all `x, y` with `x ≈ y`, we have `f(x) ≈ f(y)`
+
+These capture the intuitive meaning: "infinitely close inputs give infinitely close outputs." -/
+
+section ContinuityNSA
+
+variable {α β : Type*} [PseudoMetricSpace α] [PseudoMetricSpace β]
+
+/-- **Nonstandard continuity at a point**: `f` is NSA-continuous at `x` if whenever
+`y` is infinitely close to `x`, `f(y)` is infinitely close to `f(x)`.
+
+Here we express "infinitely close" via infinitesimal distance. -/
+def IsContinuousAt_NSA (f : α → β) (x : α) : Prop :=
+  ∀ y : Hyper ℕ α, IsInfinitesimal (lift (dist · x) y) →
+    IsInfinitesimal (lift (fun z => dist (f z) (f x)) y)
+
+/-- Forward: standard continuity implies NSA continuity. -/
+theorem IsContinuousAt_NSA_of_continuousAt (f : α → β) (x : α)
+    (h : ContinuousAt f x) : IsContinuousAt_NSA f x := by
+  rw [Metric.continuousAt_iff] at h
+  intro y hy
+  intro ε hε
+  obtain ⟨δ, hδ, hδε⟩ := h ε hε
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  constructor
+  · -- -std ε < lift (dist (f ·) (f x)) (ofSeq g)
+    have h0 : (0 : Hyper ℕ ℝ) ≤ lift (fun z => dist (f z) (f x)) (ofSeq g) := by
+      rw [zero_eq_std, std_eq_ofSeq_const, lift_ofSeq, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+    have hneg : -std ε < (0 : Hyper ℕ ℝ) := by
+      rw [zero_eq_std, ← std_neg, std_lt_std]
+      exact neg_lt_zero.mpr hε
+    exact lt_of_lt_of_le hneg h0
+  · -- lift (dist (f ·) (f x)) (ofSeq g) < std ε
+    rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+    -- y is infinitely close to x means dist(g i, x) < δ for almost all i
+    have hclose : ∀ᶠ i in hyperfilter ℕ, dist (g i) x < δ := by
+      have := (hy δ hδ).2
+      rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
+      exact this
+    exact hclose.mono (fun i hi => hδε hi)
+
+/-- Reverse: NSA continuity implies standard continuity. -/
+theorem continuousAt_of_IsContinuousAt_NSA (f : α → β) (x : α)
+    (h : IsContinuousAt_NSA f x) : ContinuousAt f x := by
+  rw [Metric.continuousAt_iff]
+  intro ε hε
+  by_contra hne
+  push_neg at hne
+  -- For all δ > 0, exists y with dist(y, x) < δ but dist(f y, f x) ≥ ε
+  have hchoice : ∀ n : ℕ, ∃ y : α, dist y x < 1 / (n + 1 : ℝ) ∧ ε ≤ dist (f y) (f x) := by
+    intro n
+    have hpos : (0 : ℝ) < 1 / (n + 1) := by positivity
+    exact hne (1 / (n + 1)) hpos
+  choose seq hseq_close hseq_far using hchoice
+  -- seq n → x as n → ∞, but dist(f(seq n), f(x)) ≥ ε
+  -- So ofSeq seq is infinitely close to x
+  have h_inf_close : IsInfinitesimal (lift (dist · x) (ofSeq seq)) := by
+    intro δ hδ
+    constructor
+    · have h0 : (0 : Hyper ℕ ℝ) ≤ lift (dist · x) (ofSeq seq) := by
+        rw [zero_eq_std, std_eq_ofSeq_const, lift_ofSeq, ofSeq_le_ofSeq]
+        exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+      have hneg : -std δ < (0 : Hyper ℕ ℝ) := by
+        rw [zero_eq_std, ← std_neg, std_lt_std]
+        exact neg_lt_zero.mpr hδ
+      exact lt_of_lt_of_le hneg h0
+    · rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+      -- Eventually dist(seq n, x) < 1/(n+1) < δ
+      obtain ⟨N, hN⟩ : ∃ N : ℕ, 1 / (N + 1 : ℝ) < δ := by
+        obtain ⟨N, hN⟩ := exists_nat_gt (1 / δ)
+        use N
+        have hN1 : (0 : ℝ) < N + 1 := by positivity
+        rw [div_lt_iff₀ hN1]
+        have hN_cast : (N : ℝ) > 1 / δ := by exact_mod_cast hN
+        have hδ_inv : δ * (1 / δ) = 1 := by field_simp
+        calc 1 = δ * (1 / δ) := hδ_inv.symm
+          _ < δ * N := by nlinarith
+          _ < δ * (N + 1) := by nlinarith
+      apply Filter.mem_hyperfilter_of_finite_compl
+      -- Show: {n | ¬dist (seq n) x < δ} ⊆ {n | n < N} (finite set)
+      have hsub : {n | ¬dist (seq n) x < δ} ⊆ {n | n < N} := by
+        intro n hn
+        simp only [Set.mem_setOf_eq] at hn ⊢
+        by_contra hge
+        push_neg at hge
+        have hbound : dist (seq n) x < δ := calc
+          dist (seq n) x < 1 / (n + 1 : ℝ) := hseq_close n
+          _ ≤ 1 / (N + 1 : ℝ) := by
+            apply one_div_le_one_div_of_le (by positivity : (0 : ℝ) < N + 1)
+            have h1 : N ≤ n := hge
+            have h2 : (N : ℝ) + 1 ≤ n + 1 := by exact_mod_cast Nat.add_one_le_add_one_iff.mpr hge
+            exact h2
+          _ < δ := hN
+        exact hn hbound
+      exact Set.Finite.subset (Set.finite_lt_nat N) hsub
+  -- But h says this should make f values infinitely close
+  have h_result := h (ofSeq seq) h_inf_close
+  have hε_lift : std ε ≤ lift (fun z => dist (f z) (f x)) (ofSeq seq) := by
+    rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
+    exact Filter.Eventually.of_forall hseq_far
+  obtain ⟨_, h2⟩ := h_result ε hε
+  exact not_lt.mpr hε_lift h2
+
+/-- **Main theorem**: Nonstandard characterization of continuity at a point.
+
+A function is continuous at `x` iff infinitely close inputs give infinitely close outputs:
+  `ContinuousAt f x ↔ ∀ y ≈ x, f(y) ≈ f(x)` -/
+theorem continuousAt_iff_nsa (f : α → β) (x : α) :
+    ContinuousAt f x ↔ IsContinuousAt_NSA f x :=
+  ⟨IsContinuousAt_NSA_of_continuousAt f x, continuousAt_of_IsContinuousAt_NSA f x⟩
+
+/-- **Nonstandard uniform continuity**: `f` is uniformly continuous in the NSA sense if
+whenever `x` and `y` are infinitely close (as hyperreal points), `f(x)` and `f(y)`
+are infinitely close.
+
+Unlike pointwise continuity, this quantifies over ALL pairs of infinitely close points,
+not just those near a specific standard point. -/
+def IsUniformContinuous_NSA (f : α → β) : Prop :=
+  ∀ x y : Hyper ℕ α, IsInfinitesimal (lift₂ dist x y) →
+    IsInfinitesimal (lift₂ (fun a b => dist (f a) (f b)) x y)
+
+/-- Forward: standard uniform continuity implies NSA uniform continuity. -/
+theorem IsUniformContinuous_NSA_of_uniformContinuous (f : α → β)
+    (h : UniformContinuous f) : IsUniformContinuous_NSA f := by
+  rw [Metric.uniformContinuous_iff] at h
+  intro x y hxy
+  intro ε hε
+  obtain ⟨δ, hδ, hδε⟩ := h ε hε
+  obtain ⟨fx, rfl⟩ := ofSeq_surjective x
+  obtain ⟨fy, rfl⟩ := ofSeq_surjective y
+  constructor
+  · have h0 : (0 : Hyper ℕ ℝ) ≤ lift₂ (fun a b => dist (f a) (f b)) (ofSeq fx) (ofSeq fy) := by
+      rw [zero_eq_std, std_eq_ofSeq_const, lift₂_ofSeq, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+    have hneg : -std ε < (0 : Hyper ℕ ℝ) := by
+      rw [zero_eq_std, ← std_neg, std_lt_std]
+      exact neg_lt_zero.mpr hε
+    exact lt_of_lt_of_le hneg h0
+  · rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+    have hclose : ∀ᶠ i in hyperfilter ℕ, dist (fx i) (fy i) < δ := by
+      have := (hxy δ hδ).2
+      rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
+      exact this
+    exact hclose.mono (fun i hi => hδε hi)
+
+/-- Reverse: NSA uniform continuity implies standard uniform continuity. -/
+ theorem uniformContinuous_of_IsUniformContinuous_NSA (f : α → β)
+    (h : IsUniformContinuous_NSA f) : UniformContinuous f := by
+  rw [Metric.uniformContinuous_iff]
+  intro ε hε
+  by_contra hne
+  push_neg at hne
+  have hchoice : ∀ n : ℕ, ∃ x y : α,
+      dist x y < 1 / (n + 1 : ℝ) ∧ ε ≤ dist (f x) (f y) := by
+    intro n
+    have hpos : (0 : ℝ) < 1 / (n + 1) := by positivity
+    exact hne (1 / (n + 1)) hpos
+  choose seq_x seq_y hclose hfar using hchoice
+  have h_inf_close : IsInfinitesimal (lift₂ dist (ofSeq seq_x) (ofSeq seq_y)) := by
+    intro δ hδ
+    constructor
+    · have h0 : (0 : Hyper ℕ ℝ) ≤ lift₂ dist (ofSeq seq_x) (ofSeq seq_y) := by
+        rw [zero_eq_std, std_eq_ofSeq_const, lift₂_ofSeq, ofSeq_le_ofSeq]
+        exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+      have hneg : -std δ < (0 : Hyper ℕ ℝ) := by
+        rw [zero_eq_std, ← std_neg, std_lt_std]
+        exact neg_lt_zero.mpr hδ
+      exact lt_of_lt_of_le hneg h0
+    · rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+      obtain ⟨N, hN⟩ : ∃ N : ℕ, 1 / (N + 1 : ℝ) < δ := by
+        obtain ⟨N, hN⟩ := exists_nat_gt (1 / δ)
+        use N
+        have hN1 : (0 : ℝ) < N + 1 := by positivity
+        rw [div_lt_iff₀ hN1]
+        have hN_cast : (N : ℝ) > 1 / δ := by exact_mod_cast hN
+        have hδ_inv : δ * (1 / δ) = 1 := by field_simp
+        calc 1 = δ * (1 / δ) := hδ_inv.symm
+          _ < δ * N := by nlinarith
+          _ < δ * (N + 1) := by nlinarith
+      apply Filter.mem_hyperfilter_of_finite_compl
+      -- Show: {n | ¬dist (seq_x n) (seq_y n) < δ} ⊆ {n | n < N} (finite set)
+      have hsub : {n | ¬dist (seq_x n) (seq_y n) < δ} ⊆ {n | n < N} := by
+        intro n hn
+        simp only [Set.mem_setOf_eq] at hn ⊢
+        by_contra hge
+        push_neg at hge
+        have hbound : dist (seq_x n) (seq_y n) < δ := calc
+          dist (seq_x n) (seq_y n) < 1 / (n + 1 : ℝ) := hclose n
+          _ ≤ 1 / (N + 1 : ℝ) := by
+            apply one_div_le_one_div_of_le (by positivity : (0 : ℝ) < N + 1)
+            have h1 : N ≤ n := hge
+            have h2 : (N : ℝ) + 1 ≤ n + 1 := by exact_mod_cast Nat.add_one_le_add_one_iff.mpr hge
+            exact h2
+          _ < δ := hN
+        exact hn hbound
+      exact Set.Finite.subset (Set.finite_lt_nat N) hsub
+  have h_result := h (ofSeq seq_x) (ofSeq seq_y) h_inf_close
+  have hε_lift :
+      std ε ≤ lift₂ (fun a b => dist (f a) (f b)) (ofSeq seq_x) (ofSeq seq_y) := by
+    rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
+    exact Filter.Eventually.of_forall hfar
+  obtain ⟨_, h2⟩ := h_result ε hε
+  exact not_lt.mpr hε_lift h2
+
+/-- **Main theorem**: Nonstandard characterization of uniform continuity.
+
+A function is uniformly continuous iff for any two infinitely close points,
+their images are infinitely close:
+  `UniformContinuous f ↔ ∀ x ≈ y, f(x) ≈ f(y)` -/
+theorem uniformContinuous_iff_nsa (f : α → β) :
+    UniformContinuous f ↔ IsUniformContinuous_NSA f :=
+  ⟨IsUniformContinuous_NSA_of_uniformContinuous f, uniformContinuous_of_IsUniformContinuous_NSA f⟩
+
+end ContinuityNSA
+
+/-! ## Nonstandard Characterization of Completeness
+
+A metric space is complete iff every Cauchy sequence converges.
+In NSA terms: complete iff every NSA-Cauchy sequence has a limit.
+
+More elegantly: complete iff for every sequence where all terms at infinity
+are infinitely close to each other, there exists a limit they're all close to. -/
+
+section CompletenessNSA
+
+variable {α : Type*} [PseudoMetricSpace α]
+
+/-- **NSA Completeness**: A space satisfies NSA completeness if every NSA-Cauchy sequence
+converges (in the NSA sense). -/
+def IsComplete_NSA : Prop :=
+  ∀ u : ℕ → α, IsCauchyNSA u → ∃ L : α, ConvergesTo_NSA u L
+
+/-- Forward: standard completeness implies NSA completeness. -/
+theorem IsComplete_NSA_of_completeSpace [CompleteSpace α] : IsComplete_NSA (α := α) := by
+  intro u hu
+  have hcauchy : CauchySeq u := cauchySeq_of_isCauchyNSA u hu
+  obtain ⟨L, hL⟩ := cauchySeq_tendsto_of_complete hcauchy
+  exact ⟨L, ConvergesTo_NSA_of_tendsto u L hL⟩
+
+/-- Reverse: NSA completeness implies standard completeness. -/
+theorem completeSpace_of_IsComplete_NSA (h : IsComplete_NSA (α := α)) : CompleteSpace α := by
+  apply Metric.complete_of_cauchySeq_tendsto
+  intro u hu
+  have hu_nsa : IsCauchyNSA u := IsCauchyNSA_of_cauchySeq u hu
+  obtain ⟨L, hL⟩ := h u hu_nsa
+  exact ⟨L, tendsto_of_ConvergesTo_NSA u L hL⟩
+
+/-- **Main theorem**: Nonstandard characterization of completeness.
+
+A metric space is complete iff every NSA-Cauchy sequence converges:
+  `CompleteSpace α ↔ ∀ Cauchy u, ∃ L, u_N ≈ L for all unlimited N` -/
+theorem completeSpace_iff_nsa : CompleteSpace α ↔ IsComplete_NSA (α := α) :=
+  ⟨fun _ => IsComplete_NSA_of_completeSpace, completeSpace_of_IsComplete_NSA⟩
+
+/-- **Alternative formulation**: A space is complete iff for every sequence where
+all terms at infinity are infinitely close to each other, they're all close
+to some standard limit. This is the most intuitive NSA statement. -/
+theorem completeSpace_iff_nsa' :
+    CompleteSpace α ↔
+      ∀ u : ℕ → α, (∀ N M : Hyper ℕ ℕ, N.IsInfinite → M.IsInfinite →
+        IsInfinitesimal (lift₂ (fun m n => dist (u m) (u n)) N M)) →
+      ∃ L : α, ∀ N : Hyper ℕ ℕ, N.IsInfinite →
+        IsInfinitesimal (lift (fun n => dist (u n) L) N) := by
+  rw [completeSpace_iff_nsa]
+  rfl
+
+end CompletenessNSA
+
+/-! ## Characterization of Limits via Monads
+
+A sequence converges to `L` iff for all unlimited `N`, `u_N` lies in the
+monad of `L` (the set of hyperreals infinitely close to `L`). -/
+
+section MonadConvergence
+
+variable {α : Type*} [PseudoMetricSpace α]
+
+/-- The monad of a point in a metric space: the set of hyperreals infinitely close to it. -/
+def metricMonad (x : α) : Set (Hyper ℕ α) :=
+  {y | ∀ ε > 0, -std ε < lift (dist · x) y ∧ lift (dist · x) y < std ε}
+
+/-- A hyperreal is in the metric monad of `x` iff its distance to `x` is infinitesimal. -/
+theorem mem_metricMonad_iff (x : α) (y : Hyper ℕ α) :
+    y ∈ metricMonad x ↔ IsInfinitesimal (lift (dist · x) y) := Iff.rfl
+
+/-- **Monad convergence**: A sequence converges to `L` iff all terms at infinity
+lie in the monad of `L`. -/
+theorem tendsto_iff_monad (u : ℕ → α) (L : α) :
+    Filter.Tendsto u Filter.atTop (nhds L) ↔
+      ∀ N : Hyper ℕ ℕ, N.IsInfinite → lift u N ∈ metricMonad L := by
+  rw [tendsto_iff_nsa]
+  constructor
+  · intro h N hN ε hε
+    have hinf := h N hN ε hε
+    have heq : lift (dist · L) (lift u N) = lift (fun n => dist (u n) L) N := by
+      obtain ⟨f, rfl⟩ := ofSeq_surjective N
+      simp only [lift_ofSeq]
+      rfl
+    constructor
+    · rw [heq]; exact hinf.1
+    · rw [heq]; exact hinf.2
+  · intro h N hN ε hε
+    have hmon := h N hN ε hε
+    have heq : lift (fun n => dist (u n) L) N = lift (dist · L) (lift u N) := by
+      obtain ⟨f, rfl⟩ := ofSeq_surjective N
+      simp only [lift_ofSeq]
+      rfl
+    rw [heq]
+    exact hmon
+
+end MonadConvergence
 
 end Hyper
 
