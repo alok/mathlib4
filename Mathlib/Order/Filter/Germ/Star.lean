@@ -37,7 +37,7 @@ public import Mathlib.Topology.Algebra.Ring.Real
 
 open scoped Classical
 
-set_option linter.style.longFile 3700
+set_option linter.style.longFile 4000
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -1252,6 +1252,91 @@ theorem IsFinite.mul [CommRing α] [LinearOrder α] [IsOrderedRing α] {x y : Hy
        _ ≤ std M * std N := mul_le_mul hM hN (abs_nonneg y) (le_trans (abs_nonneg x) hM)
        _ = std (M * N) := (std_mul M N).symm
 
+/-- A finite element has a positive bound on its absolute value. -/
+theorem IsFinite.bound_pos [Field α] [LinearOrder α] [IsOrderedRing α] {x : Hyper ι α}
+    (hx : IsFinite x) : ∃ M : α, 0 < M ∧ |x| ≤ std M := by
+  rw [IsFinite_iff_abs_le] at hx
+  obtain ⟨r, hr⟩ := hx
+  use max r 1
+  constructor
+  · exact lt_max_of_lt_right one_pos
+  · exact le_trans hr (by rw [std_le_std]; exact le_max_left r 1)
+
+/-! ### The Monad of Zero is an Ideal
+
+The set of infinitesimals forms an ideal in the ring of finite hyperreals:
+- It's an additive subgroup (closed under +, -, contains 0)
+- It absorbs multiplication by finite elements
+
+This is the foundation for the nonstandard hull construction. -/
+
+/-- The monad of 0 (set of infinitesimals) as a set. -/
+def infinitesimals (ι : Type*) [Infinite ι] (α : Type*) [AddCommGroup α] [Preorder α] :
+    Set (Hyper ι α) :=
+  {x | IsInfinitesimal x}
+
+theorem mem_infinitesimals_iff [AddCommGroup α] [Preorder α] {x : Hyper ι α} :
+    x ∈ infinitesimals ι α ↔ IsInfinitesimal x := Iff.rfl
+
+/-- Product of infinitesimal with finite element is infinitesimal.
+This is a key property: infinitesimals absorb finite multiplication. -/
+theorem IsInfinitesimal.mul_finite [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x y : Hyper ι α} (hx : IsInfinitesimal x) (hy : IsFinite y) :
+    IsInfinitesimal (x * y) := by
+  -- Special case: if y = 0, then x * y = 0 which is infinitesimal
+  by_cases hy0 : y = 0
+  · simp only [hy0, mul_zero]; exact IsInfinitesimal.zero
+  -- Now assume y ≠ 0, so |y| > 0
+  obtain ⟨M, hM_pos, hM⟩ := hy.bound_pos
+  intro r hr
+  have hr_M : 0 < r / M := div_pos hr hM_pos
+  obtain ⟨hx_neg, hx_pos⟩ := hx (r / M) hr_M
+  -- Key: |x * y| = |x| * |y| ≤ |x| * M < (r/M) * M = r
+  have h_abs_y : |y| ≤ std M := hM
+  have h_abs_x : |x| < std (r / M) := abs_lt.mpr ⟨hx_neg, hx_pos⟩
+  have h_abs_y_pos : 0 < |y| := abs_pos.mpr hy0
+  have h_rM_pos : (0 : Hyper ι α) < std (r / M) := by
+    rw [← std_zero, std_lt_std]; exact hr_M
+  have h_rM_nonneg : 0 ≤ std (r / M) := le_of_lt h_rM_pos
+  have h_key : |x| * |y| < std (r / M) * std M := by
+    apply mul_lt_mul h_abs_x h_abs_y h_abs_y_pos h_rM_nonneg
+  have h_eq : std (r / M) * std M = (std r : Hyper ι α) := by
+    rw [← std_mul (r / M) M, div_mul_cancel₀]
+    exact ne_of_gt hM_pos
+  rw [h_eq] at h_key
+  have h_prod : |x * y| = |x| * |y| := abs_mul x y
+  constructor
+  · calc -std r < -(|x * y|) := by
+          rw [neg_lt_neg_iff, h_prod]
+          exact h_key
+         _ ≤ x * y := neg_abs_le (x * y)
+  · calc x * y ≤ |x * y| := le_abs_self (x * y)
+         _ = |x| * |y| := h_prod
+         _ < std r := h_key
+
+/-- Product of finite element with infinitesimal is infinitesimal. -/
+theorem IsInfinitesimal.finite_mul [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x y : Hyper ι α} (hx : IsFinite x) (hy : IsInfinitesimal y) :
+    IsInfinitesimal (x * y) := by
+  rw [mul_comm]
+  exact hy.mul_finite hx
+
+/-- The infinitesimals form an additive subgroup of the hyperreals. -/
+theorem infinitesimals_add_subgroup [Field α] [LinearOrder α] [IsOrderedRing α]
+    [AddLeftStrictMono α] [AddRightStrictMono α] :
+    (infinitesimals ι α).Nonempty ∧
+    (∀ x y, x ∈ infinitesimals ι α → y ∈ infinitesimals ι α → x + y ∈ infinitesimals ι α) ∧
+    (∀ x, x ∈ infinitesimals ι α → -x ∈ infinitesimals ι α) :=
+  ⟨⟨0, IsInfinitesimal.zero⟩,
+   fun _ _ hx hy => hx.add hy,
+   fun _ hx => hx.neg⟩
+
+/-- The infinitesimals absorb multiplication by finite elements (ideal property). -/
+theorem infinitesimals_absorb_finite [Field α] [LinearOrder α] [IsOrderedRing α] :
+    ∀ x y : Hyper ι α, x ∈ infinitesimals ι α → IsFinite y →
+      x * y ∈ infinitesimals ι α :=
+  fun _ _ hx hy => hx.mul_finite hy
+
 theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinitePos x) :
     IsInfinite x := by
   intro hfin
@@ -2078,6 +2163,58 @@ theorem star_mono {s t : Set α} (h : s ⊆ t) {x : Hyper ι α} : x ∈★ s �
   induction x using Germ.inductionOn
   intro hx
   exact Filter.Eventually.mono hx (fun i hi => h hi)
+
+/-- In an ordered field with order topology, `IsInfinitesimal` is equivalent to
+being near-standard to 0. This connects the algebraic and topological definitions.
+
+This shows that the monad of 0 (the topological definition) equals the set of
+infinitesimals (the algebraic definition). -/
+theorem IsInfinitesimal_iff_isNearStandard_zero (x : Hyper ι α) :
+    IsInfinitesimal x ↔ IsNearStandard x 0 := by
+  constructor
+  · -- Forward: IsInfinitesimal x → IsNearStandard x 0
+    intro hx
+    rw [isNearStandard_def]
+    intro U hU
+    -- Get interval basis element: any neighborhood of 0 contains some (l, u) with l < 0 < u
+    rw [mem_nhds_iff_exists_Ioo_subset] at hU
+    obtain ⟨l, u, h0_mem, hIoo_sub⟩ := hU
+    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp h0_mem
+    -- Take r = min (-l) u > 0, then (-r, r) ⊆ (l, u)
+    let r := min (-l) u
+    have hr : 0 < r := lt_min (by linarith) hu
+    -- Apply infinitesimal condition
+    obtain ⟨hx_neg, hx_pos⟩ := hx r hr
+    -- Show x ∈★ U by showing x ∈★ Ioo l u ⊆ *U
+    apply star_mono hIoo_sub
+    rw [mem_star_Ioo]
+    constructor
+    · -- std l < x: Since r ≤ -l, we have std l ≤ -std r < x
+      have hr_le : r ≤ -l := min_le_left (-l) u
+      calc std l = -(std (-l)) := by rw [std_neg, neg_neg]
+           _ ≤ -(std r) := by rw [neg_le_neg_iff]; exact std_le_std.mpr hr_le
+           _ < x := hx_neg
+    · -- x < std u: Since r ≤ u, we have x < std r ≤ std u
+      have hr_le : r ≤ u := min_le_right (-l) u
+      calc x < std r := hx_pos
+           _ ≤ std u := std_le_std.mpr hr_le
+  · -- Backward: IsNearStandard x 0 → IsInfinitesimal x
+    intro hx r hr
+    rw [isNearStandard_def] at hx
+    -- (-r, r) is a neighborhood of 0
+    have hIoo_nhds : Set.Ioo (-r) r ∈ nhds (0 : α) := Ioo_mem_nhds (by linarith) hr
+    specialize hx (Set.Ioo (-r) r) hIoo_nhds
+    rw [mem_star_Ioo] at hx
+    constructor
+    · simp only [std_neg] at hx; exact hx.1
+    · exact hx.2
+
+/-- The monad of zero equals the set of infinitesimals. -/
+theorem monad_zero_eq_infinitesimals :
+    monad (nhds (0 : α)) = {x : Hyper ι α | IsInfinitesimal x} := by
+  ext x
+  rw [Set.mem_setOf_eq, IsInfinitesimal_iff_isNearStandard_zero]
+  rfl
 
 /-- The standard part of a finite hyperreal. -/
 noncomputable def st (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
