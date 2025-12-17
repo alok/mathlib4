@@ -37,7 +37,7 @@ public import Mathlib.Topology.Algebra.Ring.Real
 
 open scoped Classical
 
-set_option linter.style.longFile 4000
+set_option linter.style.longFile 4300
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -1451,6 +1451,12 @@ theorem InfClose.mul_finite [Field α] [LinearOrder α] [IsOrderedRing α]
   have h : x * c - y * c = (x - y) * c := by ring
   rw [h]
   exact hxy.mul_finite hc
+
+/-- Being infinitesimally close is preserved by subtraction. -/
+theorem InfClose.sub [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x₁ y₁ x₂ y₂ : Hyper ι α} (h₁ : x₁ ≃ᵢ y₁) (h₂ : x₂ ≃ᵢ y₂) : x₁ - x₂ ≃ᵢ y₁ - y₂ := by
+  simp only [sub_eq_add_neg]
+  exact h₁.add h₂.neg
 
 theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinitePos x) :
     IsInfinite x := by
@@ -3943,6 +3949,146 @@ theorem st_lift_of_continuous_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : I
   st_lift_of_continuousAt_real x hx hf.continuousAt
 
 end StandardForwardImage
+
+/-! ### Nonstandard Hull Isomorphism
+
+The key theorem for the nonstandard hull: the standard part function `st` respects
+the infinitesimally close relation, so it descends to the quotient.
+
+For hyperreals over ℝ, the nonstandard hull `Hyper_finite / ≃ᵢ` is isomorphic to ℝ,
+with the isomorphism given by the standard part function. -/
+
+section NonstandardHullReal
+
+/-- Standard part respects InfClose: infinitesimally close finite elements have the same
+standard part. This is the key result showing `st` descends to the quotient. -/
+theorem st_eq_of_infClose (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y)
+    (h : x ≃ᵢ y) : st x = st y := by
+  -- Strategy: show y ≈ st x (near standard to st x), then use uniqueness
+  have hx_near := st_of_isFinite x hx
+  have hy_near := st_of_isFinite y hy
+  have hy_near_stx : IsNearStandard y (st x) := by
+    rw [isNearStandard_def] at hx_near ⊢
+    intro U hU
+    rw [mem_nhds_iff_exists_Ioo_subset] at hU
+    obtain ⟨l, u, hstx_mem, hIoo_sub⟩ := hU
+    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp hstx_mem
+    -- Use δ/3 to get triangle inequality room
+    set δ := min (st x - l) (u - st x) / 3 with hδ_def
+    have hmin_pos : 0 < min (st x - l) (u - st x) := lt_min (by linarith) (by linarith)
+    have hδ : 0 < δ := by rw [hδ_def]; linarith
+    have hδ_l : 3 * δ ≤ st x - l := by
+      rw [hδ_def]
+      have h := min_le_left (st x - l) (u - st x)
+      linarith
+    have hδ_u : 3 * δ ≤ u - st x := by
+      rw [hδ_def]
+      have h := min_le_right (st x - l) (u - st x)
+      linarith
+    -- x is in (st x - δ, st x + δ)
+    have hIoo_nhds : Set.Ioo (st x - δ) (st x + δ) ∈ nhds (st x) :=
+      Ioo_mem_nhds (by linarith) (by linarith)
+    have hx_in := hx_near _ hIoo_nhds
+    rw [mem_star_Ioo] at hx_in
+    -- |x - y| < δ
+    simp only [InfClose] at h
+    have hxy := h δ hδ
+    -- y is in (l, u) via triangle inequality
+    apply star_mono hIoo_sub
+    rw [mem_star_Ioo]
+    constructor
+    · -- std l < y
+      have key : l < st x - 2 * δ := by linarith
+      have key' : (std l : Hyper ℕ ℝ) < std (st x - 2 * δ) := std_lt_std.mpr key
+      have step1 : x > (std (st x) : Hyper ℕ ℝ) - std δ := by
+        have := hx_in.1; rw [std_sub] at this; linarith
+      have step2 : y > x - std δ := by linarith [hxy.1]
+      have step3 : (std (st x - 2 * δ) : Hyper ℕ ℝ) = std (st x) - 2 * std δ := by
+        have h1 : (2 : Hyper ℕ ℝ) = std 2 := by rfl
+        rw [std_sub, std_mul, h1]
+      calc std l < std (st x - 2 * δ) := key'
+           _ = std (st x) - 2 * std δ := step3
+           _ < x - std δ := by linarith
+           _ < y := step2
+    · -- y < std u
+      have key : st x + 2 * δ < u := by linarith
+      have key' : (std (st x + 2 * δ) : Hyper ℕ ℝ) < std u := std_lt_std.mpr key
+      have step1 : x < (std (st x) : Hyper ℕ ℝ) + std δ := by
+        have := hx_in.2; rw [std_add] at this; linarith
+      have step2 : y < x + std δ := by linarith [hxy.2]
+      have step3 : (std (st x) : Hyper ℕ ℝ) + 2 * std δ = std (st x + 2 * δ) := by
+        have h1 : (2 : Hyper ℕ ℝ) = std 2 := by rfl
+        rw [h1, ← std_mul, ← std_add]
+      calc y < x + std δ := step2
+           _ < std (st x) + 2 * std δ := by linarith
+           _ = std (st x + 2 * δ) := step3
+           _ < std u := key'
+  exact (st_unique y hy (st y) (st x) hy_near hy_near_stx).symm
+
+/-- Finite elements that are equal modulo InfClose have the same standard part (converse). -/
+theorem infClose_of_st_eq (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y)
+    (h : st x = st y) : x ≃ᵢ y := by
+  simp only [InfClose]
+  -- x - y = (x - std (st x)) + (std (st y) - y)
+  -- Both terms are infinitesimal
+  have hx_inf : IsInfinitesimal (x - std (st x)) := by
+    have hx_near := st_of_isFinite x hx
+    rw [IsInfinitesimal_iff_isNearStandard_zero]
+    rw [isNearStandard_def] at hx_near ⊢
+    intro U hU
+    -- Translate U back by st x
+    rw [mem_nhds_iff_exists_Ioo_subset] at hU
+    obtain ⟨l, u, h0_mem, hIoo_sub⟩ := hU
+    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp h0_mem
+    -- The interval (st x + l, st x + u) is a neighborhood of st x
+    have hIoo_nhds : Set.Ioo (st x + l) (st x + u) ∈ nhds (st x) :=
+      Ioo_mem_nhds (by linarith) (by linarith)
+    have hx_in := hx_near _ hIoo_nhds
+    rw [mem_star_Ioo] at hx_in
+    apply star_mono hIoo_sub
+    rw [mem_star_Ioo]
+    constructor
+    · calc std l = std (st x + l) - std (st x) := by rw [std_add]; ring
+           _ < x - std (st x) := by linarith [hx_in.1]
+    · calc x - std (st x) < std (st x + u) - std (st x) := by linarith [hx_in.2]
+           _ = std u := by rw [std_add]; ring
+  -- y - std (st y) is infinitesimal (similar structure to hx_inf)
+  have hy_inf' : IsInfinitesimal (y - std (st y)) := by
+    have hy_near := st_of_isFinite y hy
+    rw [IsInfinitesimal_iff_isNearStandard_zero]
+    rw [isNearStandard_def] at hy_near ⊢
+    intro U hU
+    rw [mem_nhds_iff_exists_Ioo_subset] at hU
+    obtain ⟨l, u, h0_mem, hIoo_sub⟩ := hU
+    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp h0_mem
+    have hIoo_nhds : Set.Ioo (st y + l) (st y + u) ∈ nhds (st y) :=
+      Ioo_mem_nhds (by linarith) (by linarith)
+    have hy_in := hy_near _ hIoo_nhds
+    rw [mem_star_Ioo] at hy_in
+    apply star_mono hIoo_sub
+    rw [mem_star_Ioo]
+    constructor
+    · calc std l = std (st y + l) - std (st y) := by rw [std_add]; ring
+           _ < y - std (st y) := by linarith [hy_in.1]
+    · calc y - std (st y) < std (st y + u) - std (st y) := by linarith [hy_in.2]
+           _ = std u := by rw [std_add]; ring
+  -- std (st y) - y = -(y - std (st y)) is also infinitesimal
+  have hy_inf : IsInfinitesimal (std (st y) - y) := by
+    have h_neg : std (st y) - y = -(y - std (st y)) := by ring
+    rw [h_neg]
+    exact hy_inf'.neg
+  -- Now combine: x - y = (x - std (st x)) + (std (st y) - y) (using st x = st y)
+  have h_eq : x - y = (x - std (st x)) + (std (st y) - y) := by rw [h]; ring
+  rw [h_eq]
+  exact hx_inf.add hy_inf
+
+/-- Standard part respects InfClose iff: x ≃ᵢ y ⟺ st x = st y (for finite elements).
+This shows the nonstandard hull is isomorphic to ℝ. -/
+theorem st_eq_iff_infClose (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
+    st x = st y ↔ x ≃ᵢ y :=
+  ⟨infClose_of_st_eq x y hx hy, fun h => st_eq_of_infClose x y hx hy h⟩
+
+end NonstandardHullReal
 
 /-! ### Transfer tactic tests
 
