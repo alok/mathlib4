@@ -471,6 +471,7 @@ theorem hyperfiniteSubsetCard_union {H : Set (Hyper ι α)} (hH : IsHyperfinite 
       exact Set.disjoint_iff_inter_eq_empty.mp hi_disj
     · exact (h_fin_SA i).subset Set.inter_subset_left
   rw [Finset.card_union_of_disjoint h_dis_fin]
+  rfl
 
 theorem hyperfiniteSubsetCard_le {H : Set (Hyper ι α)} (hH : IsHyperfinite H)
     {A : Set (Hyper ι α)} (hA : IsInternal A) :
@@ -613,20 +614,26 @@ noncomputable def loebMeasure (H : Set (Hyper ι α)) (hH : IsHyperfinite H) : @
 /-- Internal sum of an internal function over a hyperfinite set. -/
 noncomputable def internalSum (H : Set (Hyper ι α)) (hH : IsHyperfinite H)
     (f : Hyper ι (α → ℝ)) : Hyper ι ℝ :=
-  Hyper.lift₂ (fun (s : Finset α) (g : α → ℝ) => ∑ x in s, g x) hH.choose f
+  let S := hH.choose
+  let hS_fin := hH.choose_spec.1
+  let finsets : ι → Finset α := fun i => (hS_fin i).toFinset
+  Hyper.lift₂ (fun (s : Finset α) (g : α → ℝ) => ∑ x ∈ s, g x) (Hyper.ofSeq finsets) f
 
 /-- Key Lemma: Integration of standard functions.
-For a standard bounded function `f`, the integral against Loeb measure is the standard part of the internal sum.
-This is a simplified version focusing on the core equality needed for Plancherel.
--/
+For a standard bounded function `f`, the integral against Loeb measure is the standard part
+of the internal sum. This is a simplified version focusing on the core equality.
+
+Note: This requires α to have the appropriate structure for `st` to be defined.
+For now, we specialize to ℝ. -/
 theorem loebIntegral_eq_st_hyperSum
-    (H : Set (Hyper ι α)) (hH : IsHyperfinite H)
-    (f : α → ℝ) (hf_bound : ∃ C, ∀ x, |f x| ≤ C) (hf_cont : Continuous f) :
-    ∫ x, f (Hyper.st x) ∂(loebMeasure H hH) = Hyper.st (internalSum H hH (Hyper.liftFun f) / hyperfiniteCard H hH) := by
+    (H : Set (Hyper ι ℝ)) (hH : IsHyperfinite H)
+    (f : ℝ → ℝ) (hf_bound : ∃ C, ∀ x, |f x| ≤ C) (hf_cont : Continuous f) :
+    ∫ x, f (Hyper.st x) ∂(loebMeasure H hH) =
+      Hyper.st (internalSum H hH (Hyper.liftFun f) /
+        Hyper.lift (Nat.cast : ℕ → ℝ) (hyperfiniteCard H hH)) := by
   -- Proof sketch: Approximation by simple functions (step functions).
   -- Since f is continuous on compact (if alpha compact), it is uniformly continuous.
   -- This allows approximating f by sum of indicators of internal sets.
-  -- For now, we stub this proof to proceed to the Plancherel linkage.
   sorry
 
 end LoebMeasure

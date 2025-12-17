@@ -111,8 +111,8 @@ theorem coe_le_coe {x y : ℝ} : (x : ℝ*) ≤ y ↔ x ≤ y :=
   Germ.const_le_iff
 
 @[simp, norm_cast]
-theorem coe_lt_coe {x y : ℝ} : (x : ℝ*) < y ↔ x < y :=
-  Germ.const_lt_iff
+theorem coe_lt_coe {x y : ℝ} : (x : ℝ*) < y ↔ x < y := by
+  simp only [lt_iff_le_not_ge, coe_le_coe]
 
 @[simp, norm_cast]
 theorem coe_nonneg {x : ℝ} : 0 ≤ (x : ℝ*) ↔ 0 ≤ x :=
@@ -139,8 +139,12 @@ noncomputable def ofSeq (f : ℕ → ℝ) : ℝ* := (↑f : Germ (hyperfilter �
 
 theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℝ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
-  Germ.coe_lt
+theorem ofSeq_le_ofSeq {f g : ℕ → ℝ} :
+    ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := Iff.rfl
+
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℝ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n := by
+  change LiftRel (· < ·) (ofSeq f) (ofSeq g) ↔ _
+  rfl
 
 /-- A sample infinitesimal hyperreal -/
 noncomputable def epsilon : ℝ* :=
@@ -160,9 +164,9 @@ theorem inv_omega : ω⁻¹ = ε :=
 theorem inv_epsilon : ε⁻¹ = ω :=
   @inv_inv _ _ ω
 
-theorem omega_pos : 0 < ω :=
-  Germ.coe_pos.2 <| Nat.hyperfilter_le_atTop <| (eventually_gt_atTop 0).mono fun _ ↦
-    Nat.cast_pos.2
+theorem omega_pos : 0 < ω := by
+  rw [show (0 : ℝ*) = ofSeq (fun _ => 0) from rfl, show ω = ofSeq Nat.cast from rfl, ofSeq_lt_ofSeq]
+  exact Nat.hyperfilter_le_atTop <| (eventually_gt_atTop 0).mono fun _ ↦ Nat.cast_pos.2
 
 theorem epsilon_pos : 0 < ε :=
   inv_pos_of_pos omega_pos
@@ -500,24 +504,26 @@ theorem infiniteNeg_add_not_infinite {x y : ℝ*} :
   infiniteNeg_add_not_infinitePos hx (not_or.mp hy).1
 
 theorem infinitePos_of_tendsto_top {f : ℕ → ℝ} (hf : Tendsto f atTop atTop) :
-    InfinitePos (ofSeq f) := fun r =>
+    InfinitePos (ofSeq f) := fun r => by
   have hf' := tendsto_atTop_atTop.mp hf
   let ⟨i, hi⟩ := hf' (r + 1)
   have hi' : ∀ a : ℕ, f a < r + 1 → a < i := fun a => lt_imp_lt_of_le_imp_le (hi a)
   have hS : { a : ℕ | r < f a }ᶜ ⊆ { a : ℕ | a ≤ i } := by
     simp only [Set.compl_setOf, not_lt]
     exact fun a har => le_of_lt (hi' a (lt_of_le_of_lt har (lt_add_one _)))
-  Germ.coe_lt.2 <| mem_hyperfilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
+  rw [show (r : ℝ*) = ofSeq (fun _ => r) from rfl, ofSeq_lt_ofSeq]
+  exact mem_hyperfilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
 
 theorem infiniteNeg_of_tendsto_bot {f : ℕ → ℝ} (hf : Tendsto f atTop atBot) :
-    InfiniteNeg (ofSeq f) := fun r =>
+    InfiniteNeg (ofSeq f) := fun r => by
   have hf' := tendsto_atTop_atBot.mp hf
   let ⟨i, hi⟩ := hf' (r - 1)
   have hi' : ∀ a : ℕ, r - 1 < f a → a < i := fun a => lt_imp_lt_of_le_imp_le (hi a)
   have hS : { a : ℕ | f a < r }ᶜ ⊆ { a : ℕ | a ≤ i } := by
     simp only [Set.compl_setOf, not_lt]
     exact fun a har => le_of_lt (hi' a (lt_of_lt_of_le (sub_one_lt _) har))
-  Germ.coe_lt.2 <| mem_hyperfilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
+  rw [show (r : ℝ*) = ofSeq (fun _ => r) from rfl, ofSeq_lt_ofSeq]
+  exact mem_hyperfilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
 
 theorem not_infinite_neg {x : ℝ*} : ¬Infinite x → ¬Infinite (-x) := mt infinite_neg.mp
 
