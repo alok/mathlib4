@@ -32,10 +32,12 @@ public import Mathlib.Algebra.Field.Defs
 public import Mathlib.Algebra.Order.Field.Defs
 public import Mathlib.Topology.MetricSpace.Cauchy
 public import Mathlib.Topology.MetricSpace.Pseudo.Defs
+public import Mathlib.Topology.Separation.Hausdorff
+public import Mathlib.Topology.Algebra.Ring.Real
 
 open scoped Classical
 
-set_option linter.style.longFile 3500
+set_option linter.style.longFile 3700
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -141,6 +143,35 @@ This allows proving a property for all hyper-elements by proving it for all sequ
 @[elab_as_elim]
 theorem inductionOn {P : Hyper ι α → Prop} (x : Hyper ι α) (h : ∀ f : ι → α, P (ofSeq f)) : P x :=
   Germ.inductionOn x h
+
+/-! ### Arithmetic on Sequences
+
+These lemmas bridge the sequential representation `ofSeq f` with arithmetic operations.
+They are essential for proofs that work pointwise on sequences. -/
+
+@[simp]
+theorem add_ofSeq [Add α] (f g : ι → α) : ofSeq f + ofSeq g = ofSeq (f + g) := rfl
+
+@[simp]
+theorem mul_ofSeq [Mul α] (f g : ι → α) : ofSeq f * ofSeq g = ofSeq (f * g) := rfl
+
+@[simp]
+theorem neg_ofSeq [Neg α] (f : ι → α) : -ofSeq f = ofSeq (-f) := rfl
+
+@[simp]
+theorem sub_ofSeq [Sub α] (f g : ι → α) : ofSeq f - ofSeq g = ofSeq (f - g) := rfl
+
+@[simp]
+theorem inv_ofSeq [Inv α] (f : ι → α) : (ofSeq f)⁻¹ = ofSeq f⁻¹ := rfl
+
+@[simp]
+theorem div_ofSeq [Div α] (f g : ι → α) : ofSeq f / ofSeq g = ofSeq (f / g) := rfl
+
+@[simp]
+theorem zero_ofSeq [Zero α] : ofSeq (0 : ι → α) = (0 : Hyper ι α) := rfl
+
+@[simp]
+theorem one_ofSeq [One α] : ofSeq (1 : ι → α) = (1 : Hyper ι α) := rfl
 
 
 
@@ -3379,36 +3410,50 @@ theorem isCompact_iff_nsa {K : Set α} (hK : IsClosed K) :
 
 end Compactness
 
-/-! ## Standard Part and Completeness
+/-! ## Standard Part Uniqueness in Hausdorff Spaces
+
+In any Hausdorff space, monads of distinct standard points are disjoint.
+This means the standard part (when it exists) is unique. -/
+
+section StandardPartHausdorff
+
+variable [TopologicalSpace α] [T2Space α]
+
+/-- **Monads are disjoint in Hausdorff spaces**: If `x` is near-standard to both `r` and `s`,
+then `r = s`. This is the key uniqueness property that makes "standard part" well-defined.
+
+The proof uses the Hausdorff separation axiom: distinct points have disjoint neighborhoods,
+and any element in the monad of both points would be in the star of disjoint sets. -/
+theorem IsNearStandard.unique {x : Hyper ℕ α} {r s : α}
+    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s := by
+  by_contra hne
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  -- In T2 space, distinct points have disjoint neighborhoods
+  obtain ⟨U, V, hU, hV, hUV⟩ := t2_separation_nhds hne
+  -- x is in the monad of both r and s (already in liftPred form)
+  have hxU := hr U hU
+  have hxV := hs V hV
+  -- Combine: x ∈★ U and x ∈★ V means x ∈★ (U ∩ V)
+  simp only [liftPred_ofSeq] at hxU hxV
+  have hx_inter : ∀ᶠ i in hyperfilter ℕ, f i ∈ U ∩ V := hxU.and hxV
+  -- But U ∩ V = ∅, so this is eventually false
+  have h_empty : U ∩ V = ∅ := Set.disjoint_iff_inter_eq_empty.mp hUV
+  simp only [h_empty, Set.mem_empty_iff_false, Filter.eventually_false_iff_eq_bot] at hx_inter
+  exact (hyperfilter ℕ).neBot.ne hx_inter
+
+end StandardPartHausdorff
+
+/-! ## Standard Part in Complete Ordered Fields
 
 In a complete ordered field like ℝ, every finite hyperreal has a unique standard part.
 This is the foundation for "taking standard parts" in NSA proofs. -/
 
 section StandardPartReal
 
-/-- The standard part function for finite hyperreals over ℝ.
-For a finite `x`, `st x` is the unique real number infinitely close to `x`. -/
+/-- The standard part is unique (specialization to ℝ, using Hausdorff property). -/
 theorem st_unique (x : Hyper ℕ ℝ) (hx : IsFinite x) (r s : ℝ)
-    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s := by
-  by_contra hne
-  wlog hrs : r < s generalizing r s
-  · exact this s r hs hr (Ne.symm hne) ((ne_iff_lt_or_gt.mp hne).resolve_left hrs)
-  -- r < s, so there's a gap. Use ε = (s - r) / 3 so intervals don't overlap.
-  set ε := (s - r) / 3 with hε_def
-  have hε : 0 < ε := by linarith
-  -- x is near both r and s
-  have hr' := hr (Set.Ioo (r - ε) (r + ε)) (Ioo_mem_nhds (by linarith) (by linarith))
-  have hs' := hs (Set.Ioo (s - ε) (s + ε)) (Ioo_mem_nhds (by linarith) (by linarith))
-  rw [mem_star_Ioo] at hr' hs'
-  -- x < std (r + ε) and std (s - ε) < x
-  have hlt1 : x < std (r + ε) := hr'.2
-  have hlt2 : std (s - ε) < x := hs'.1
-  -- But r + ε < s - ε since r + (s-r)/3 < s - (s-r)/3 iff 2(s-r)/3 < s - r iff 2/3 < 1
-  have hstd_lt : (std (r + ε) : Hyper ℕ ℝ) < std (s - ε) := by
-    rw [std_lt_std]
-    -- r + (s-r)/3 < s - (s-r)/3 iff r + (s-r)/3 + (s-r)/3 < s iff r + 2(s-r)/3 < s
-    linarith
-  exact not_lt.mpr (le_of_lt hlt1) (lt_trans hstd_lt hlt2)
+    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s :=
+  hr.unique hs
 
 /-- Every finite hyperreal over ℝ has a standard part (existence). -/
 theorem finite_has_st (x : Hyper ℕ ℝ) (hx : IsFinite x) : ∃ r : ℝ, IsNearStandard x r :=
@@ -3420,6 +3465,180 @@ theorem st_eq_isNearStandard (x : Hyper ℕ ℝ) (hx : IsFinite x) :
   exact st_of_isFinite x hx
 
 end StandardPartReal
+
+/-! ## Transfer Principle
+
+The transfer principle states that first-order properties transfer between standard
+and nonstandard worlds. We implement specific transfer schemas and a `transfer` tactic. -/
+
+section Transfer
+
+/-- **Transfer tactic**: Simplifies goals by pushing `std` through arithmetic operations
+and converting between standard and nonstandard formulations.
+
+Examples of rewrites:
+- `std (a + b)` → `std a + std b`
+- `std a ≤ std b` ↔ `a ≤ b`
+- `liftPred P (std a)` ↔ `P a`
+-/
+macro "transfer" : tactic => `(tactic|
+  simp only [← std_add, ← std_mul, ← std_neg, ← std_le_std, ← std_lt_std,
+             lift_std, liftPred_std, liftRel_std, std_le, std_lt])
+
+/-! ### Standard Part Arithmetic (ℝ)
+
+When both `x` and `y` are finite hyperreals, the standard part distributes over arithmetic:
+- `st (x + y) = st x + st y`
+- `st (x * y) = st x * st y`
+- `st (-x) = -(st x)`
+-/
+
+/-- Standard part of negation equals negation of standard part. -/
+theorem st_neg_real (x : Hyper ℕ ℝ) (hx : IsFinite x) : st (-x) = -(st x) := by
+  have hx_neg : IsFinite (-x) := hx.neg
+  have hxs := st_of_isFinite x hx
+  have h_near : IsNearStandard (-x) (-(st x)) := by
+    rw [isNearStandard_def] at hxs ⊢
+    intro U hU
+    -- Use continuity of negation: preimage of U under neg is a neighborhood of st x
+    have h_cont : ContinuousAt (-(·) : ℝ → ℝ) (st x) := continuous_neg.continuousAt
+    have hV : (-(·)) ⁻¹' U ∈ nhds (st x) := h_cont.preimage_mem_nhds (by simpa using hU)
+    have hx_in_V := hxs _ hV
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    simp only [neg_ofSeq, liftPred_ofSeq] at hx_in_V ⊢
+    filter_upwards [hx_in_V] with i hi
+    simp only [Set.mem_preimage, Pi.neg_apply] at hi ⊢
+    exact hi
+  exact (st_of_isFinite (-x) hx_neg).unique h_near
+
+/-- Standard part of a sum equals sum of standard parts.
+Uses continuity of addition and uniqueness of standard parts. -/
+theorem st_add_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
+    st (x + y) = st x + st y := by
+  have hxy : IsFinite (x + y) := hx.add hy
+  have h_near : IsNearStandard (x + y) (st x + st y) := by
+    -- x ≈ st x and y ≈ st y, and + is continuous, so x + y ≈ st x + st y
+    have hxs := st_of_isFinite x hx
+    have hys := st_of_isFinite y hy
+    rw [isNearStandard_def] at hxs hys ⊢
+    intro U hU
+    have h_cont : ContinuousAt (fun p : ℝ × ℝ => p.1 + p.2) (st x, st y) :=
+      continuous_add.continuousAt
+    have hpre := h_cont.preimage_mem_nhds hU
+    rw [nhds_prod_eq] at hpre
+    obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
+    have hxV := hxs V hV
+    have hyW := hys W hW
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    simp only [add_ofSeq, liftPred_ofSeq] at hxV hyW ⊢
+    filter_upwards [hxV, hyW] with i hfi hgi
+    exact hVW (Set.mk_mem_prod hfi hgi)
+  exact (st_of_isFinite (x + y) hxy).unique h_near
+
+/-- Standard part of a product equals product of standard parts.
+Uses continuity of multiplication and uniqueness of standard parts. -/
+theorem st_mul_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
+    st (x * y) = st x * st y := by
+  have hxy : IsFinite (x * y) := hx.mul hy
+  have h_near : IsNearStandard (x * y) (st x * st y) := by
+    have hxs := st_of_isFinite x hx
+    have hys := st_of_isFinite y hy
+    rw [isNearStandard_def] at hxs hys ⊢
+    intro U hU
+    have h_cont : ContinuousAt (fun p : ℝ × ℝ => p.1 * p.2) (st x, st y) :=
+      continuous_mul.continuousAt
+    have hpre := h_cont.preimage_mem_nhds hU
+    rw [nhds_prod_eq] at hpre
+    obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
+    have hxV := hxs V hV
+    have hyW := hys W hW
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    simp only [mul_ofSeq, liftPred_ofSeq] at hxV hyW ⊢
+    filter_upwards [hxV, hyW] with i hfi hgi
+    exact hVW (Set.mk_mem_prod hfi hgi)
+  exact (st_of_isFinite (x * y) hxy).unique h_near
+
+/-- Standard part of inverse for non-infinitesimal finite elements. -/
+theorem st_inv_real (x : Hyper ℕ ℝ) (hx : IsFinite x) (hx_not_inf : ¬IsInfinitesimal x) :
+    st x⁻¹ = (st x)⁻¹ := by
+  sorry -- Requires showing x⁻¹ is finite when x is finite and non-infinitesimal
+
+end Transfer
+
+/-! ## Standard Forward Image
+
+The key theorem: standard functions preserve standard parts when applied to finite elements.
+If `f : ℝ → ℝ` is continuous and `x` is finite, then `st (lift f x) = f (st x)`. -/
+
+section StandardForwardImage
+
+/-- A continuous function preserves near-standardness: if `x ≈ a` and `f` is continuous at `a`,
+then `lift f x ≈ f a`. Specialized to ℝ. -/
+theorem IsNearStandard.lift_of_continuousAt_real {f : ℝ → ℝ} {x : Hyper ℕ ℝ} {a : ℝ}
+    (hx : IsNearStandard x a) (hf : ContinuousAt f a) :
+    IsNearStandard (lift f x) (f a) := by
+  rw [continuousAt_iff_nsa] at hf
+  rw [isNearStandard_def] at hx ⊢
+  intro U hU
+  rw [mem_nhds_iff_exists_Ioo_subset] at hU
+  obtain ⟨l, u, ⟨hl, hu⟩, hIoo_sub⟩ := hU
+  set ε := min (f a - l) (u - f a) with hε_def
+  have hε : 0 < ε := by simp [hε_def, sub_pos]; constructor <;> linarith
+  -- x is near a means dist(x, a) is infinitesimal
+  have h_x_close : IsInfinitesimal (lift (dist · a) x) := by
+    intro δ hδ
+    have hδ_nhds : Set.Ioo (a - δ) (a + δ) ∈ nhds a := Ioo_mem_nhds (by linarith) (by linarith)
+    have hx_in := hx _ hδ_nhds
+    rw [mem_star_Ioo] at hx_in
+    obtain ⟨fx, rfl⟩ := ofSeq_surjective x
+    constructor
+    · simp only [lift_ofSeq, neg_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+      filter_upwards with i
+      simp only [Function.comp_apply, Pi.neg_apply]
+      have h := dist_nonneg (x := fx i) (y := a)
+      linarith
+    · rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
+      rw [std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hx_in
+      filter_upwards [hx_in.1, hx_in.2] with i hi1 hi2
+      simp only [Function.comp_apply]
+      rw [Real.dist_eq, abs_lt]
+      constructor <;> linarith
+  -- Apply NSA continuity: infinitely close inputs → infinitely close outputs
+  have h_f_close : IsInfinitesimal (lift (fun z => dist (f z) (f a)) x) := hf x h_x_close
+  obtain ⟨_, hf_up⟩ := h_f_close ε hε
+  obtain ⟨fx, rfl⟩ := ofSeq_surjective x
+  simp only [lift_ofSeq, liftPred_ofSeq]
+  rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hf_up
+  have hε_left : ε ≤ f a - l := min_le_left _ _
+  have hε_right : ε ≤ u - f a := min_le_right _ _
+  filter_upwards [hf_up] with i hi
+  apply hIoo_sub
+  simp only [Set.mem_Ioo, Function.comp_apply]
+  simp only [Function.comp_apply] at hi
+  rw [Real.dist_eq, abs_lt] at hi
+  constructor <;> linarith [hi.1, hi.2, hε_left, hε_right]
+
+/-- **Main theorem**: Standard part commutes with continuous functions on ℝ.
+
+If `f : ℝ → ℝ` is continuous at `st x` and `x` is finite, then `st (lift f x) = f (st x)`. -/
+theorem st_lift_of_continuousAt_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : IsFinite x)
+    (hf : ContinuousAt f (st x)) : st (lift f x) = f (st x) := by
+  have h_near_x := st_of_isFinite x hx
+  have h_near_fx := h_near_x.lift_of_continuousAt_real hf
+  have h_fx_finite : IsFinite (lift f x) := by
+    rw [isFinite_iff_exists_st]
+    exact ⟨f (st x), h_near_fx⟩
+  exact st_unique (lift f x) h_fx_finite (st (lift f x)) (f (st x))
+    (st_of_isFinite _ h_fx_finite) h_near_fx
+
+/-- Standard part commutes with continuous functions (global continuity version). -/
+theorem st_lift_of_continuous_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : IsFinite x)
+    (hf : Continuous f) : st (lift f x) = f (st x) :=
+  st_lift_of_continuousAt_real x hx hf.continuousAt
+
+end StandardForwardImage
 
 /-! ### Grind integration tests
 
