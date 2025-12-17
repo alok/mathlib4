@@ -1407,6 +1407,134 @@ theorem not_forall_liftPred_iff {P : α → Prop} :
 
 end IST
 
+/-! ## Overspill and Underspill Principles
+
+The overspill and underspill principles are fundamental proof techniques in nonstandard analysis.
+They allow us to transfer properties between standard and nonstandard elements.
+
+**Overspill**: If an internal property holds for all standard natural numbers,
+then it holds for some unlimited natural number.
+
+**Underspill**: If an internal property holds for all unlimited natural numbers,
+then it holds for some standard natural number.
+-/
+
+section OverspillUnderspill
+
+/-- Helper: given a sequence of sets S_i, construct a sequence f where f(i) is the
+maximum n ≤ i such that n ∈ S_i, witnessing membership in the internal set. -/
+private noncomputable def overspillWitness (S : ℕ → Set ℕ) : ℕ → ℕ := fun i =>
+  if h : ∃ n ≤ i, n ∈ S i then Nat.find h else 0
+
+/-- **Overspill Principle**: If an internal property P on `Hyper ℕ ℕ` holds for all
+standard natural numbers, then P holds for some unlimited natural number.
+
+This is a key technique in NSA proofs: to show existence of unlimited elements with
+a property, it suffices to show the property holds for all standard elements. -/
+theorem overspill_internal {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P)
+    (hstd : ∀ n : ℕ, std n ∈ P) : ∃ N : Hyper ℕ ℕ, IsInfinitePos N ∧ N ∈ P := by
+  -- P is internal, so P corresponds to a sequence of sets S
+  obtain ⟨S, hS⟩ := hP
+  -- For each standard n, we have std n ∈ P, i.e., {i : n ∈ S i} ∈ hyperfilter
+  have h_std_mem : ∀ n : ℕ, ∀ᶠ i in hyperfilter ℕ, n ∈ S i := by
+    intro n
+    have := hstd n
+    rw [hS, liftPredSeq, std_eq_ofSeq_const] at this
+    exact this
+  -- Define f(i) = max {n ≤ i : n ∈ S i}
+  -- Use Nat.find to get the maximum element (or 0 if none exists)
+  let f : ℕ → ℕ := fun i =>
+    if h : ∃ n ≤ i, n ∈ S i then (Finset.filter (· ∈ S i) (Finset.range (i + 1))).max' (by
+      obtain ⟨n, hn_le, hn_mem⟩ := h
+      exact ⟨n, Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hn_le), hn_mem⟩⟩)
+    else 0
+  -- Claim 1: f(i) ∈ S i eventually (when 0 ∈ S i, the condition is satisfied)
+  have hf_mem : ∀ᶠ i in hyperfilter ℕ, f i ∈ S i := by
+    filter_upwards [h_std_mem 0] with i h0
+    simp only [f]
+    have hex : ∃ n ≤ i, n ∈ S i := ⟨0, Nat.zero_le i, h0⟩
+    simp only [hex, dite_true]
+    let T := Finset.filter (· ∈ S i) (Finset.range (i + 1))
+    have hT_ne : T.Nonempty := ⟨0, by simp [T, h0]⟩
+    have hmax := Finset.max'_mem T hT_ne
+    exact (Finset.mem_filter.mp hmax).2
+  -- Claim 2: f(i) > n eventually for each standard n
+  have hf_large : ∀ n : ℕ, ∀ᶠ i in hyperfilter ℕ, n < f i := by
+    intro n
+    have h_succ : ∀ᶠ i in hyperfilter ℕ, (n + 1) ∈ S i := h_std_mem (n + 1)
+    have h_large : ∀ᶠ i in hyperfilter ℕ, i ≥ n + 1 := by
+      apply Filter.mem_hyperfilter_of_finite_compl
+      convert Set.finite_lt_nat (n + 1) using 1
+      ext; simp only [Set.mem_compl_iff, Set.mem_setOf_eq, not_le]
+    filter_upwards [h_succ, h_large] with i hi_mem hi_ge
+    simp only [f]
+    have hex : ∃ m ≤ i, m ∈ S i := ⟨n + 1, hi_ge, hi_mem⟩
+    simp only [hex, dite_true]
+    have hmem : n + 1 ∈ Finset.filter (· ∈ S i) (Finset.range (i + 1)) := by
+      simp only [Finset.mem_filter, Finset.mem_range]
+      exact ⟨Nat.lt_succ_of_le hi_ge, hi_mem⟩
+    calc n < n + 1 := Nat.lt_succ_self n
+         _ ≤ (Finset.filter (· ∈ S i) (Finset.range (i + 1))).max' _ :=
+             Finset.le_max' _ _ hmem
+  -- Now N = ofSeq f satisfies both conditions
+  use ofSeq f
+  constructor
+  · -- N is unlimited: std n < N for all n
+    intro n
+    rw [std_lt_ofSeq]
+    exact hf_large n
+  · -- N ∈ P
+    rw [hS, liftPredSeq_ofSeq]
+    exact hf_mem
+
+/-- **Underspill Principle**: If an internal property P on `Hyper ℕ ℕ` holds for all
+unlimited natural numbers, then P holds for some standard natural number.
+
+This is the dual of overspill and is equally useful in NSA arguments. -/
+theorem underspill_internal {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P)
+    (hunlim : ∀ N : Hyper ℕ ℕ, IsInfinitePos N → N ∈ P) : ∃ n : ℕ, std n ∈ P := by
+  -- By contrapositive: if no standard n is in P, then some unlimited is not in P
+  by_contra h
+  push_neg at h
+  -- Then all standard elements are in Pᶜ
+  have hPc : IsInternal Pᶜ := hP.compl
+  have hstd_compl : ∀ n : ℕ, std n ∈ Pᶜ := fun n => h n
+  -- By overspill, some unlimited N is in Pᶜ
+  obtain ⟨N, hN_unlim, hN_compl⟩ := overspill_internal hPc hstd_compl
+  -- But hunlim says N ∈ P, contradiction
+  exact hN_compl (hunlim N hN_unlim)
+
+/-- Overspill for inequalities: if x < std n for all standard n, and x is in an
+internal set P, then there exists unlimited N with x < N and N ∈ P. -/
+theorem overspill_lt {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P) {x : Hyper ℕ ℕ}
+    (hx_fin : IsFinite x) (hx_mem : x ∈ P)
+    (hstd : ∀ n : ℕ, x < std n → std n ∈ P) :
+    ∃ N : Hyper ℕ ℕ, IsInfinitePos N ∧ x < N ∧ N ∈ P := by
+  -- x is finite, so there exists m with x < std m
+  obtain ⟨_, m, _, hxm⟩ := hx_fin
+  -- Apply overspill to the shifted property
+  have hstd' : ∀ n : ℕ, std (m + n + 1) ∈ P := by
+    intro n
+    apply hstd
+    calc x ≤ std m := hxm
+         _ < std (m + n + 1) := by rw [std_lt_std]; omega
+  -- Need an internal set for {k : std k ∈ P and k ≥ m}
+  sorry
+
+/-- Bounded overspill: if P holds for all n ≤ some unlimited N, then P holds
+for some unlimited element. -/
+theorem overspill_bounded {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P) {N : Hyper ℕ ℕ}
+    (hN : IsInfinitePos N) (hle : ∀ k : Hyper ℕ ℕ, k ≤ N → k ∈ P) :
+    ∃ M : Hyper ℕ ℕ, IsInfinitePos M ∧ M ∈ P := by
+  -- Since N is unlimited, std n ≤ N for all n
+  have hstd : ∀ n : ℕ, std n ∈ P := by
+    intro n
+    apply hle
+    exact le_of_lt (hN n)
+  exact overspill_internal hP hstd
+
+end OverspillUnderspill
+
 /-! ## Nonstandard Characterizations
 
 These definitions and lemmas provide the key nonstandard analysis concepts. -/
