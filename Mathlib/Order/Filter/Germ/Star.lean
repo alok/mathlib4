@@ -3560,10 +3560,33 @@ theorem st_mul_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
     exact hVW (Set.mk_mem_prod hfi hgi)
   exact (st_of_isFinite (x * y) hxy).unique h_near
 
-/-- Standard part of inverse for non-infinitesimal finite elements. -/
+/-- If x is finite but not infinitesimal, then st x ≠ 0. -/
+theorem st_ne_zero_of_not_infinitesimal (x : Hyper ℕ ℝ) (hx : IsFinite x)
+    (hx_not_inf : ¬IsInfinitesimal x) : st x ≠ 0 := by
+  intro h_eq
+  apply hx_not_inf
+  -- x ≈ st x = 0, so x is infinitesimal
+  intro r hr
+  have h_near := st_of_isFinite x hx
+  rw [isNearStandard_def] at h_near
+  have hIoo := h_near (Set.Ioo (-r) r) (Ioo_mem_nhds (by linarith) (by linarith))
+  rw [mem_star_Ioo] at hIoo
+  -- hIoo : std (-r) < x ∧ x < std r, goal : -std r < x ∧ x < std r
+  rwa [std_neg] at hIoo
+
+/-- Standard part of inverse for non-infinitesimal finite elements.
+Note: The proof uses `st_lift_of_continuousAt_real` which is defined later.
+The key steps are:
+1. `st x ≠ 0` since x is not infinitesimal
+2. Inversion is continuous at nonzero points
+3. `x⁻¹` is finite since `|x| > ε` implies `|x⁻¹| < 1/ε`
+4. Apply standard forward image theorem -/
 theorem st_inv_real (x : Hyper ℕ ℝ) (hx : IsFinite x) (hx_not_inf : ¬IsInfinitesimal x) :
     st x⁻¹ = (st x)⁻¹ := by
-  sorry -- Requires showing x⁻¹ is finite when x is finite and non-infinitesimal
+  have h_st_ne : st x ≠ 0 := st_ne_zero_of_not_infinitesimal x hx hx_not_inf
+  -- The full proof requires IsNearStandard.lift_of_continuousAt_real and showing x⁻¹ is finite
+  -- Both require showing |x| > ε for some standard ε > 0
+  sorry
 
 end Transfer
 
