@@ -1262,6 +1262,67 @@ theorem IsFinite.bound_pos [Field α] [LinearOrder α] [IsOrderedRing α] {x : H
   · exact lt_max_of_lt_right one_pos
   · exact le_trans hr (by rw [std_le_std]; exact le_max_left r 1)
 
+/-- If x is not infinitesimal, then |x| is bounded away from 0 by some standard ε > 0. -/
+theorem exists_std_le_abs_of_not_infinitesimal [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x : Hyper ι α} (hx_not_inf : ¬IsInfinitesimal x) :
+    ∃ ε : α, 0 < ε ∧ std ε ≤ |x| := by
+  -- Not infinitesimal means ∃ ε > 0, ¬(-std ε < x ∧ x < std ε)
+  rw [IsInfinitesimal] at hx_not_inf
+  push_neg at hx_not_inf
+  obtain ⟨ε, hε, h⟩ := hx_not_inf
+  use ε, hε
+  -- h : -std ε < x → std ε ≤ x
+  by_cases hcase : -std ε < x
+  · -- x > -std ε, so by h we have std ε ≤ x, hence |x| ≥ std ε
+    calc std ε ≤ x := h hcase
+         _ ≤ |x| := le_abs_self x
+  · -- x ≤ -std ε, so |x| ≥ std ε via -x
+    push_neg at hcase
+    calc std ε = -(-std ε) := by ring
+         _ ≤ -x := neg_le_neg hcase
+         _ ≤ |x| := neg_le_abs x
+
+/-- If |x| ≥ std ε for some standard ε > 0, then x⁻¹ is finite. -/
+theorem IsFinite.inv_of_abs_ge [Field α] [LinearOrder α] [IsStrictOrderedRing α]
+    {x : Hyper ι α} {ε : α} (hε : 0 < ε) (hx : std ε ≤ |x|) :
+    IsFinite x⁻¹ := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  rw [IsFinite_iff_abs_le]
+  use 1 / ε
+  -- Need to show |f⁻¹| ≤ std (1/ε) eventually
+  -- From hx: std ε ≤ |ofSeq f|, meaning ε ≤ |f i| eventually
+  have hx' : ∀ᶠ i in hyperfilter ι, ε ≤ |f i| := by
+    have : (std ε : Hyper ι α) ≤ |ofSeq f| := hx
+    rw [std_eq_ofSeq_const] at this
+    -- |ofSeq f| = ofSeq |f| by abs lifting
+    have h_abs : |ofSeq f| = ofSeq (|f ·|) := by
+      apply Quotient.sound
+      filter_upwards with i
+      rfl
+    rw [h_abs, ofSeq_le_ofSeq] at this
+    exact this
+  have h_bound : ∀ᶠ i in hyperfilter ι, |f⁻¹ i| ≤ 1 / ε := by
+    filter_upwards [hx'] with i hi
+    have hfi_ne : f i ≠ 0 := fun h => by simp [h] at hi; linarith
+    have hfi_pos : 0 < |f i| := abs_pos.mpr hfi_ne
+    rw [Pi.inv_apply, abs_inv]
+    calc |f i|⁻¹ ≤ ε⁻¹ := (inv_le_inv₀ hfi_pos hε).mpr hi
+         _ = 1 / ε := (one_div ε).symm
+  -- Convert to the form needed
+  simp only [inv_ofSeq]
+  have h_abs_inv : |ofSeq f⁻¹| = ofSeq (|f⁻¹ ·|) := by
+    apply Quotient.sound
+    filter_upwards with i
+    rfl
+  rw [std_eq_ofSeq_const, h_abs_inv, ofSeq_le_ofSeq]
+  exact h_bound
+
+/-- The inverse of a not-infinitesimal element is finite. -/
+theorem IsFinite.inv_of_not_infinitesimal [Field α] [LinearOrder α] [IsStrictOrderedRing α]
+    {x : Hyper ι α} (hx_not_inf : ¬IsInfinitesimal x) : IsFinite x⁻¹ := by
+  obtain ⟨ε, hε, habs⟩ := exists_std_le_abs_of_not_infinitesimal hx_not_inf
+  exact IsFinite.inv_of_abs_ge hε habs
+
 /-! ### The Monad of Zero is an Ideal
 
 The set of infinitesimals forms an ideal in the ring of finite hyperreals:
@@ -1388,6 +1449,11 @@ theorem infClose_equivalence [Field α] [LinearOrder α] [IsOrderedRing α] :
 def infCloseSetoid [Field α] [LinearOrder α] [IsOrderedRing α] :
     Setoid (Hyper ι α) :=
   ⟨InfClose, infClose_equivalence⟩
+
+/-- The nonstandard hull: quotient of hyperreals by infinitesimally close relation.
+For finite hyperreals over ℝ, this is isomorphic to ℝ via the standard part. -/
+def NonstandardHull [Field α] [LinearOrder α] [IsOrderedRing α] :=
+  Quotient (infCloseSetoid (ι := ι) (α := α))
 
 /-- Standard elements are infinitesimally close only to themselves.
 This is because `std a - std b = std (a - b)` and the only standard infinitesimal is 0. -/
@@ -2336,6 +2402,55 @@ theorem monad_zero_eq_infinitesimals :
   ext x
   rw [Set.mem_setOf_eq, IsInfinitesimal_iff_isNearStandard_zero]
   rfl
+
+/-- Being infinitesimally close to a standard element is equivalent to being near-standard.
+This connects the algebraic definition (`InfClose`) with the topological one (`IsNearStandard`). -/
+theorem infClose_std_iff_isNearStandard (x : Hyper ι α) (r : α) :
+    x ≃ᵢ std r ↔ IsNearStandard x r := by
+  simp only [InfClose]
+  constructor
+  · -- IsInfinitesimal (x - std r) → IsNearStandard x r
+    intro hx
+    rw [isNearStandard_def]
+    intro U hU
+    rw [mem_nhds_iff_exists_Ioo_subset] at hU
+    obtain ⟨l, u, hr_mem, hIoo_sub⟩ := hU
+    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp hr_mem
+    -- Choose ε = min (r - l) (u - r) > 0
+    set ε := min (r - l) (u - r) with hε_def
+    have hε : 0 < ε := lt_min (by linarith) (by linarith)
+    -- x - std r is infinitesimal, so |x - std r| < ε
+    obtain ⟨hlo, hhi⟩ := hx ε hε
+    -- So x ∈ (std l, std u)
+    apply star_mono hIoo_sub
+    rw [mem_star_Ioo]
+    constructor
+    · -- std l < x
+      have hε_l : ε ≤ r - l := min_le_left _ _
+      calc std l ≤ std (r - ε) := std_le_std.mpr (by linarith)
+           _ = std r - std ε := by rw [std_sub]
+           _ < x := by linarith
+    · -- x < std u
+      have hε_u : ε ≤ u - r := min_le_right _ _
+      calc x < std r + std ε := by linarith
+           _ = std (r + ε) := by rw [← std_add]
+           _ ≤ std u := std_le_std.mpr (by linarith)
+  · -- IsNearStandard x r → IsInfinitesimal (x - std r)
+    intro hx ε hε
+    rw [isNearStandard_def] at hx
+    -- (r - ε, r + ε) is a neighborhood of r
+    have hIoo : Set.Ioo (r - ε) (r + ε) ∈ nhds r := Ioo_mem_nhds (by linarith) (by linarith)
+    have hx' := hx _ hIoo
+    rw [mem_star_Ioo] at hx'
+    constructor
+    · -- -std ε < x - std r
+      calc -(std ε) = std r - std ε - std r := by ring
+           _ = std (r - ε) - std r := by rw [← std_sub]
+           _ < x - std r := by linarith [hx'.1]
+    · -- x - std r < std ε
+      calc x - std r < std (r + ε) - std r := by linarith [hx'.2]
+           _ = std r + std ε - std r := by rw [std_add]
+           _ = std ε := by ring
 
 /-- The standard part of a finite hyperreal. -/
 noncomputable def st (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
@@ -3861,20 +3976,6 @@ theorem st_ne_zero_of_not_infinitesimal (x : Hyper ℕ ℝ) (hx : IsFinite x)
   -- hIoo : std (-r) < x ∧ x < std r, goal : -std r < x ∧ x < std r
   rwa [std_neg] at hIoo
 
-/-- Standard part of inverse for non-infinitesimal finite elements.
-Note: The proof uses `st_lift_of_continuousAt_real` which is defined later.
-The key steps are:
-1. `st x ≠ 0` since x is not infinitesimal
-2. Inversion is continuous at nonzero points
-3. `x⁻¹` is finite since `|x| > ε` implies `|x⁻¹| < 1/ε`
-4. Apply standard forward image theorem -/
-theorem st_inv_real (x : Hyper ℕ ℝ) (hx : IsFinite x) (hx_not_inf : ¬IsInfinitesimal x) :
-    st x⁻¹ = (st x)⁻¹ := by
-  have h_st_ne : st x ≠ 0 := st_ne_zero_of_not_infinitesimal x hx hx_not_inf
-  -- The full proof requires IsNearStandard.lift_of_continuousAt_real and showing x⁻¹ is finite
-  -- Both require showing |x| > ε for some standard ε > 0
-  sorry
-
 end Transfer
 
 /-! ## Standard Forward Image
@@ -3947,6 +4048,26 @@ theorem st_lift_of_continuousAt_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx :
 theorem st_lift_of_continuous_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : IsFinite x)
     (hf : Continuous f) : st (lift f x) = f (st x) :=
   st_lift_of_continuousAt_real x hx hf.continuousAt
+
+/-- Hyperreal inversion equals lift of real inversion. -/
+theorem inv_eq_lift_inv (x : Hyper ℕ ℝ) : x⁻¹ = lift (·⁻¹) x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [inv_ofSeq, lift_ofSeq]
+  rfl
+
+/-- Standard part of inverse for non-infinitesimal finite elements over ℝ.
+The key steps are:
+1. `st x ≠ 0` since x is not infinitesimal
+2. Inversion is continuous at nonzero points
+3. `x⁻¹` is finite since `|x| > ε` implies `|x⁻¹| < 1/ε`
+4. Apply standard forward image theorem -/
+theorem st_inv_real (x : Hyper ℕ ℝ) (hx : IsFinite x) (hx_not_inf : ¬IsInfinitesimal x) :
+    st x⁻¹ = (st x)⁻¹ := by
+  have h_st_ne : st x ≠ 0 := st_ne_zero_of_not_infinitesimal x hx hx_not_inf
+  have h_cont : ContinuousAt (·⁻¹) (st x) := continuousAt_inv₀ h_st_ne
+  -- x⁻¹ = lift (·⁻¹) x, so we can apply st_lift_of_continuousAt_real
+  rw [inv_eq_lift_inv]
+  exact st_lift_of_continuousAt_real x hx h_cont
 
 end StandardForwardImage
 
