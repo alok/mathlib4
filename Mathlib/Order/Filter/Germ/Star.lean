@@ -1337,6 +1337,121 @@ theorem infinitesimals_absorb_finite [Field α] [LinearOrder α] [IsOrderedRing 
       x * y ∈ infinitesimals ι α :=
   fun _ _ hx hy => hx.mul_finite hy
 
+/-! ### Nonstandard Hull Construction
+
+The nonstandard hull of a space is the quotient of finite (near-standard) elements
+by the infinitesimally close relation. This construction:
+
+1. For ℝ: gives back ℝ (finite hyperreals mod infinitesimals ≃ ℝ)
+2. For normed spaces: gives a completion
+3. Is the foundation for Loeb measure construction
+
+Key definitions:
+- `InfClose x y`: x and y are infinitesimally close (x - y is infinitesimal)
+- `NonstandardHull`: the quotient type `Hyper_finite / InfClose` (future work)
+-/
+
+/-- Two hyperreal elements are infinitesimally close if their difference is infinitesimal. -/
+def InfClose [AddCommGroup α] [Preorder α] (x y : Hyper ι α) : Prop :=
+  IsInfinitesimal (x - y)
+
+/-- Notation for infinitesimally close: `x ≃ᵢ y` means x and y differ by an infinitesimal. -/
+scoped infix:50 " ≃ᵢ " => InfClose
+
+/-- Infinitesimally close is reflexive. -/
+theorem InfClose.refl [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+    (x : Hyper ι α) : x ≃ᵢ x := by
+  simp only [InfClose, sub_self]
+  exact IsInfinitesimal.zero
+
+/-- Infinitesimally close is symmetric. -/
+theorem InfClose.symm [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+    {x y : Hyper ι α} (h : x ≃ᵢ y) : y ≃ᵢ x := by
+  simp only [InfClose] at h ⊢
+  rw [← neg_sub]
+  exact h.neg
+
+/-- Infinitesimally close is transitive. -/
+theorem InfClose.trans [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x y z : Hyper ι α} (hxy : x ≃ᵢ y) (hyz : y ≃ᵢ z) : x ≃ᵢ z := by
+  simp only [InfClose] at hxy hyz ⊢
+  have h : x - z = (x - y) + (y - z) := by ring
+  rw [h]
+  exact hxy.add hyz
+
+/-- InfClose is an equivalence relation on hyperreals. -/
+theorem infClose_equivalence [Field α] [LinearOrder α] [IsOrderedRing α] :
+    Equivalence (InfClose (ι := ι) (α := α)) :=
+  ⟨InfClose.refl, InfClose.symm, InfClose.trans⟩
+
+/-- The setoid induced by InfClose on hyperreals. -/
+def infCloseSetoid [Field α] [LinearOrder α] [IsOrderedRing α] :
+    Setoid (Hyper ι α) :=
+  ⟨InfClose, infClose_equivalence⟩
+
+/-- Standard elements are infinitesimally close only to themselves.
+This is because `std a - std b = std (a - b)` and the only standard infinitesimal is 0. -/
+theorem std_infClose_iff [Field α] [LinearOrder α] [IsStrictOrderedRing α]
+    (a b : α) : (std a : Hyper ι α) ≃ᵢ std b ↔ a = b := by
+  constructor
+  · intro h
+    -- std a - std b = std (a - b) is infinitesimal
+    -- But standard infinitesimals are only 0
+    simp only [InfClose, std_sub] at h
+    -- Standard elements that are infinitesimal must be 0
+    -- The only standard infinitesimal is 0
+    -- Proof: if std(a-b) is infinitesimal and a-b ≠ 0, then |a-b| > 0
+    -- but std(a-b) ∈ (-ε, ε) for all ε > 0, including ε = |a-b|/2
+    -- This gives |a-b| < |a-b|/2, a contradiction.
+    have h_zero : a - b = 0 := by
+      by_contra hne
+      have hpos : 0 < |a - b| := abs_pos.mpr hne
+      have hε := h (|a - b| / 2) (half_pos hpos)
+      -- hε gives hyperreal inequalities; we need to convert via std_lt_std
+      -- The pattern matching is tricky, so we use a direct contradiction
+      have h1 : (std (-(|a - b| / 2)) : Hyper ι α) < std (a - b) := by
+        simpa [std_neg] using hε.1
+      have h2 : (std (a - b) : Hyper ι α) < std (|a - b| / 2) := hε.2
+      rw [std_lt_std] at h1 h2
+      have : |a - b| < |a - b| / 2 := abs_lt.mpr ⟨h1, h2⟩
+      linarith [half_lt_self hpos]
+    linarith
+  · intro h
+    rw [h]
+    exact InfClose.refl _
+
+/-- Infinitesimal plus finite is infinitesimally close to the finite element. -/
+theorem InfClose.add_infinitesimal [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x ε : Hyper ι α} (hε : IsInfinitesimal ε) : x + ε ≃ᵢ x := by
+  simp only [InfClose]
+  ring_nf
+  exact hε
+
+/-- Being infinitesimally close is preserved by addition. -/
+theorem InfClose.add [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x₁ y₁ x₂ y₂ : Hyper ι α} (h₁ : x₁ ≃ᵢ y₁) (h₂ : x₂ ≃ᵢ y₂) : x₁ + x₂ ≃ᵢ y₁ + y₂ := by
+  simp only [InfClose] at h₁ h₂ ⊢
+  have h : (x₁ + x₂) - (y₁ + y₂) = (x₁ - y₁) + (x₂ - y₂) := by ring
+  rw [h]
+  exact h₁.add h₂
+
+/-- Being infinitesimally close is preserved by negation. -/
+theorem InfClose.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+    {x y : Hyper ι α} (h : x ≃ᵢ y) : -x ≃ᵢ -y := by
+  simp only [InfClose] at h ⊢
+  -- (-x) - (-y) = y - x = -(x - y)
+  have h_eq : -x - (-y) = -(x - y) := by simp only [neg_sub_neg, neg_sub]
+  rw [h_eq]
+  exact h.neg
+
+/-- Being infinitesimally close is preserved by multiplication by finite elements. -/
+theorem InfClose.mul_finite [Field α] [LinearOrder α] [IsOrderedRing α]
+    {x y c : Hyper ι α} (hxy : x ≃ᵢ y) (hc : IsFinite c) : x * c ≃ᵢ y * c := by
+  simp only [InfClose] at hxy ⊢
+  have h : x * c - y * c = (x - y) * c := by ring
+  rw [h]
+  exact hxy.mul_finite hc
+
 theorem IsInfinitePos.isInfinite [Preorder α] {x : Hyper ι α} (h : IsInfinitePos x) :
     IsInfinite x := by
   intro hfin
