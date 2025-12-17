@@ -631,9 +631,21 @@ theorem loebIntegral_eq_st_hyperSum
     ∫ x, f (Hyper.st x) ∂(loebMeasure H hH) =
       Hyper.st (internalSum H hH (Hyper.liftFun f) /
         Hyper.lift (Nat.cast : ℕ → ℝ) (hyperfiniteCard H hH)) := by
-  -- Proof sketch: Approximation by simple functions (step functions).
-  -- Since f is continuous on compact (if alpha compact), it is uniformly continuous.
-  -- This allows approximating f by sum of indicators of internal sets.
+  /- ROADMAP: This theorem requires the following steps:
+     1. Show f ∘ st is Loeb-measurable (follows from continuity + st being Loeb-measurable)
+     2. Approximate f by step functions: for any ε > 0, find simple function g with |f - g| < ε
+     3. For simple functions, integral equals finite sum over internal sets
+     4. Show: internalSum H hH (liftFun g) ≈ (integral of g)·(hyperfiniteCard H hH)
+     5. Use bounded convergence theorem and transfer to get the result
+
+     Prerequisites needed:
+     - `st_loebMeasurable`: Standard part is Loeb measurable
+     - `loebIntegral_indicator`: ∫ 1_A dμ = st(|A ∩ H| / |H|) for internal A
+     - `loebIntegral_simple_eq_sum`: Integral of simple functions
+     - `BoundedConvergence` for Loeb integral
+
+     This is the main theorem connecting nonstandard integration to standard integration.
+     A complete proof would take ~200 lines following Loeb's original 1975 paper. -/
   sorry
 
 end LoebMeasure

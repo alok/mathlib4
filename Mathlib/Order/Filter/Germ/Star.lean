@@ -33,11 +33,13 @@ public import Mathlib.Algebra.Order.Field.Defs
 public import Mathlib.Topology.MetricSpace.Cauchy
 public import Mathlib.Topology.MetricSpace.Pseudo.Defs
 public import Mathlib.Topology.Separation.Hausdorff
+public import Mathlib.Topology.Sequences
+public import Mathlib.Topology.Bases
 public import Mathlib.Topology.Algebra.Ring.Real
 
 open scoped Classical
 
-set_option linter.style.longFile 4300
+set_option linter.style.longFile 5000
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -1821,8 +1823,65 @@ theorem overspill_lt {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P) {x : Hyper �
     apply hstd
     calc x ≤ std m := hxm
          _ < std (m + n + 1) := by rw [std_lt_std]; omega
-  -- Need an internal set for {k : std k ∈ P and k ≥ m}
-  sorry
+  -- The set {k | k > std m} is internal (star extension of Ioi m)
+  have hIoi_internal : IsInternal {k : Hyper ℕ ℕ | std m < k} := by
+    use fun _ => Set.Ioi m
+    intro k
+    obtain ⟨f, rfl⟩ := ofSeq_surjective k
+    rw [Set.mem_setOf_eq, std_eq_ofSeq_const, ofSeq_lt_ofSeq, liftPredSeq_ofSeq]
+    simp only [Set.mem_Ioi]
+  -- Q = P ∩ {k | k > std m} is internal
+  have hQ_internal : IsInternal (P ∩ {k | std m < k}) := hP.inter hIoi_internal
+  -- All standard elements ≥ m+1 are in Q
+  have hstd_Q : ∀ n : ℕ, std (m + 1 + n) ∈ P ∩ {k | std m < k} := by
+    intro n
+    constructor
+    · -- std (m + 1 + n) ∈ P
+      have : m + 1 + n = m + n + 1 := by omega
+      simp only [this]
+      exact hstd' n
+    · -- std m < std (m + 1 + n)
+      simp only [Set.mem_setOf_eq, std_lt_std]
+      omega
+  -- Apply overspill to Q via shifted standard elements
+  -- We need: ∀ k : ℕ, std k ∈ Q'  where Q' is appropriately defined
+  -- Alternative: show directly that some unlimited N is in P ∩ {k | k > std m}
+  -- Use that all standard k ≥ m+1 are in Q, hence by overspill some unlimited is in Q
+  have hQ_all_std : ∀ k : ℕ, std k ∈ P ∩ {k | std m < k} ∨ k ≤ m := by
+    intro k
+    by_cases hk : k ≤ m
+    · right; exact hk
+    · left
+      push_neg at hk
+      have : k = m + 1 + (k - m - 1) := by omega
+      rw [this]
+      exact hstd_Q (k - m - 1)
+  -- Use the fact that for large enough k, std k ∈ Q
+  -- Construct internal set Q' = Q ∪ {k | k ≤ std m}
+  have hIic_internal : IsInternal {k : Hyper ℕ ℕ | k ≤ std m} := by
+    use fun _ => Set.Iic m
+    intro k
+    obtain ⟨f, rfl⟩ := ofSeq_surjective k
+    rw [Set.mem_setOf_eq, std_eq_ofSeq_const, ofSeq_le_ofSeq, liftPredSeq_ofSeq]
+    simp only [Set.mem_Iic]
+  have hQ'_internal : IsInternal ((P ∩ {k | std m < k}) ∪ {k | k ≤ std m}) :=
+    hQ_internal.union hIic_internal
+  have hstd_Q' : ∀ n : ℕ, std n ∈ (P ∩ {k | std m < k}) ∪ {k | k ≤ std m} := by
+    intro n
+    rcases hQ_all_std n with h | h
+    · left; exact h
+    · right; rw [Set.mem_setOf_eq, std_le_std]; exact h
+  obtain ⟨N, hN_unlim, hN_mem⟩ := overspill_internal hQ'_internal hstd_Q'
+  -- N is unlimited, so N > std m
+  have hN_gt_m : std m < N := hN_unlim m
+  -- N is in the union, but N > std m, so N must be in P ∩ {k | std m < k}
+  rcases hN_mem with hN_Q | hN_small
+  · -- N ∈ P ∩ {k | std m < k}
+    exact ⟨N, hN_unlim, lt_of_le_of_lt hxm hN_gt_m, hN_Q.1⟩
+  · -- N ≤ std m, but N > std m - contradiction
+    exfalso
+    rw [Set.mem_setOf_eq] at hN_small
+    exact not_lt.mpr hN_small hN_gt_m
 
 /-- Bounded overspill: if P holds for all n ≤ some unlimited N, then P holds
 for some unlimited element. -/
@@ -2280,18 +2339,6 @@ theorem IsInternal.inter_isHyperfinite {A : Set (Hyper ι α)} (hA : IsInternal 
     {H : Set (Hyper ι α)} (hH : IsHyperfinite H) : IsHyperfinite (A ∩ H) := by
   rw [Set.inter_comm]
   exact hH.inter_isInternal hA
-
-/-- **Approximation Theorem**: For any infinite set `A`, there exists a hyperfinite set `H`
-such that `{std a | a ∈ A} ⊆ H ⊆ A*` and H contains nonstandard elements.
-Note: See `hyperfinite_sandwich_strict` in section HyperfiniteApprox for the main version.
-This theorem is specialized to `Hyper ℕ α`. -/
-theorem exists_hyperfinite_approximation {A : Set α} (hA : A.Countable)
-    (hA_inf : A.Infinite) :
-    ∃ H : Set (Hyper ℕ α), IsHyperfinite H ∧
-      (∀ a ∈ A, (std a : Hyper ℕ α) ∈ H) ∧
-      (∀ x ∈ H, liftPred (· ∈ A) x) ∧
-      (std '' A : Set (Hyper ℕ α)) ⊂ H := by
-  sorry -- Proved by hyperfinite_sandwich_strict once in scope (section ordering issue)
 
 end HyperfiniteSets
 
@@ -2948,9 +2995,39 @@ theorem hyperfinite_strict_sandwich {A : Set α} (hA : A.Countable) (hA_inf : A.
   · -- H ⊆ *A
     intro y hy
     exact hH_star y hy
-  · -- *A ⊄ H: construct diagonal element escaping H
-    -- This requires tracking the specific enumeration - leave for future work
-    sorry
+  · -- *A ⊄ H: construct diagonal element escaping H via diagonal argument
+    intro h_sub
+    -- H is hyperfinite, so represented by S : ℕ → Set α with S i finite
+    obtain ⟨S, hS_fin, hS_eq⟩ := hH_hf
+    -- A is infinite and countable
+    -- For each i, S i is finite but A is infinite, so A \ S i is nonempty
+    have h_diff_nonempty : ∀ i, (A \ S i).Nonempty := by
+      intro i
+      by_contra h_empty
+      push_neg at h_empty
+      rw [Set.diff_eq_empty] at h_empty
+      -- A ⊆ S i would make A finite, contradiction
+      exact hA_inf ((hS_fin i).subset h_empty)
+    -- Choose f i ∈ A \ S i for each i
+    choose f hf using h_diff_nonempty
+    -- Then ofSeq f ∈ *A
+    have hf_in_star : liftPred (· ∈ A) (ofSeq f) := by
+      rw [liftPred_ofSeq]
+      exact Filter.Eventually.of_forall (fun i => (hf i).1)
+    -- But ofSeq f ∉ H (since f i ∉ S i for all i)
+    have hf_not_H : (ofSeq f : Hyper ℕ α) ∉ H := by
+      rw [hS_eq, liftPredSeq_ofSeq]
+      simp only [Filter.eventually_iff_exists_mem, not_exists, not_and]
+      intro U hU
+      -- U ∈ hyperfilter ℕ is infinite (nonprincipal ultrafilter)
+      have hU_inf : U.Infinite := by
+        by_contra hU_fin
+        exact Set.Finite.notMem_hyperfilter (Set.not_infinite.mp hU_fin) hU
+      obtain ⟨i, hi⟩ := hU_inf.nonempty
+      intro h_all
+      exact (hf i).2 (h_all i hi)
+    -- Contradiction: h_sub says *A ⊆ H, but ofSeq f ∈ *A \ H
+    exact hf_not_H (h_sub hf_in_star)
 
 /-- **Hyperfinite Approximation (Simplified Statement)**:
 For any set A, there exists an internal hyperfinite set H with `std '' A ⊆ H ⊆ *A`.
@@ -3709,12 +3786,126 @@ def HasLimit_NSA (f : α → β) (a : α) (L : β) : Prop :=
 /-- Forward: standard limit implies NSA limit. -/
 theorem HasLimit_NSA_of_tendsto (f : α → β) (a : α) (L : β)
     (h : Filter.Tendsto f (nhdsWithin a {a}ᶜ) (nhds L)) : HasLimit_NSA f a L := by
-  sorry -- Similar pattern to continuity proof
+  rw [Metric.tendsto_nhdsWithin_nhds] at h
+  intro x hx_ne hx_close
+  intro ε hε
+  obtain ⟨δ, hδ, hδε⟩ := h ε hε
+  obtain ⟨g, rfl⟩ := ofSeq_surjective x
+  constructor
+  · -- -std ε < lift (dist (f ·) L) (ofSeq g)
+    have h0 : (0 : Hyper ℕ ℝ) ≤ lift (fun z => dist (f z) L) (ofSeq g) := by
+      rw [zero_eq_std, std_eq_ofSeq_const, lift_ofSeq, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+    have hneg : -std ε < (0 : Hyper ℕ ℝ) := by
+      rw [zero_eq_std, ← std_neg, std_lt_std]
+      exact neg_lt_zero.mpr hε
+    exact lt_of_lt_of_le hneg h0
+  · -- lift (dist (f ·) L) (ofSeq g) < std ε
+    rw [lift_ofSeq, std_eq_ofSeq_const]
+    change ofSeq (fun i => dist (f (g i)) L) < ofSeq (fun _ => ε)
+    rw [ofSeq_lt_ofSeq]
+    -- x is infinitely close to a means dist(g i, a) < δ for almost all i
+    have hclose : ∀ᶠ i in hyperfilter ℕ, dist (g i) a < δ := by
+      have := (hx_close δ hδ).2
+      rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
+      exact this
+    -- x ≠ std a means g i ≠ a for almost all i
+    have hne : ∀ᶠ i in hyperfilter ℕ, g i ≠ a := by
+      by_contra h_eq
+      have h_eq' : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), g i = a := by
+        rw [Filter.not_eventually] at h_eq
+        have h := Ultrafilter.frequently_iff_eventually.mp h_eq
+        filter_upwards [h] with i hi
+        exact not_not.mp hi
+      have : (ofSeq g : Hyper ℕ α) = std a := by
+        rw [std_eq_ofSeq_const]
+        apply Filter.Germ.coe_eq.mpr
+        filter_upwards [h_eq'] with i hi
+        exact hi
+      exact hx_ne this
+    -- Combine: for almost all i, g i ∈ {a}ᶜ and dist(g i, a) < δ, so dist(f(g i), L) < ε
+    filter_upwards [hclose, hne] with i hi_close hi_ne
+    exact hδε (Set.mem_compl_singleton_iff.mpr hi_ne) hi_close
 
 /-- Reverse: NSA limit implies standard limit. -/
 theorem tendsto_of_HasLimit_NSA (f : α → β) (a : α) (L : β)
     (h : HasLimit_NSA f a L) : Filter.Tendsto f (nhdsWithin a {a}ᶜ) (nhds L) := by
-  sorry -- Diagonal argument similar to continuity
+  rw [Metric.tendsto_nhdsWithin_nhds]
+  intro ε hε
+  by_contra hne
+  push_neg at hne
+  -- For all δ > 0, exists y ≠ a with dist(y, a) < δ but dist(f y, L) ≥ ε
+  have hchoice : ∀ n : ℕ, ∃ y : α, y ≠ a ∧ dist y a < 1 / (n + 1 : ℝ) ∧ ε ≤ dist (f y) L := by
+    intro n
+    have hpos : (0 : ℝ) < 1 / (n + 1) := by positivity
+    obtain ⟨y, hy_ne, hy_close, hy_far⟩ := hne (1 / (n + 1)) hpos
+    exact ⟨y, Set.mem_compl_singleton_iff.mp hy_ne, hy_close, hy_far⟩
+  choose seq hseq_ne hseq_close hseq_far using hchoice
+  -- seq n → a as n → ∞, but dist(f(seq n), L) ≥ ε, and seq n ≠ a
+  -- So ofSeq seq is infinitely close to a but not equal to std a
+  have h_ne_std : (ofSeq seq : Hyper ℕ α) ≠ std a := by
+    rw [std_eq_ofSeq_const]
+    intro heq
+    have heq' : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), seq i = a := Filter.Germ.coe_eq.mp heq
+    have hne_ae : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), seq i ≠ a :=
+      Filter.Eventually.of_forall hseq_ne
+    have hfalse : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), False := by
+      filter_upwards [heq', hne_ae] with i heq hne
+      exact hne heq
+    exact Filter.NeBot.ne inferInstance (Filter.eventually_false_iff_eq_bot.mp hfalse)
+  have h_inf_close : IsInfinitesimal (lift (dist · a) (ofSeq seq)) := by
+    intro δ hδ
+    constructor
+    · have h0 : (0 : Hyper ℕ ℝ) ≤ lift (dist · a) (ofSeq seq) := by
+        rw [zero_eq_std, std_eq_ofSeq_const, lift_ofSeq, ofSeq_le_ofSeq]
+        exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+      have hneg : -std δ < (0 : Hyper ℕ ℝ) := by
+        rw [zero_eq_std, ← std_neg, std_lt_std]
+        exact neg_lt_zero.mpr hδ
+      exact lt_of_lt_of_le hneg h0
+    · rw [lift_ofSeq, std_eq_ofSeq_const]
+      change ofSeq (fun i => dist (seq i) a) < ofSeq (fun _ => δ)
+      rw [ofSeq_lt_ofSeq]
+      obtain ⟨N, hN⟩ : ∃ N : ℕ, 1 / (N + 1 : ℝ) < δ := by
+        obtain ⟨N, hN⟩ := exists_nat_gt (1 / δ)
+        use N
+        have hN1 : (0 : ℝ) < N + 1 := by positivity
+        rw [div_lt_iff₀ hN1]
+        have hN_cast : (N : ℝ) > 1 / δ := by exact_mod_cast hN
+        have hδ_inv : δ * (1 / δ) = 1 := by field_simp
+        calc 1 = δ * (1 / δ) := hδ_inv.symm
+          _ < δ * N := by nlinarith
+          _ < δ * (N + 1) := by nlinarith
+      apply Filter.mem_hyperfilter_of_finite_compl
+      have hsub : {n | ¬dist (seq n) a < δ} ⊆ {n | n < N} := by
+        intro n hn
+        simp only [Set.mem_setOf_eq] at hn ⊢
+        by_contra hge
+        push_neg at hge
+        have hbound : dist (seq n) a < δ := calc
+          dist (seq n) a < 1 / (n + 1 : ℝ) := hseq_close n
+          _ ≤ 1 / (N + 1 : ℝ) := by
+            apply one_div_le_one_div_of_le (by positivity : (0 : ℝ) < N + 1)
+            have h2 : (N : ℝ) + 1 ≤ n + 1 := by exact_mod_cast Nat.add_one_le_add_one_iff.mpr hge
+            exact h2
+          _ < δ := hN
+        exact hn hbound
+      exact Set.Finite.subset (Set.finite_lt_nat N) hsub
+  -- But h says this should make f values infinitely close to L
+  have h_result := h (ofSeq seq) h_ne_std h_inf_close
+  have hε_lift : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ε ≤ dist (f (seq i)) L :=
+    Filter.Eventually.of_forall hseq_far
+  obtain ⟨_, h2⟩ := h_result ε hε
+  rw [lift_ofSeq, std_eq_ofSeq_const] at h2
+  change ofSeq (fun i => dist (f (seq i)) L) < ofSeq (fun _ => ε) at h2
+  rw [ofSeq_lt_ofSeq] at h2
+  have hcontra : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ε ≤ dist (f (seq i)) L ∧ dist (f (seq i)) L < ε := by
+    filter_upwards [hε_lift, h2] with i h1 h2
+    exact ⟨h1, h2⟩
+  have hfalse : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), False := by
+    filter_upwards [hcontra] with i ⟨h1, h2⟩
+    exact (not_lt.mpr h1) h2
+  exact Filter.NeBot.ne inferInstance (Filter.eventually_false_iff_eq_bot.mp hfalse)
 
 /-- **Main theorem**: NSA characterization of function limits.
 `f(x) → L as x → a` iff infinitely close inputs (≠ a) give infinitely close outputs. -/
@@ -3768,12 +3959,98 @@ def IsCompact_NSA (K : Set α) : Prop :=
 
 /-- Forward: standard compactness implies NSA compactness (sequential version). -/
 theorem IsCompact_NSA_of_isCompact {K : Set α} (hK : IsCompact K) : IsCompact_NSA K := by
-  sorry -- Uses sequential compactness + cluster point argument
+  intro x hx
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  -- hx : liftPred (· ∈ K) (ofSeq f), i.e., ∀ᶠ i in hyperfilter ℕ, f i ∈ K
+  rw [liftPred_ofSeq] at hx
+  -- This means map f (hyperfilter ℕ) ≤ 𝓟 K
+  have hmap : Filter.map f (hyperfilter ℕ) ≤ Filter.principal K := by
+    rw [Filter.le_principal_iff, Filter.mem_map]
+    exact hx
+  -- By compactness, there exists y ∈ K with MapClusterPt y (hyperfilter ℕ) f
+  obtain ⟨y, hy_K, hy_cluster⟩ := hK.exists_mapClusterPt hmap
+  use y, hy_K
+  -- Show IsInfinitesimal (lift (dist · y) (ofSeq f))
+  intro ε hε
+  constructor
+  · -- -std ε < lift (dist · y) (ofSeq f) follows from dist ≥ 0
+    have h0 : (0 : Hyper ℕ ℝ) ≤ lift (dist · y) (ofSeq f) := by
+      rw [zero_eq_std, std_eq_ofSeq_const, lift_ofSeq, ofSeq_le_ofSeq]
+      exact Filter.Eventually.of_forall (fun _ => dist_nonneg)
+    have hneg : -std ε < (0 : Hyper ℕ ℝ) := by
+      rw [zero_eq_std, ← std_neg, std_lt_std]
+      exact neg_lt_zero.mpr hε
+    exact lt_of_lt_of_le hneg h0
+  · -- lift (dist · y) (ofSeq f) < std ε
+    rw [lift_ofSeq, std_eq_ofSeq_const]
+    change ofSeq (fun i => dist (f i) y) < ofSeq (fun _ => ε)
+    rw [ofSeq_lt_ofSeq]
+    -- By MapClusterPt, dist(f i, y) < ε frequently (and hence eventually for ultrafilters)
+    have hball : Metric.ball y ε ∈ nhds y := Metric.ball_mem_nhds y hε
+    have hfreq : ∃ᶠ i in hyperfilter ℕ, f i ∈ Metric.ball y ε :=
+      hy_cluster.frequently hball
+    -- For ultrafilters, ∃ᶠ = ∀ᶠ
+    have heventual := Ultrafilter.frequently_iff_eventually.mp hfreq
+    filter_upwards [heventual] with i hi
+    exact Metric.mem_ball.mp hi
 
 /-- Reverse: NSA compactness implies standard compactness (sequential). -/
 theorem isCompact_of_IsCompact_NSA {K : Set α} (hK_closed : IsClosed K)
     (h : IsCompact_NSA K) : IsCompact K := by
-  sorry -- Uses ultrafilter characterization
+  -- Use sequential compactness for metric spaces
+  -- First prove IsSeqCompact K
+  have hseq : IsSeqCompact K := by
+    intro seq hseq_K
+    -- seq : ℕ → α with seq n ∈ K for all n
+    -- Show there exists a convergent subsequence with limit in K
+    -- The hyperreal ofSeq seq is in *K
+    have hx_K : liftPred (· ∈ K) (ofSeq seq) := by
+      rw [liftPred_ofSeq]
+      exact Filter.Eventually.of_forall hseq_K
+    -- By IsCompact_NSA, there exists y ∈ K with ofSeq seq infinitely close to y
+    obtain ⟨y, hy_K, hy_close⟩ := h (ofSeq seq) hx_K
+    -- For all ε > 0, {i | dist(seq i, y) < ε} ∈ hyperfilter ℕ
+    have hball : ∀ ε > 0, {i : ℕ | dist (seq i) y < ε} ∈ hyperfilter ℕ := by
+      intro ε hε
+      have := (hy_close ε hε).2
+      rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
+      exact this
+    -- Sets in hyperfilter are infinite (since finite sets are not in hyperfilter)
+    have hinf : ∀ ε > 0, {i : ℕ | dist (seq i) y < ε}.Infinite := by
+      intro ε hε
+      by_contra hfin
+      push_neg at hfin
+      exact Set.Finite.notMem_hyperfilter hfin (hball ε hε)
+    -- This means y is a cluster point of seq along atTop
+    have hcluster : MapClusterPt y Filter.atTop seq := by
+      rw [mapClusterPt_def]
+      constructor
+      intro heq
+      rw [Filter.inf_eq_bot_iff] at heq
+      -- heq says: ∃ U ∈ 𝓝 y, V ∈ map seq atTop, U ∩ V = ∅
+      obtain ⟨U, hU, V, hV, hUV⟩ := heq
+      -- U ∈ 𝓝 y contains a ball
+      obtain ⟨ε, hε, hball_U⟩ := Metric.mem_nhds_iff.mp hU
+      -- V ∈ map seq atTop means seq⁻¹(V) ∈ atTop
+      rw [Filter.mem_map, Filter.mem_atTop_sets] at hV
+      obtain ⟨N, hN⟩ := hV
+      -- {i | dist(seq i, y) < ε} is infinite, so ∃ i ≥ N with seq i ∈ ball y ε
+      have hset_inf := hinf ε hε
+      obtain ⟨i, hi_dist, hi_ge⟩ : ∃ i ∈ {i | dist (seq i) y < ε}, N ≤ i := by
+        by_contra h_none
+        push_neg at h_none
+        have hsub : {i | dist (seq i) y < ε} ⊆ {i | i < N} := h_none
+        exact Set.Infinite.mono hsub hset_inf (Set.finite_lt_nat N)
+      -- seq i ∈ U ∩ V, contradicting U ∩ V = ∅
+      have hi_U : seq i ∈ U := hball_U (Metric.mem_ball.mpr hi_dist)
+      have hi_V : seq i ∈ V := hN i hi_ge
+      rw [Set.eq_empty_iff_forall_not_mem] at hUV
+      exact hUV (seq i) ⟨hi_U, hi_V⟩
+    -- In first-countable spaces, cluster points yield convergent subsequences
+    obtain ⟨φ, hφ_mono, hφ_tendsto⟩ := TopologicalSpace.FirstCountableTopology.tendsto_subseq hcluster
+    exact ⟨y, hy_K, φ, hφ_mono, hφ_tendsto⟩
+  -- Convert IsSeqCompact to IsCompact (works for metric spaces)
+  exact hseq.isCompact
 
 /-- **Main theorem**: NSA characterization of compactness.
 A closed set is compact iff every point in `*K` is near-standard to some point in `K`. -/
