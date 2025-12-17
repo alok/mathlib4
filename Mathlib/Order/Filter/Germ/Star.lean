@@ -3610,17 +3610,46 @@ and nonstandard worlds. We implement specific transfer schemas and a `transfer` 
 
 section Transfer
 
-/-- **Transfer tactic**: Simplifies goals by pushing `std` through arithmetic operations
-and converting between standard and nonstandard formulations.
+/-- **Transfer tactic**: Simplifies goals by converting between standard and nonstandard
+formulations. The tactic has two modes:
 
-Examples of rewrites:
+**`transfer`** (default): Converts nonstandard relations to standard ones:
+- `std a ≤ std b` → `a ≤ b`
+- `std a < std b` → `a < b`
+- `std a = std b` → `a = b`
+- `liftPred P (std a)` → `P a`
+- `liftRel R (std a) (std b)` → `R a b`
+- `lift f (std a)` → `std (f a)`
+
+**`transfer_push`**: Pushes `std` into compound expressions:
 - `std (a + b)` → `std a + std b`
-- `std a ≤ std b` ↔ `a ≤ b`
-- `liftPred P (std a)` ↔ `P a`
+- `std (a * b)` → `std a * std b`
+- `std (a - b)` → `std a - std b`
+- `std (-a)` → `-(std a)`
+- `std (a⁻¹)` → `(std a)⁻¹`
+- `std (a / b)` → `std a / std b`
+- `std 0` → `0`, `std 1` → `1`
+
+**Example usage:**
+```
+-- Proving a standard fact from a nonstandard one
+example (a b : α) : std a + std b ≤ std (a + b + 0) := by
+  transfer_push  -- becomes: std a + std b ≤ std a + std b + 0
+  transfer       -- or ring
+```
 -/
 macro "transfer" : tactic => `(tactic|
-  simp only [← std_add, ← std_mul, ← std_neg, ← std_le_std, ← std_lt_std,
-             lift_std, liftPred_std, liftRel_std, std_le, std_lt])
+  simp only [std_le_std, std_lt_std, std_inj,
+             lift_std, liftPred_std, liftRel_std, std_le, std_lt,
+             IsInfinitesimal_iff_isNearStandard_zero])
+
+/-- Push `std` into compound expressions. See `transfer` for details. -/
+macro "transfer_push" : tactic => `(tactic|
+  simp only [std_add, std_mul, std_neg, std_sub, std_inv, std_div, std_zero, std_one])
+
+/-- Pull `std` out of compound expressions. See `transfer` for details. -/
+macro "transfer_pull" : tactic => `(tactic|
+  simp only [← std_add, ← std_mul, ← std_neg, ← std_sub, ← std_inv, ← std_div])
 
 /-! ### Standard Part Arithmetic (ℝ)
 
@@ -3799,6 +3828,45 @@ theorem st_lift_of_continuous_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : I
   st_lift_of_continuousAt_real x hx hf.continuousAt
 
 end StandardForwardImage
+
+/-! ### Transfer tactic tests
+
+Verify that the `transfer` tactic correctly simplifies goals involving standard embeddings.
+-/
+section TransferTests
+
+variable {ι : Type*} [Infinite ι] {α : Type*} [Field α] [LinearOrder α] [IsStrictOrderedRing α]
+variable (a b c : α)
+
+-- Test transfer: std comparisons become standard comparisons
+example : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := by transfer
+example : (std a : Hyper ι α) < std b ↔ a < b := by transfer
+example : (std a : Hyper ι α) = std b ↔ a = b := by transfer
+
+-- Test transfer_push: distribute std through operations
+example : std (a + b) = (std a : Hyper ι α) + std b := by transfer_push
+example : std (a * b) = (std a : Hyper ι α) * std b := by transfer_push
+example : std (-a) = -(std a : Hyper ι α) := by transfer_push
+example : std (a - b) = (std a : Hyper ι α) - std b := by transfer_push
+example : std (a⁻¹) = (std a : Hyper ι α)⁻¹ := by transfer_push
+example : std (a / b) = (std a : Hyper ι α) / std b := by transfer_push
+
+-- Test transfer_pull: collect std from operations
+example : (std a : Hyper ι α) + std b = std (a + b) := by transfer_pull
+example : (std a : Hyper ι α) * std b = std (a * b) := by transfer_pull
+example : -(std a : Hyper ι α) = std (-a) := by transfer_pull
+
+-- Combined tests: use transfer to convert goal then prove
+example (h : a ≤ b) : (std a : Hyper ι α) ≤ std b := by rw [std_le_std]; exact h
+example (h : (std a : Hyper ι α) ≤ std b) : a ≤ b := by rwa [std_le_std] at h
+
+-- Test with liftPred
+example (P : α → Prop) (h : P a) : liftPred P (std a : Hyper ι α) := by rw [liftPred_std]; exact h
+
+-- Test with lift
+example (f : α → α) : lift f (std a : Hyper ι α) = std (f a) := by rw [lift_std]
+
+end TransferTests
 
 /-! ### Grind integration tests
 
