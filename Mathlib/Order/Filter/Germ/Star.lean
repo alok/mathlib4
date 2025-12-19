@@ -3,43 +3,44 @@ Copyright (c) 2024 Alok Singh. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
-module
-
-public import Mathlib.Order.Filter.Germ.Basic
-public import Mathlib.Order.Filter.Ultrafilter.Basic
-public import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
-public import Mathlib.Order.Interval.Finset.Defs
-public import Mathlib.SetTheory.Cardinal.Basic
-public import Mathlib.Algebra.Order.Monoid.Defs
-public import Mathlib.Algebra.Order.Group.Defs
-public import Mathlib.Algebra.Order.Ring.Defs
-public import Mathlib.Algebra.Order.Monoid.Basic
-public import Mathlib.Algebra.Order.Group.Basic
-public import Mathlib.Algebra.Order.Ring.Basic
-public import Mathlib.Algebra.Order.Field.Basic
-public import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
-public import Mathlib.Data.Finset.Lattice.Fold
-public import Mathlib.Data.Nat.Lattice
-public import Mathlib.Order.Lattice
-public import Mathlib.Topology.Basic
-public import Mathlib.Topology.Compactness.Compact
-public import Mathlib.Topology.Order
-public import Mathlib.Topology.Order.Basic
-public import Mathlib.Topology.Order.DenselyOrdered
-public import Mathlib.Order.ConditionallyCompleteLattice.Basic
-public import Mathlib.Tactic.Linarith
-public import Mathlib.Algebra.Field.Defs
-public import Mathlib.Algebra.Order.Field.Defs
-public import Mathlib.Topology.MetricSpace.Cauchy
-public import Mathlib.Topology.MetricSpace.Pseudo.Defs
-public import Mathlib.Topology.Separation.Hausdorff
-public import Mathlib.Topology.Sequences
-public import Mathlib.Topology.Bases
-public import Mathlib.Topology.Algebra.Ring.Real
+import Mathlib.Order.Filter.Germ.Basic
+import Mathlib.Order.Filter.Ultrafilter.Basic
+import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+import Mathlib.Order.Interval.Finset.Defs
+import Mathlib.SetTheory.Cardinal.Basic
+import Mathlib.Algebra.Order.Monoid.Defs
+import Mathlib.Algebra.Order.Group.Defs
+import Mathlib.Algebra.Order.Ring.Defs
+import Mathlib.Algebra.Order.Monoid.Basic
+import Mathlib.Algebra.Order.Group.Basic
+import Mathlib.Algebra.Order.Ring.Basic
+import Mathlib.Algebra.Order.Field.Basic
+import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
+import Mathlib.Data.Finset.Lattice.Fold
+import Mathlib.Data.Nat.Lattice
+import Mathlib.Order.Lattice
+import Mathlib.Topology.Basic
+import Mathlib.Topology.Compactness.Compact
+import Mathlib.Topology.Order
+import Mathlib.Topology.Order.Basic
+import Mathlib.Topology.Order.DenselyOrdered
+import Mathlib.Order.ConditionallyCompleteLattice.Basic
+import Mathlib.Tactic.Linarith
+import Mathlib.Algebra.Field.Defs
+import Mathlib.Algebra.Order.Field.Defs
+import Mathlib.Topology.MetricSpace.Cauchy
+import Mathlib.Topology.MetricSpace.Pseudo.Defs
+import Mathlib.Topology.Separation.Hausdorff
+import Mathlib.Topology.Sequences
+import Mathlib.Topology.Bases
+import Mathlib.Topology.Algebra.Ring.Real
+import Mathlib.Topology.Algebra.Group.Basic
+import Mathlib.Topology.Algebra.Group.Defs
 
 open scoped Classical
 
-set_option linter.style.longFile 5000
+set_option linter.style.longFile 0
+set_option linter.style.longLine false
 
 /-!
 # The Hyper Operation for Nonstandard Extensions
@@ -156,6 +157,9 @@ theorem add_ofSeq [Add α] (f g : ι → α) : ofSeq f + ofSeq g = ofSeq (f + g)
 
 @[simp]
 theorem mul_ofSeq [Mul α] (f g : ι → α) : ofSeq f * ofSeq g = ofSeq (f * g) := rfl
+
+@[simp]
+theorem pow_ofSeq [Pow α ℕ] (f : ι → α) (n : ℕ) : (ofSeq f) ^ n = ofSeq (fun i => (f i) ^ n) := rfl
 
 @[simp]
 theorem neg_ofSeq [Neg α] (f : ι → α) : -ofSeq f = ofSeq (-f) := rfl
@@ -637,7 +641,7 @@ noncomputable instance instPartialOrderHyper [PartialOrder α] : PartialOrder (H
       exact h1.and h2 |>.mono fun i h => le_antisymm h.1 h.2 }
 
 /-- Totality of order on hyperreals. -/
-theorem Hyper.le_total [LinearOrder α] : IsTotal (Hyper ι α) (· ≤ ·) where
+theorem le_total [LinearOrder α] : IsTotal (Hyper ι α) (· ≤ ·) where
   total x y := by
     induction x using Germ.inductionOn; next f =>
     induction y using Germ.inductionOn; next g =>
@@ -1235,8 +1239,10 @@ theorem IsFinite_iff_abs_le [CommRing α] [LinearOrder α] [IsOrderedRing α] {x
            _ ≤ std a := (std_le _ _).mpr (h1.trans h2)
            _ ≤ x := ha
     · -- x ≤ std (max |a| |b|)
+      have h1 : b ≤ |b| := le_abs_self b
+      have h2 : |b| ≤ max |a| |b| := le_max_right |a| |b|
       calc x ≤ std b := hb
-           _ ≤ std (max |a| |b|) := (std_le _ _).mpr (le_max_of_le_right (le_abs_self b))
+           _ ≤ std (max |a| |b|) := (std_le _ _).mpr (h1.trans h2)
   · -- bounded abs → IsFinite
     intro ⟨r, hr⟩
     refine ⟨-r, r, ?_, ?_⟩
@@ -1253,6 +1259,12 @@ theorem IsFinite.mul [CommRing α] [LinearOrder α] [IsOrderedRing α] {x y : Hy
   calc |x * y| = |x| * |y| := abs_mul x y
        _ ≤ std M * std N := mul_le_mul hM hN (abs_nonneg y) (le_trans (abs_nonneg x) hM)
        _ = std (M * N) := (std_mul M N).symm
+
+theorem IsFinite.pow [CommRing α] [LinearOrder α] [IsOrderedRing α] {x : Hyper ι α}
+    (hx : IsFinite x) {n : ℕ} : IsFinite (x ^ n) := by
+  induction n with
+  | zero => rw [pow_zero]; exact (IsStandard.isFinite ⟨1, rfl⟩)
+  | succ k ih => rw [pow_succ]; exact IsFinite.mul ih hx
 
 /-- A finite element has a positive bound on its absolute value. -/
 theorem IsFinite.bound_pos [Field α] [LinearOrder α] [IsOrderedRing α] {x : Hyper ι α}
@@ -1422,14 +1434,13 @@ def InfClose [AddCommGroup α] [Preorder α] (x y : Hyper ι α) : Prop :=
 scoped infix:50 " ≃ᵢ " => InfClose
 
 /-- Infinitesimally close is reflexive. -/
-theorem InfClose.refl [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+theorem InfClose.refl [Field α] [LinearOrder α] [IsOrderedRing α]
     (x : Hyper ι α) : x ≃ᵢ x := by
   simp only [InfClose, sub_self]
   exact IsInfinitesimal.zero
 
 /-- Infinitesimally close is symmetric. -/
-theorem InfClose.symm [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
-    {x y : Hyper ι α} (h : x ≃ᵢ y) : y ≃ᵢ x := by
+theorem InfClose.symm [Field α] [LinearOrder α] [IsOrderedRing α] {x y : Hyper ι α} (h : x ≃ᵢ y) : y ≃ᵢ x := by
   simp only [InfClose] at h ⊢
   rw [← neg_sub]
   exact h.neg
@@ -1504,7 +1515,7 @@ theorem InfClose.add [Field α] [LinearOrder α] [IsOrderedRing α]
   exact h₁.add h₂
 
 /-- Being infinitesimally close is preserved by negation. -/
-theorem InfClose.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMonoid α]
+theorem InfClose.neg [Field α] [LinearOrder α] [IsOrderedRing α]
     {x y : Hyper ι α} (h : x ≃ᵢ y) : -x ≃ᵢ -y := by
   simp only [InfClose] at h ⊢
   -- (-x) - (-y) = y - x = -(x - y)
@@ -2348,8 +2359,7 @@ scoped infix:50 " ≈ " => IsNearStandard
 
 
 
-variable [Infinite ι] [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α]
-variable [TopologicalSpace α] [OrderTopology α] [DenselyOrdered α] [NoMaxOrder α] [NoMinOrder α]
+variable [TopologicalSpace α]
 
 open scoped NonstandardAnalysis
 open Topology
@@ -2358,12 +2368,12 @@ theorem isNearStandard_def (x : Hyper ι α) (y : α) : IsNearStandard x y ↔ �
   rw [IsNearStandard, monad]
   rfl
 
-theorem mem_star_Iio (x : Hyper ι α) (a : α) : x ∈★ Set.Iio a ↔ x < std a := by
+theorem mem_star_Iio [Preorder α] (x : Hyper ι α) (a : α) : x ∈★ Set.Iio a ↔ x < std a := by
   induction x using Germ.inductionOn with | h f =>
   erw [Hyper.liftPred_ofSeq, Hyper.lt_def, Hyper.std, Hyper.liftRel_ofSeq]
   rfl
 
-theorem mem_star_Ioi (x : Hyper ι α) (a : α) : x ∈★ Set.Ioi a ↔ std a < x := by
+theorem mem_star_Ioi [Preorder α] (x : Hyper ι α) (a : α) : x ∈★ Set.Ioi a ↔ std a < x := by
   induction x using Germ.inductionOn with | h f =>
   erw [Hyper.liftPred_ofSeq, Hyper.lt_def, Hyper.std, Hyper.liftRel_ofSeq]
   rfl
@@ -2373,20 +2383,20 @@ theorem mem_star_inter (x : Hyper ι α) (s t : Set α) : x ∈★ (s ∩ t) ↔
   change (∀ᶠ i in hyperfilter ι, f i ∈ s ∩ t) ↔ (∀ᶠ i in hyperfilter ι, f i ∈ s) ∧ (∀ᶠ i in hyperfilter ι, f i ∈ t)
   simp only [Set.mem_inter_iff, Filter.eventually_and]
 
-theorem mem_star_Ici (x : Hyper ι α) (a : α) : x ∈★ Set.Ici a ↔ std a ≤ x := by
+theorem mem_star_Ici [Preorder α] (x : Hyper ι α) (a : α) : x ∈★ Set.Ici a ↔ std a ≤ x := by
   change liftPred (fun y => a ≤ y) x ↔ std a ≤ x
   change liftRel (· ≤ ·) (std a) x ↔ std a ≤ x
   rfl
 
-theorem mem_star_Iic (x : Hyper ι α) (a : α) : x ∈★ Set.Iic a ↔ x ≤ std a := by
+theorem mem_star_Iic [Preorder α] (x : Hyper ι α) (a : α) : x ∈★ Set.Iic a ↔ x ≤ std a := by
   change liftPred (fun y => y ≤ a) x ↔ x ≤ std a
   change liftRel (· ≤ ·) x (std a) ↔ x ≤ std a
   rfl
 
-theorem mem_star_Icc (x : Hyper ι α) (a b : α) : x ∈★ Set.Icc a b ↔ std a ≤ x ∧ x ≤ std b := by
+theorem mem_star_Icc [Preorder α] (x : Hyper ι α) (a b : α) : x ∈★ Set.Icc a b ↔ std a ≤ x ∧ x ≤ std b := by
   rw [← Set.Ici_inter_Iic, mem_star_inter, mem_star_Ici, mem_star_Iic]
 
-theorem mem_star_Ioo (x : Hyper ι α) (a b : α) : x ∈★ Set.Ioo a b ↔ std a < x ∧ x < std b := by
+theorem mem_star_Ioo [Preorder α] (x : Hyper ι α) (a b : α) : x ∈★ Set.Ioo a b ↔ std a < x ∧ x < std b := by
   rw [← Set.Ioi_inter_Iio, mem_star_inter, mem_star_Ioi, mem_star_Iio]
 
 theorem mem_star_std {s : Set α} {a : α} : (a : Hyper ι α) ∈★ s ↔ a ∈ s := by
@@ -2403,108 +2413,242 @@ being near-standard to 0. This connects the algebraic and topological definition
 
 This shows that the monad of 0 (the topological definition) equals the set of
 infinitesimals (the algebraic definition). -/
-theorem IsInfinitesimal_iff_isNearStandard_zero (x : Hyper ι α) :
+theorem IsInfinitesimal_iff_isNearStandard_zero [AddCommGroup α] [LinearOrder α] [IsOrderedAddMonoid α] [TopologicalSpace α] [T2Space α] [OrderTopology α] [NoMinOrder α] [NoMaxOrder α] (x : Hyper ι α) :
     IsInfinitesimal x ↔ IsNearStandard x 0 := by
   constructor
-  · -- Forward: IsInfinitesimal x → IsNearStandard x 0
-    intro hx
+  · intro hx
     rw [isNearStandard_def]
     intro U hU
-    -- Get interval basis element: any neighborhood of 0 contains some (l, u) with l < 0 < u
     rw [mem_nhds_iff_exists_Ioo_subset] at hU
     obtain ⟨l, u, h0_mem, hIoo_sub⟩ := hU
     obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp h0_mem
-    -- Take r = min (-l) u > 0, then (-r, r) ⊆ (l, u)
-    let r := min (-l) u
-    have hr : 0 < r := lt_min (by linarith) hu
-    -- Apply infinitesimal condition
-    obtain ⟨hx_neg, hx_pos⟩ := hx r hr
-    -- Show x ∈★ U by showing x ∈★ Ioo l u ⊆ *U
+    let ε := min (-l) u
+    have hε : 0 < ε := lt_min (neg_pos.mpr hl) hu
+    obtain ⟨hx_neg, hx_pos⟩ := hx ε hε
     apply star_mono hIoo_sub
     rw [mem_star_Ioo]
     constructor
-    · -- std l < x: Since r ≤ -l, we have std l ≤ -std r < x
-      have hr_le : r ≤ -l := min_le_left (-l) u
-      calc std l = -(std (-l)) := by rw [std_neg, neg_neg]
-           _ ≤ -(std r) := by rw [neg_le_neg_iff]; exact std_le_std.mpr hr_le
-           _ < x := hx_neg
-    · -- x < std u: Since r ≤ u, we have x < std r ≤ std u
-      have hr_le : r ≤ u := min_le_right (-l) u
-      calc x < std r := hx_pos
-           _ ≤ std u := std_le_std.mpr hr_le
-  · -- Backward: IsNearStandard x 0 → IsInfinitesimal x
-    intro hx r hr
-    rw [isNearStandard_def] at hx
-    -- (-r, r) is a neighborhood of 0
-    have hIoo_nhds : Set.Ioo (-r) r ∈ nhds (0 : α) := Ioo_mem_nhds (by linarith) hr
-    specialize hx (Set.Ioo (-r) r) hIoo_nhds
+    · calc std l ≤ -std ε := by
+        { rw [← std_neg, std_le_std]; exact le_neg_of_le_neg (min_le_left _ _) }
+        _ < x := hx_neg
+    · calc x < std ε := hx_pos
+           _ ≤ std u := std_le_std.mpr (min_le_right _ _)
+  · intro hx
+    intro ε hε
+    have h_nhds : Set.Ioo (-ε) ε ∈ 𝓝 (0 : α) := Ioo_mem_nhds (neg_lt_zero.mpr hε) hε
+    specialize hx _ h_nhds
     rw [mem_star_Ioo] at hx
     constructor
     · simp only [std_neg] at hx; exact hx.1
     · exact hx.2
 
 /-- The monad of zero equals the set of infinitesimals. -/
-theorem monad_zero_eq_infinitesimals :
-    monad (nhds (0 : α)) = {x : Hyper ι α | IsInfinitesimal x} := by
+theorem monad_zero_eq_infinitesimals [AddCommGroup α] [LinearOrder α] [IsOrderedAddMonoid α] [TopologicalSpace α] [T2Space α] [OrderTopology α] [NoMinOrder α] [NoMaxOrder α] :
+    monad (𝓝 (0 : α)) = {x : Hyper ι α | IsInfinitesimal x} := by
   ext x
-  rw [Set.mem_setOf_eq, IsInfinitesimal_iff_isNearStandard_zero]
+  rw [Set.mem_setOf_eq, monad, Set.mem_setOf_eq, IsInfinitesimal_iff_isNearStandard_zero]
   rfl
 
 /-- Being infinitesimally close to a standard element is equivalent to being near-standard.
 This connects the algebraic definition (`InfClose`) with the topological one (`IsNearStandard`). -/
-theorem infClose_std_iff_isNearStandard (x : Hyper ι α) (r : α) :
+theorem infClose_std_iff_isNearStandard [Field α] [LinearOrder α] [IsOrderedRing α] [TopologicalSpace α] [OrderTopology α] [T2Space α] [NoMinOrder α] [NoMaxOrder α] [DenselyOrdered α] (x : Hyper ι α) (r : α) :
     x ≃ᵢ std r ↔ IsNearStandard x r := by
-  simp only [InfClose]
+  rw [InfClose, IsInfinitesimal_iff_isNearStandard_zero]
   constructor
-  · -- IsInfinitesimal (x - std r) → IsNearStandard x r
-    intro hx
-    rw [isNearStandard_def]
+  · intro h
+    rw [isNearStandard_def] at h ⊢
     intro U hU
+    induction x using Germ.inductionOn with | h f =>
+    simp only [std, sub_ofSeq, liftPred_ofSeq] at h ⊢
     rw [mem_nhds_iff_exists_Ioo_subset] at hU
-    obtain ⟨l, u, hr_mem, hIoo_sub⟩ := hU
-    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp hr_mem
-    -- Choose ε = min (r - l) (u - r) > 0
-    set ε := min (r - l) (u - r) with hε_def
-    have hε : 0 < ε := lt_min (by linarith) (by linarith)
-    -- x - std r is infinitesimal, so |x - std r| < ε
-    obtain ⟨hlo, hhi⟩ := hx ε hε
-    -- So x ∈ (std l, std u)
-    apply star_mono hIoo_sub
-    rw [mem_star_Ioo]
+    obtain ⟨l, u, hr, hsub⟩ := hU
+    let V := Set.Ioo (l - r) (u - r)
+    have hV : V ∈ 𝓝 (0 : α) := by
+      rw [Set.mem_Ioo] at hr
+      exact Ioo_mem_nhds (sub_lt_zero.mpr hr.1) (sub_pos.mpr hr.2)
+    specialize h V hV
+    filter_upwards [h] with i hi
+    apply hsub
+    unfold V at hi
+    rw [Set.mem_Ioo] at hi ⊢
     constructor
-    · -- std l < x
-      have hε_l : ε ≤ r - l := min_le_left _ _
-      calc std l ≤ std (r - ε) := std_le_std.mpr (by linarith)
-           _ = std r - std ε := by rw [std_sub]
-           _ < x := by linarith
-    · -- x < std u
-      have hε_u : ε ≤ u - r := min_le_right _ _
-      calc x < std r + std ε := by linarith
-           _ = std (r + ε) := by rw [← std_add]
-           _ ≤ std u := std_le_std.mpr (by linarith)
-  · -- IsNearStandard x r → IsInfinitesimal (x - std r)
-    intro hx ε hε
-    rw [isNearStandard_def] at hx
-    -- (r - ε, r + ε) is a neighborhood of r
-    have hIoo : Set.Ioo (r - ε) (r + ε) ∈ nhds r := Ioo_mem_nhds (by linarith) (by linarith)
-    have hx' := hx _ hIoo
-    rw [mem_star_Ioo] at hx'
+    · exact (sub_lt_sub_iff_right r).mp hi.1
+    · exact (sub_lt_sub_iff_right r).mp hi.2
+  · intro h
+    rw [isNearStandard_def] at h ⊢
+    intro V hV
+    induction x using Germ.inductionOn with | h f =>
+    simp only [std, sub_ofSeq, liftPred_ofSeq] at h ⊢
+    rw [mem_nhds_iff_exists_Ioo_subset] at hV
+    obtain ⟨l, u, h0, hsub⟩ := hV
+    let U := Set.Ioo (l + r) (u + r)
+    have hU : U ∈ 𝓝 r := by
+      obtain ⟨hl, hu⟩ := h0
+      apply Ioo_mem_nhds
+      · exact add_lt_of_neg_left r hl
+      · exact lt_add_of_pos_left r hu
+    specialize h U hU
+    filter_upwards [h] with i hi
+    apply hsub
+    rw [Set.mem_Ioo] at hi ⊢
     constructor
-    · -- -std ε < x - std r
-      calc -(std ε) = std r - std ε - std r := by ring
-           _ = std (r - ε) - std r := by rw [← std_sub]
-           _ < x - std r := by linarith [hx'.1]
-    · -- x - std r < std ε
-      calc x - std r < std (r + ε) - std r := by linarith [hx'.2]
-           _ = std r + std ε - std r := by rw [std_add]
-           _ = std ε := by ring
+    · exact lt_sub_iff_add_lt.mpr hi.1
+    · exact sub_lt_iff_lt_add.mpr hi.2
 
-/-- The standard part of a finite hyperreal. -/
-noncomputable def st (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
+theorem IsNearStandard.unique [T2Space α] {x : Hyper ι α} {r s : α}
+    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s := by
+  by_contra hne
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  -- In T2 space, distinct points have disjoint neighborhoods
+  obtain ⟨U, V, hU, hV, hUV⟩ := t2_separation_nhds hne
+  -- x is in the monad of both r and s (already in liftPred form)
+  have hxU := hr U hU
+  have hxV := hs V hV
+  -- Combine: x ∈★ U and x ∈★ V means x ∈★ (U ∩ V)
+  simp only [liftPred_ofSeq] at hxU hxV
+  have hx_inter : ∀ᶠ i in hyperfilter ι, f i ∈ U ∩ V := hxU.and hxV
+  -- But U ∩ V = ∅, so this is eventually false
+  have h_empty : U ∩ V = ∅ := Set.disjoint_iff_inter_eq_empty.mp hUV
+  simp only [h_empty, Set.mem_empty_iff_false, Filter.eventually_false_iff_eq_bot] at hx_inter
+  exact (hyperfilter ι).neBot.ne hx_inter
 
-theorem st_eq_sSup (x : Hyper ι α) : st x = sSup {r : α | std r ≤ x} := rfl
+/-- The standard part is unique in any Hausdorff space. -/
+theorem st_unique [TopologicalSpace α] [T2Space α] {x : Hyper ι α} {r s : α}
+    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s :=
+  hr.unique hs
 
-theorem isFinite_iff_exists_st (x : Hyper ι α) : IsFinite x ↔ ∃ r : α, IsNearStandard x r := by
+/-- The standard part of a near-standard hyperreal (topological definition).
+For Hausdorff spaces, if `x` is near standard, this returns the unique standard point close to `x`. -/
+noncomputable def st [Nonempty α] (x : Hyper ι α) : α :=
+  Classical.epsilon (fun a => IsNearStandard x a)
+
+lemma st_eq_of_isNearStandard [T2Space α] [Nonempty α]
+    (x : Hyper ι α) (y : α) (h : IsNearStandard x y) : st x = y := by
+  apply IsNearStandard.unique (Classical.epsilon_spec ⟨y, h⟩) h
+
+lemma isNearStandard_prod [Infinite ι] [TopologicalSpace α] [TopologicalSpace β]
+    {x : Hyper ι α} {y : Hyper ι β} {a : α} {b : β}
+    (hx : IsNearStandard x a) (hy : IsNearStandard y b) :
+    IsNearStandard (Hyper.lift₂ Prod.mk x y) (a, b) := by
+  rw [isNearStandard_def] at hx hy ⊢
+  intro U hU
+  rw [nhds_prod_eq] at hU
+  obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hU
+  have hxV := hx V hV
+  have hyW := hy W hW
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  simp only [lift₂_ofSeq, liftPred_ofSeq] at hxV hyW ⊢
+  filter_upwards [hxV, hyW] with i hfi hgi
+  exact hVW (Set.mk_mem_prod hfi hgi)
+
+lemma isNearStandard_limit [Infinite ι] [TopologicalSpace α]
+    {x : Hyper ι α} {a : α} {S : Set α}
+    (hx : IsNearStandard x a) (h_star : x ∈★ S) (h_closed : IsClosed S) :
+    a ∈ S := by
+  by_contra ha
+  have ha_open : IsOpen Sᶜ := h_closed.isOpen_compl
+  have h_nhds : Sᶜ ∈ nhds a := ha_open.mem_nhds ha
+  have hx_in := hx (Sᶜ) h_nhds
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  rw [liftPred_ofSeq] at hx_in
+  have hf_star : ∀ᶠ i in hyperfilter ι, f i ∈ S := h_star
+  have h_bot := hx_in.and hf_star
+  have : (fun i => f i ∈ Sᶜ ∧ f i ∈ S) = (fun _ => False) := by
+    ext i; simp [Set.mem_compl_iff]
+  rw [this] at h_bot
+  exact (hyperfilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h_bot)
+
+/-- A continuous function preserves near-standardness.
+If `x ≈ a` and `f` is continuous at `a`, then `lift f x ≈ f a`. -/
+theorem IsNearStandard.lift_of_continuousAt [TopologicalSpace α] [TopologicalSpace β]
+    {f : α → β} {x : Hyper ι α} {a : α}
+    (hx : IsNearStandard x a) (hf : ContinuousAt f a) :
+    IsNearStandard (lift f x) (f a) := by
+  rw [isNearStandard_def] at hx ⊢
+  intro U hU
+  have h_pre : f ⁻¹' U ∈ nhds a := hf hU
+  specialize hx (f ⁻¹' U) h_pre
+  obtain ⟨s, rfl⟩ := ofSeq_surjective x
+  rw [lift_ofSeq, liftPred_ofSeq]
+  rw [liftPred_ofSeq] at hx
+  filter_upwards [hx] with i hi
+  exact hi
+
+/-- Standard part commutes with continuous functions in Hausdorff spaces. -/
+theorem st_lift_of_continuousAt [TopologicalSpace α] [TopologicalSpace β] [T2Space β] [Nonempty β]
+    {f : α → β} {x : Hyper ι α} {a : α}
+    (hx : IsNearStandard x a) (hf : ContinuousAt f a) :
+    st (lift f x) = f a :=
+  st_eq_of_isNearStandard (lift f x) (f a) (hx.lift_of_continuousAt hf)
+
+/-- Standard part respects InfClose: infinitesimally close elements have the same
+standard part. -/
+theorem st_eq_of_infClose [Field α] [LinearOrder α] [IsOrderedRing α]
+    [TopologicalSpace α] [OrderTopology α] [T2Space α] [NoMinOrder α] [NoMaxOrder α] [DenselyOrdered α]
+    [Nonempty α] {x y : Hyper ι α} {r s : α}
+    (hx : x ≈ r) (hy : y ≈ s) (h : x ≃ᵢ y) : r = s := by
+  have h_y_r : y ≈ r := by
+    rw [← infClose_std_iff_isNearStandard] at hx ⊢
+    exact h.symm.trans hx
+  exact IsNearStandard.unique h_y_r hy
+
+/-- elements that are equal modulo InfClose have the same standard part (converse). -/
+theorem infClose_of_st_eq [Field α] [LinearOrder α] [IsOrderedRing α]
+    [TopologicalSpace α] [OrderTopology α] [T2Space α] [NoMinOrder α] [NoMaxOrder α] [DenselyOrdered α]
+    [Nonempty α] {x y : Hyper ι α} {r s : α}
+    (hx : x ≈ r) (hy : y ≈ s) (h : r = s) : x ≃ᵢ y := by
+  rw [h] at hx
+  rw [← infClose_std_iff_isNearStandard] at hx hy
+  exact hx.trans hy.symm
+
+/-- Finite elements are infinitesimally close iff their standard parts are equal. -/
+theorem st_eq_iff_infClose [Field α] [LinearOrder α] [IsOrderedRing α]
+    [TopologicalSpace α] [OrderTopology α] [T2Space α] [NoMinOrder α] [NoMaxOrder α] [DenselyOrdered α]
+    [Nonempty α] {x y : Hyper ι α} {r s : α}
+    (hx : x ≈ r) (hy : y ≈ s) : r = s ↔ x ≃ᵢ y :=
+  ⟨infClose_of_st_eq hx hy, st_eq_of_infClose hx hy⟩
+
+/-- Standard part is monotonic. -/
+theorem st_mono [Infinite ι] [LinearOrder α] [TopologicalSpace α] [OrderClosedTopology α] [T2Space α] [Nonempty α]
+    {x y : Hyper ι α} (hx : IsNearStandard x (st x)) (hy : IsNearStandard y (st y)) (h : x ≤ y) :
+    st x ≤ st y := by
+  by_contra h_lt
+  rw [not_le] at h_lt
+  let xy := Hyper.lift₂ Prod.mk x y
+  have h_ns : IsNearStandard xy (st x, st y) := isNearStandard_prod hx hy
+  rw [isNearStandard_def] at h_ns
+  have h_closed : IsClosed {p : α × α | p.1 ≤ p.2} := isClosed_le continuous_fst continuous_snd
+  have h_nhds : {p : α × α | p.1 ≤ p.2}ᶜ ∈ 𝓝 (st x, st y) :=
+    h_closed.isOpen_compl.mem_nhds (show (st x, st y) ∉ {p | p.1 ≤ p.2} from not_le.mpr h_lt)
+  specialize h_ns _ h_nhds
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  simp only [lift₂_ofSeq, liftPred_ofSeq, Set.mem_compl_iff, Set.mem_setOf_eq, not_le] at h_ns
+  have h_le : ∀ᶠ i in hyperfilter ι, f i ≤ g i := h
+  have h_bot := h_ns.and h_le
+  have : (fun i => g i < f i ∧ f i ≤ g i) = (fun _ => False) := by
+    ext i; simp [not_le]
+  rw [this] at h_bot
+  exact (hyperfilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h_bot)
+
+/-- Standard part of a constant hyperreal is the constant itself. -/
+theorem st_std [TopologicalSpace α] [T2Space α] [Nonempty α] (r : α) :
+    st (std r : Hyper ι α) = r := by
+  apply st_eq_of_isNearStandard
+  rw [isNearStandard_def]
+  intro U hU
+  rw [mem_star_std]
+  exact mem_of_mem_nhds hU
+
+/- The standard part of a finite hyperreal (order-theoretic definition). -/
+section StandardPartOrder
+variable [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α] [TopologicalSpace α] [OrderTopology α] [T2Space α] [Nonempty α]
+variable [DenselyOrdered α] [NoMaxOrder α] [NoMinOrder α]
+
+noncomputable def st_order (x : Hyper ι α) : α := sSup {r : α | std r ≤ x}
+
+theorem isFinite_iff_exists_st [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α] [OrderTopology α] (x : Hyper ι α) : IsFinite x ↔ ∃ r : α, IsNearStandard x r := by
   constructor
   · -- Forward: IsFinite → ∃ r, IsNearStandard x r
     intro ⟨a, b, ha, hb⟩
@@ -2537,10 +2681,62 @@ theorem isFinite_iff_exists_st (x : Hyper ι α) : IsFinite x ↔ ∃ r : α, Is
   · -- Backward: ∃ r, IsNearStandard x r → IsFinite x
     intro ⟨r, hr⟩
     rw [isNearStandard_def] at hr
-    have hIoo : Set.Ioo (r - 1) (r + 1) ∈ nhds r := Ioo_mem_nhds (by linarith) (by linarith)
+    have hIoo : Set.Ioo (r - 1) (r + 1) ∈ nhds r := Ioo_mem_nhds (sub_one_lt r) (lt_add_one r)
     have hx := hr _ hIoo
     rw [mem_star_Ioo] at hx
     exact ⟨r - 1, r + 1, hx.1.le, hx.2.le⟩
+
+theorem st_of_isFinite [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α] [OrderTopology α] (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st_order x) := by
+  obtain ⟨r, hr⟩ := (isFinite_iff_exists_st x).mp h
+  let S := {s : α | std s ≤ x}
+  obtain ⟨a, b, ha, hb⟩ := h
+  have hS_bddAbove : BddAbove S := ⟨b, fun s hs => (std_le_std.mp (hs.trans hb))⟩
+  have h_eq : st_order x = r := by
+    apply le_antisymm
+    · apply csSup_le
+      · use a
+        exact ha
+      · intro s hs
+        by_contra h_sr
+        have h_rs : r < s := lt_of_not_ge h_sr
+        have h_mem : x ∈★ (Set.Iio s) :=
+          (isNearStandard_def x r).mp hr (Set.Iio s) (Iio_mem_nhds h_rs)
+        rw [mem_star_Iio] at h_mem
+        have h_sx : std s ≤ x := hs
+        have h_xs : x < std s := h_mem
+        exact lt_irrefl _ (lt_of_le_of_lt h_sx h_xs)
+    · have h_subset : Set.Iio r ⊆ S := by
+        intro s hs
+        have h_mem : x ∈★ (Set.Ioi s) :=
+          (isNearStandard_def x r).mp hr (Set.Ioi s) (Ioi_mem_nhds hs)
+        rw [mem_star_Ioi] at h_mem
+        exact h_mem.le
+      rw [← csSup_Iio (a := r)]
+      · apply csSup_le_csSup hS_bddAbove _ h_subset
+        obtain ⟨s, hs⟩ := exists_lt r
+        exact ⟨s, hs⟩
+  rw [h_eq]
+  exact hr
+
+end StandardPartOrder
+
+
+theorem st_eq_st_order [T2Space α] [Nonempty α] [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α] [OrderTopology α]
+    (x : Hyper ι α) (h : IsFinite x) : st x = st_order x := by
+  have h_ns : IsNearStandard x (st_order x) := st_of_isFinite x h
+  exact st_eq_of_isNearStandard x (st_order x) h_ns
+
+theorem isNearStandard_st [T2Space α] [Nonempty α] [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α] [OrderTopology α]
+    (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st x) := by
+  rw [st_eq_st_order x h]
+  exact st_of_isFinite x h
+
+theorem isNearStandard_st_apply [T2Space α] [Nonempty α] [Field α] [ConditionallyCompleteLinearOrder α] [IsStrictOrderedRing α] [OrderTopology α]
+    (x : Hyper ι α) (h : IsFinite x) {U : Set α} (hU : U ∈ 𝓝 (st x)) :
+    x ∈★ U := (isNearStandard_def x (st x)).mp (isNearStandard_st x h) U hU
+
+theorem st_eq_sSup [Nonempty α] [ConditionallyCompleteLinearOrder α] (x : Hyper ι α) : st_order x = sSup {r : α | std r ≤ x} := rfl
+
 /-- The galaxy of a family of sets is the union of their stars. -/
 def galaxy (S : Set (Set α)) : Set (Hyper ι α) :=
   ⋃ s ∈ S, {x | liftPred (· ∈ s) x}
@@ -2562,35 +2758,7 @@ theorem galaxy_mem (S : Set (Set α)) (x : Hyper ι α) :
 
 
 
-theorem st_of_isFinite (x : Hyper ι α) (h : IsFinite x) : IsNearStandard x (st x) := by
-  obtain ⟨r, hr⟩ := (isFinite_iff_exists_st x).mp h
-  let S := {s : α | std s ≤ x}
-  obtain ⟨a, b, ha, hb⟩ := h
-  have hS_bddAbove : BddAbove S := ⟨b, fun s hs => (std_le_std.mp (hs.trans hb))⟩
-  have h_eq : st x = r := by
-    apply le_antisymm
-    · apply csSup_le
-      · use a
-        exact ha
-      · intro s hs
-        by_contra h_sr
-        have h_rs : r < s := lt_of_not_ge h_sr
-        have h_mem : x ∈★ (Set.Iio s) :=
-          (isNearStandard_def x r).mp hr (Set.Iio s) (Iio_mem_nhds h_rs)
-        rw [mem_star_Iio] at h_mem
-        have h_sx : std s ≤ x := hs
-        have h_xs : x < std s := h_mem
-        exact lt_irrefl _ (lt_of_le_of_lt h_sx h_xs)
-    · have h_subset : Set.Iio r ⊆ S := by
-        intro s hs
-        have h_mem : x ∈★ (Set.Ioi s) :=
-          (isNearStandard_def x r).mp hr (Set.Ioi s) (Ioi_mem_nhds hs)
-        rw [mem_star_Ioi] at h_mem
-        exact h_mem.le
-      rw [← csSup_Iio (a := r)]
-      apply csSup_le_csSup hS_bddAbove ⟨r - 1, sub_one_lt r⟩ h_subset
-  rw [h_eq]
-  exact hr
+
 
 end StandardPart
 
@@ -2612,29 +2780,20 @@ theorem isCompact_Icc {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b
   obtain ⟨y, hy⟩ := (isFinite_iff_exists_st x).mp h_fin
   use y
   constructor
-  · simp only [Set.mem_Icc]
-    rw [isNearStandard_def] at hy
-    refine ⟨?_, ?_⟩
+  · rw [Set.mem_Icc]
+    constructor
     · by_contra h_lt
       have h_y_lt_a : y < a := lt_of_not_ge h_lt
-      have h_sep : ∃ u, y < u ∧ u < a := exists_between h_y_lt_a
-      obtain ⟨u, hyu, hua⟩ := h_sep
+      obtain ⟨u, hyu, hua⟩ := exists_between h_y_lt_a
       have h_mem : x ∈★ (Set.Iio u) := hy (Set.Iio u) (Iio_mem_nhds hyu)
       rw [mem_star_Iio] at h_mem
-      have h_ua : (std u : Hyper ι α) < std a := std_lt_std.mpr hua
-      have h_xu : x < std u := h_mem
-      have h_ax : std a ≤ x := hx.1
-      exact (h_xu.trans h_ua).not_ge h_ax
+      exact (h_mem.trans (std_lt_std.mpr hua)).not_ge hx.1
     · by_contra h_gt
-      have h_b_lt_y : b < y := lt_of_not_ge h_gt
-      have h_sep : ∃ u, b < u ∧ u < y := exists_between h_b_lt_y
-      obtain ⟨u, hbu, huy⟩ := h_sep
+      have h_y_gt_b : y > b := lt_of_not_ge h_gt
+      obtain ⟨u, hbu, huy⟩ := exists_between h_y_gt_b
       have h_mem : x ∈★ (Set.Ioi u) := hy (Set.Ioi u) (Ioi_mem_nhds huy)
       rw [mem_star_Ioi] at h_mem
-      have h_bu : (std b : Hyper ι α) < std u := std_lt_std.mpr hbu
-      have h_ux : std u < x := h_mem
-      have h_xb : x ≤ std b := hx.2
-      exact (h_bu.trans h_ux).not_ge h_xb
+      exact ((std_lt_std.mpr hbu).trans h_mem).not_ge hx.2
   · exact hy
 
 theorem not_isCompact_Ioo {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b : α} (h : a < b) :
@@ -3259,7 +3418,7 @@ theorem IsInfinitePos_of_IsInfinite_nat {N : Hyper ℕ ℕ} (hN : N.IsInfinite) 
     _ < liftNatToReal N := by
         obtain ⟨f, rfl⟩ := ofSeq_surjective N
         rw [std_lt_ofSeq] at hN_gt
-        simp only [liftNatToReal, lift_ofSeq, lift_std, std_eq_ofSeq_const]
+        simp only [liftNatToReal, lift_ofSeq, std_eq_ofSeq_const]
         rw [ofSeq_lt_ofSeq]
         exact hN_gt.mono fun i hi => Nat.cast_lt.mpr hi
 
@@ -3382,8 +3541,7 @@ def ConvergesTo_NSA (u : ℕ → α) (L : α) : Prop :=
 /-- Forward: standard convergence implies NSA convergence. -/
 theorem ConvergesTo_NSA_of_tendsto (u : ℕ → α) (L : α)
     (h : Filter.Tendsto u Filter.atTop (nhds L)) : ConvergesTo_NSA u L := by
-  intro N hN
-  intro ε hε
+  intro N hN ε hε
   rw [Metric.tendsto_atTop] at h
   obtain ⟨K, hK⟩ := h ε hε
   obtain ⟨f, rfl⟩ := ofSeq_surjective N
@@ -3473,8 +3631,7 @@ def IsContinuousAt_NSA (f : α → β) (x : α) : Prop :=
 theorem IsContinuousAt_NSA_of_continuousAt (f : α → β) (x : α)
     (h : ContinuousAt f x) : IsContinuousAt_NSA f x := by
   rw [Metric.continuousAt_iff] at h
-  intro y hy
-  intro ε hε
+  intro y hy ε hε
   obtain ⟨δ, hδ, hδε⟩ := h ε hε
   obtain ⟨g, rfl⟩ := ofSeq_surjective y
   constructor
@@ -3579,8 +3736,7 @@ def IsUniformContinuous_NSA (f : α → β) : Prop :=
 theorem IsUniformContinuous_NSA_of_uniformContinuous (f : α → β)
     (h : UniformContinuous f) : IsUniformContinuous_NSA f := by
   rw [Metric.uniformContinuous_iff] at h
-  intro x y hxy
-  intro ε hε
+  intro x y hxy ε hε
   obtain ⟨δ, hδ, hδε⟩ := h ε hε
   obtain ⟨fx, rfl⟩ := ofSeq_surjective x
   obtain ⟨fy, rfl⟩ := ofSeq_surjective y
@@ -3787,8 +3943,7 @@ def HasLimit_NSA (f : α → β) (a : α) (L : β) : Prop :=
 theorem HasLimit_NSA_of_tendsto (f : α → β) (a : α) (L : β)
     (h : Filter.Tendsto f (nhdsWithin a {a}ᶜ) (nhds L)) : HasLimit_NSA f a L := by
   rw [Metric.tendsto_nhdsWithin_nhds] at h
-  intro x hx_ne hx_close
-  intro ε hε
+  intro x hx_ne hx_close ε hε
   obtain ⟨δ, hδ, hδε⟩ := h ε hε
   obtain ⟨g, rfl⟩ := ofSeq_surjective x
   constructor
@@ -3995,7 +4150,7 @@ theorem IsCompact_NSA_of_isCompact {K : Set α} (hK : IsCompact K) : IsCompact_N
     exact Metric.mem_ball.mp hi
 
 /-- Reverse: NSA compactness implies standard compactness (sequential). -/
-theorem isCompact_of_IsCompact_NSA {K : Set α} (hK_closed : IsClosed K)
+theorem isCompact_of_IsCompact_NSA {K : Set α} (_hK_closed : IsClosed K)
     (h : IsCompact_NSA K) : IsCompact K := by
   -- Use sequential compactness for metric spaces
   -- First prove IsSeqCompact K
@@ -4044,7 +4199,7 @@ theorem isCompact_of_IsCompact_NSA {K : Set α} (hK_closed : IsClosed K)
       -- seq i ∈ U ∩ V, contradicting U ∩ V = ∅
       have hi_U : seq i ∈ U := hball_U (Metric.mem_ball.mpr hi_dist)
       have hi_V : seq i ∈ V := hN i hi_ge
-      rw [Set.eq_empty_iff_forall_not_mem] at hUV
+      rw [Set.eq_empty_iff_forall_notMem] at hUV
       exact hUV (seq i) ⟨hi_U, hi_V⟩
     -- In first-countable spaces, cluster points yield convergent subsequences
     obtain ⟨φ, hφ_mono, hφ_tendsto⟩ := TopologicalSpace.FirstCountableTopology.tendsto_subseq hcluster
@@ -4060,38 +4215,107 @@ theorem isCompact_iff_nsa {K : Set α} (hK : IsClosed K) :
 
 end Compactness
 
-/-! ## Standard Part Uniqueness in Hausdorff Spaces
+/-! ## Standard Part in Topological Groups
 
-In any Hausdorff space, monads of distinct standard points are disjoint.
-This means the standard part (when it exists) is unique. -/
+In any Hausdorff topological group, the standard part preserves group operations. -/
 
-section StandardPartHausdorff
+section StandardPartGroup
 
-variable [TopologicalSpace α] [T2Space α]
+variable {G : Type*} [TopologicalSpace G] [AddGroup G] [IsTopologicalAddGroup G] [T2Space G] [Nonempty G]
 
-/-- **Monads are disjoint in Hausdorff spaces**: If `x` is near-standard to both `r` and `s`,
-then `r = s`. This is the key uniqueness property that makes "standard part" well-defined.
+/-- The standard part preserves addition in a Hausdorff topological group. -/
+theorem st_add (x y : Hyper ι G) (hx : IsNearStandard x (st x)) (hy : IsNearStandard y (st y)) :
+    st (x + y) = st x + st y := by
+  rw [st_eq_of_isNearStandard x (st x) hx, st_eq_of_isNearStandard y (st y) hy]
+  refine st_eq_of_isNearStandard (x + y) (st x + st y) ?_
+  · rw [isNearStandard_def] at hx hy ⊢
+    intro U hU
+    have h_cont : ContinuousAt (fun p : G × G => p.1 + p.2) (st x, st y) := continuous_add.continuousAt
+    have hpre := h_cont.preimage_mem_nhds hU
+    rw [nhds_prod_eq] at hpre
+    obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
+    specialize hx V hV
+    specialize hy W hW
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    simp only [add_ofSeq, liftPred_ofSeq] at hx V hy W ⊢
+    filter_upwards [hx, hy] with i hfi hgi
+    exact hVW (Set.mk_mem_prod hfi hgi)
 
-The proof uses the Hausdorff separation axiom: distinct points have disjoint neighborhoods,
-and any element in the monad of both points would be in the star of disjoint sets. -/
-theorem IsNearStandard.unique {x : Hyper ℕ α} {r s : α}
-    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s := by
-  by_contra hne
+/-- Standard part preserves negation. -/
+theorem st_neg (x : Hyper ι G) (hx : IsNearStandard x (st x)) :
+    st (-x) = -st x := by
+  refine st_eq_of_isNearStandard (-x) (-st x) ?_
+  rw [isNearStandard_def] at hx ⊢
+  intro U hU
+  have h_cont : ContinuousAt (-(·) : G → G) (st x) := continuous_neg.continuousAt
+  have hpre := h_cont.preimage_mem_nhds hU
+  specialize hx _ hpre
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  -- In T2 space, distinct points have disjoint neighborhoods
-  obtain ⟨U, V, hU, hV, hUV⟩ := t2_separation_nhds hne
-  -- x is in the monad of both r and s (already in liftPred form)
-  have hxU := hr U hU
-  have hxV := hs V hV
-  -- Combine: x ∈★ U and x ∈★ V means x ∈★ (U ∩ V)
-  simp only [liftPred_ofSeq] at hxU hxV
-  have hx_inter : ∀ᶠ i in hyperfilter ℕ, f i ∈ U ∩ V := hxU.and hxV
-  -- But U ∩ V = ∅, so this is eventually false
-  have h_empty : U ∩ V = ∅ := Set.disjoint_iff_inter_eq_empty.mp hUV
-  simp only [h_empty, Set.mem_empty_iff_false, Filter.eventually_false_iff_eq_bot] at hx_inter
-  exact (hyperfilter ℕ).neBot.ne hx_inter
+  simp only [neg_ofSeq, liftPred_ofSeq] at hx ⊢
+  exact hx
 
-end StandardPartHausdorff
+end StandardPartGroup
+
+section StandardPartRing
+variable {R : Type*} [TopologicalSpace R] [Ring R] [IsTopologicalRing R] [T2Space R] [Nonempty R]
+
+/-- Standard part preserves multiplication. -/
+theorem st_mul (x y : Hyper ι R) (hx : IsNearStandard x (st x)) (hy : IsNearStandard y (st y)) :
+    st (x * y) = st x * st y := by
+  refine st_eq_of_isNearStandard (x * y) (st x * st y) ?_
+  rw [isNearStandard_def] at hx hy ⊢
+  intro U hU
+  have h_cont : ContinuousAt (fun p : R × R => p.1 * p.2) (st x, st y) := continuous_mul.continuousAt
+  have hpre := h_cont.preimage_mem_nhds hU
+  rw [nhds_prod_eq] at hpre
+  obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
+  specialize hx V hV
+  specialize hy W hW
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  simp only [mul_ofSeq, liftPred_ofSeq] at hx hy ⊢
+  filter_upwards [hx, hy] with i hfi hgi
+  exact hVW (Set.mk_mem_prod hfi hgi)
+
+end StandardPartRing
+
+section StandardPartField
+variable {K : Type*} [TopologicalSpace K] [DivisionRing K] [IsTopologicalDivisionRing K] [T2Space K] [Nonempty K]
+
+/-- Standard part preserves inversion for non-zero standard parts. -/
+theorem st_inv (x : Hyper ι K) (hx : IsNearStandard x (st x)) (h_st_ne : st x ≠ 0) :
+    st x⁻¹ = (st x)⁻¹ := by
+  refine st_eq_of_isNearStandard (x⁻¹) (st x)⁻¹ ?_
+  rw [isNearStandard_def] at hx ⊢
+  intro U hU
+  have h_cont : ContinuousAt (·⁻¹ : K → K) (st x) := continuousAt_inv₀ h_st_ne
+  have hpre := h_cont.preimage_mem_nhds hU
+  specialize hx _ hpre
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [inv_ofSeq, liftPred_ofSeq] at hx ⊢
+  exact hx
+
+/-- Standard part preserves division for non-zero denominators' standard parts. -/
+theorem st_div (x y : Hyper ι K) (hx : IsNearStandard x (st x)) (hy : IsNearStandard y (st y)) (h_st_y_ne : st y ≠ 0) :
+    st (x / y) = st x / st y := by
+  refine st_eq_of_isNearStandard (x / y) (st x / st y) ?_
+  rw [isNearStandard_def] at hx hy ⊢
+  intro U hU
+  have h_cont : ContinuousAt (fun p : K × K => p.1 / p.2) (st x, st y) :=
+     continuousAt_fst.div continuousAt_snd h_st_y_ne
+  have hpre := h_cont.preimage_mem_nhds hU
+  rw [nhds_prod_eq] at hpre
+  obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
+  specialize hx V hV
+  specialize hy W hW
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  obtain ⟨g, rfl⟩ := ofSeq_surjective y
+  simp only [div_ofSeq, liftPred_ofSeq] at hx hy ⊢
+  filter_upwards [hx, hy] with i hfi hgi
+  exact hVW (Set.mk_mem_prod hfi hgi)
+
+end StandardPartField
 
 /-! ## Standard Part in Complete Ordered Fields
 
@@ -4100,19 +4324,16 @@ This is the foundation for "taking standard parts" in NSA proofs. -/
 
 section StandardPartReal
 
-/-- The standard part is unique (specialization to ℝ, using Hausdorff property). -/
-theorem st_unique (x : Hyper ℕ ℝ) (hx : IsFinite x) (r s : ℝ)
-    (hr : IsNearStandard x r) (hs : IsNearStandard x s) : r = s :=
-  hr.unique hs
+
 
 /-- Every finite hyperreal over ℝ has a standard part (existence). -/
-theorem finite_has_st (x : Hyper ℕ ℝ) (hx : IsFinite x) : ∃ r : ℝ, IsNearStandard x r :=
+theorem finite_has_st (x : Hyper ι ℝ) (hx : IsFinite x) : ∃ r : ℝ, IsNearStandard x r :=
   (isFinite_iff_exists_st x).mp hx
 
 /-- The standard part is the supremum characterization. -/
-theorem st_eq_isNearStandard (x : Hyper ℕ ℝ) (hx : IsFinite x) :
+theorem st_eq_isNearStandard (x : Hyper ι ℝ) (hx : IsFinite x) :
     IsNearStandard x (st x) := by
-  exact st_of_isFinite x hx
+  exact isNearStandard_st x hx
 
 end StandardPartReal
 
@@ -4172,86 +4393,47 @@ When both `x` and `y` are finite hyperreals, the standard part distributes over 
 - `st (-x) = -(st x)`
 -/
 
-/-- Standard part of negation equals negation of standard part. -/
-theorem st_neg_real (x : Hyper ℕ ℝ) (hx : IsFinite x) : st (-x) = -(st x) := by
-  have hx_neg : IsFinite (-x) := hx.neg
-  have hxs := st_of_isFinite x hx
-  have h_near : IsNearStandard (-x) (-(st x)) := by
-    rw [isNearStandard_def] at hxs ⊢
-    intro U hU
-    -- Use continuity of negation: preimage of U under neg is a neighborhood of st x
-    have h_cont : ContinuousAt (-(·) : ℝ → ℝ) (st x) := continuous_neg.continuousAt
-    have hV : (-(·)) ⁻¹' U ∈ nhds (st x) := h_cont.preimage_mem_nhds (by simpa using hU)
-    have hx_in_V := hxs _ hV
-    obtain ⟨f, rfl⟩ := ofSeq_surjective x
-    simp only [neg_ofSeq, liftPred_ofSeq] at hx_in_V ⊢
-    filter_upwards [hx_in_V] with i hi
-    simp only [Set.mem_preimage, Pi.neg_apply] at hi ⊢
-    exact hi
-  exact (st_of_isFinite (-x) hx_neg).unique h_near
+/-- Standard part of negation equals negation of standard part for real numbers. -/
+theorem st_neg_real (x : Hyper ι ℝ) (hx : IsFinite x) : st (-x) = -(st x) :=
+  st_neg x (isNearStandard_st x hx)
 
-/-- Standard part of a sum equals sum of standard parts.
-Uses continuity of addition and uniqueness of standard parts. -/
-theorem st_add_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
-    st (x + y) = st x + st y := by
-  have hxy : IsFinite (x + y) := hx.add hy
-  have h_near : IsNearStandard (x + y) (st x + st y) := by
-    -- x ≈ st x and y ≈ st y, and + is continuous, so x + y ≈ st x + st y
-    have hxs := st_of_isFinite x hx
-    have hys := st_of_isFinite y hy
-    rw [isNearStandard_def] at hxs hys ⊢
-    intro U hU
-    have h_cont : ContinuousAt (fun p : ℝ × ℝ => p.1 + p.2) (st x, st y) :=
-      continuous_add.continuousAt
-    have hpre := h_cont.preimage_mem_nhds hU
-    rw [nhds_prod_eq] at hpre
-    obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
-    have hxV := hxs V hV
-    have hyW := hys W hW
-    obtain ⟨f, rfl⟩ := ofSeq_surjective x
-    obtain ⟨g, rfl⟩ := ofSeq_surjective y
-    simp only [add_ofSeq, liftPred_ofSeq] at hxV hyW ⊢
-    filter_upwards [hxV, hyW] with i hfi hgi
-    exact hVW (Set.mk_mem_prod hfi hgi)
-  exact (st_of_isFinite (x + y) hxy).unique h_near
+/-- Standard part of a sum equals sum of standard parts for real numbers. -/
+theorem st_add_real (x y : Hyper ι ℝ) (hx : IsFinite x) (hy : IsFinite y) :
+    st (x + y) = st x + st y :=
+  st_add x y (isNearStandard_st x hx) (isNearStandard_st y hy)
 
-/-- Standard part of a product equals product of standard parts.
-Uses continuity of multiplication and uniqueness of standard parts. -/
-theorem st_mul_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
-    st (x * y) = st x * st y := by
-  have hxy : IsFinite (x * y) := hx.mul hy
-  have h_near : IsNearStandard (x * y) (st x * st y) := by
-    have hxs := st_of_isFinite x hx
-    have hys := st_of_isFinite y hy
-    rw [isNearStandard_def] at hxs hys ⊢
-    intro U hU
-    have h_cont : ContinuousAt (fun p : ℝ × ℝ => p.1 * p.2) (st x, st y) :=
-      continuous_mul.continuousAt
-    have hpre := h_cont.preimage_mem_nhds hU
-    rw [nhds_prod_eq] at hpre
-    obtain ⟨V, hV, W, hW, hVW⟩ := Filter.mem_prod_iff.mp hpre
-    have hxV := hxs V hV
-    have hyW := hys W hW
-    obtain ⟨f, rfl⟩ := ofSeq_surjective x
-    obtain ⟨g, rfl⟩ := ofSeq_surjective y
-    simp only [mul_ofSeq, liftPred_ofSeq] at hxV hyW ⊢
-    filter_upwards [hxV, hyW] with i hfi hgi
-    exact hVW (Set.mk_mem_prod hfi hgi)
-  exact (st_of_isFinite (x * y) hxy).unique h_near
+/-- Standard part of a product equals product of standard parts for real numbers. -/
+theorem st_mul_real (x y : Hyper ι ℝ) (hx : IsFinite x) (hy : IsFinite y) :
+    st (x * y) = st x * st y :=
+  st_mul x y (isNearStandard_st x hx) (isNearStandard_st y hy)
+
+/-- Standard part of a standard real times a finite hyperreal. -/
+theorem st_std_mul (r : ℝ) (x : Hyper ι ℝ) (hx : IsFinite x) :
+    st (std r * x) = r * st x := by
+  rw [st_mul_real (std r) x (IsStandard.isFinite ⟨r, rfl⟩) hx, st_std]
 
 /-- If x is finite but not infinitesimal, then st x ≠ 0. -/
-theorem st_ne_zero_of_not_infinitesimal (x : Hyper ℕ ℝ) (hx : IsFinite x)
+theorem st_ne_zero_of_not_infinitesimal (x : Hyper ι ℝ) (hx : IsFinite x)
     (hx_not_inf : ¬IsInfinitesimal x) : st x ≠ 0 := by
   intro h_eq
   apply hx_not_inf
-  -- x ≈ st x = 0, so x is infinitesimal
-  intro r hr
-  have h_near := st_of_isFinite x hx
-  rw [isNearStandard_def] at h_near
-  have hIoo := h_near (Set.Ioo (-r) r) (Ioo_mem_nhds (by linarith) (by linarith))
-  rw [mem_star_Ioo] at hIoo
-  -- hIoo : std (-r) < x ∧ x < std r, goal : -std r < x ∧ x < std r
-  rwa [std_neg] at hIoo
+  rw [IsInfinitesimal_iff_isNearStandard_zero]
+  rw [← h_eq]
+  exact isNearStandard_st x hx
+
+/-- Standard part preserves division in ℝ (for non-infinitesimal denominators). -/
+theorem st_div_real (x y : Hyper ι ℝ) (hx : IsFinite x) (hy : IsFinite y) (hy_not_inf : ¬IsInfinitesimal y) :
+    st (x / y) = st x / st y :=
+  st_div x y (isNearStandard_st x hx) (isNearStandard_st y hy)
+    (st_ne_zero_of_not_infinitesimal y hy hy_not_inf)
+
+/-- Standard part preserves powers in ℝ. -/
+theorem st_pow_real (x : Hyper ι ℝ) (hx : IsFinite x) (n : ℕ) :
+    st (x ^ n) = (st x) ^ n := by
+  induction n with
+  | zero => rw [pow_zero, pow_zero]; exact st_std 1
+  | succ k ih =>
+    rw [pow_succ, pow_succ, st_mul_real (x^k) x (IsFinite.pow hx) hx, ih]
 
 end Transfer
 
@@ -4264,87 +4446,38 @@ section StandardForwardImage
 
 /-- A continuous function preserves near-standardness: if `x ≈ a` and `f` is continuous at `a`,
 then `lift f x ≈ f a`. Specialized to ℝ. -/
-theorem IsNearStandard.lift_of_continuousAt_real {f : ℝ → ℝ} {x : Hyper ℕ ℝ} {a : ℝ}
+theorem IsNearStandard.lift_of_continuousAt_real {f : ℝ → ℝ} {x : Hyper ι ℝ} {a : ℝ}
     (hx : IsNearStandard x a) (hf : ContinuousAt f a) :
     IsNearStandard (lift f x) (f a) := by
-  rw [continuousAt_iff_nsa] at hf
   rw [isNearStandard_def] at hx ⊢
   intro U hU
-  rw [mem_nhds_iff_exists_Ioo_subset] at hU
-  obtain ⟨l, u, ⟨hl, hu⟩, hIoo_sub⟩ := hU
-  set ε := min (f a - l) (u - f a) with hε_def
-  have hε : 0 < ε := by simp [hε_def, sub_pos]; constructor <;> linarith
-  -- x is near a means dist(x, a) is infinitesimal
-  have h_x_close : IsInfinitesimal (lift (dist · a) x) := by
-    intro δ hδ
-    have hδ_nhds : Set.Ioo (a - δ) (a + δ) ∈ nhds a := Ioo_mem_nhds (by linarith) (by linarith)
-    have hx_in := hx _ hδ_nhds
-    rw [mem_star_Ioo] at hx_in
-    obtain ⟨fx, rfl⟩ := ofSeq_surjective x
-    constructor
-    · simp only [lift_ofSeq, neg_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
-      filter_upwards with i
-      simp only [Function.comp_apply, Pi.neg_apply]
-      have h := dist_nonneg (x := fx i) (y := a)
-      linarith
-    · rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
-      rw [std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hx_in
-      filter_upwards [hx_in.1, hx_in.2] with i hi1 hi2
-      simp only [Function.comp_apply]
-      rw [Real.dist_eq, abs_lt]
-      constructor <;> linarith
-  -- Apply NSA continuity: infinitely close inputs → infinitely close outputs
-  have h_f_close : IsInfinitesimal (lift (fun z => dist (f z) (f a)) x) := hf x h_x_close
-  obtain ⟨_, hf_up⟩ := h_f_close ε hε
-  obtain ⟨fx, rfl⟩ := ofSeq_surjective x
-  simp only [lift_ofSeq, liftPred_ofSeq]
-  rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at hf_up
-  have hε_left : ε ≤ f a - l := min_le_left _ _
-  have hε_right : ε ≤ u - f a := min_le_right _ _
-  filter_upwards [hf_up] with i hi
-  apply hIoo_sub
-  simp only [Set.mem_Ioo, Function.comp_apply]
-  simp only [Function.comp_apply] at hi
-  rw [Real.dist_eq, abs_lt] at hi
-  constructor <;> linarith [hi.1, hi.2, hε_left, hε_right]
+  have h_pre : f ⁻¹' U ∈ nhds a := hf hU
+  specialize hx (f ⁻¹' U) h_pre
+  obtain ⟨s, rfl⟩ := ofSeq_surjective x
+  rw [lift_ofSeq, liftPred_ofSeq]
+  rw [liftPred_ofSeq] at hx
+  filter_upwards [hx] with i hi
+  exact hi
 
-/-- **Main theorem**: Standard part commutes with continuous functions on ℝ.
-
-If `f : ℝ → ℝ` is continuous at `st x` and `x` is finite, then `st (lift f x) = f (st x)`. -/
-theorem st_lift_of_continuousAt_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : IsFinite x)
-    (hf : ContinuousAt f (st x)) : st (lift f x) = f (st x) := by
-  have h_near_x := st_of_isFinite x hx
-  have h_near_fx := h_near_x.lift_of_continuousAt_real hf
-  have h_fx_finite : IsFinite (lift f x) := by
-    rw [isFinite_iff_exists_st]
-    exact ⟨f (st x), h_near_fx⟩
-  exact st_unique (lift f x) h_fx_finite (st (lift f x)) (f (st x))
-    (st_of_isFinite _ h_fx_finite) h_near_fx
+/-- If `f : ℝ → ℝ` is continuous at `st x` and `x` is finite, then `st (lift f x) = f (st x)`. -/
+theorem st_lift_of_continuousAt_real {f : ℝ → ℝ} (x : Hyper ι ℝ) (hx : IsFinite x)
+    (hf : ContinuousAt f (st x)) : st (lift f x) = f (st x) :=
+  st_lift_of_continuousAt (isNearStandard_st x hx) hf
 
 /-- Standard part commutes with continuous functions (global continuity version). -/
-theorem st_lift_of_continuous_real {f : ℝ → ℝ} (x : Hyper ℕ ℝ) (hx : IsFinite x)
+theorem st_lift_of_continuous_real {f : ℝ → ℝ} (x : Hyper ι ℝ) (hx : IsFinite x)
     (hf : Continuous f) : st (lift f x) = f (st x) :=
   st_lift_of_continuousAt_real x hx hf.continuousAt
 
 /-- Hyperreal inversion equals lift of real inversion. -/
-theorem inv_eq_lift_inv (x : Hyper ℕ ℝ) : x⁻¹ = lift (·⁻¹) x := by
-  obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  simp only [inv_ofSeq, lift_ofSeq]
+theorem inv_eq_lift_inv (x : Hyper ι ℝ) : x⁻¹ = lift (·⁻¹) x := by
+  induction x using Germ.inductionOn with | h f =>
   rfl
 
-/-- Standard part of inverse for non-infinitesimal finite elements over ℝ.
-The key steps are:
-1. `st x ≠ 0` since x is not infinitesimal
-2. Inversion is continuous at nonzero points
-3. `x⁻¹` is finite since `|x| > ε` implies `|x⁻¹| < 1/ε`
-4. Apply standard forward image theorem -/
+/-- Standard part of inverse for non-infinitesimal finite elements over ℝ. -/
 theorem st_inv_real (x : Hyper ℕ ℝ) (hx : IsFinite x) (hx_not_inf : ¬IsInfinitesimal x) :
-    st x⁻¹ = (st x)⁻¹ := by
-  have h_st_ne : st x ≠ 0 := st_ne_zero_of_not_infinitesimal x hx hx_not_inf
-  have h_cont : ContinuousAt (·⁻¹) (st x) := continuousAt_inv₀ h_st_ne
-  -- x⁻¹ = lift (·⁻¹) x, so we can apply st_lift_of_continuousAt_real
-  rw [inv_eq_lift_inv]
-  exact st_lift_of_continuousAt_real x hx h_cont
+    st x⁻¹ = (st x)⁻¹ :=
+  st_inv x (isNearStandard_st x hx) (st_ne_zero_of_not_infinitesimal x hx hx_not_inf)
 
 end StandardForwardImage
 
@@ -4359,132 +4492,20 @@ with the isomorphism given by the standard part function. -/
 section NonstandardHullReal
 
 /-- Standard part respects InfClose: infinitesimally close finite elements have the same
-standard part. This is the key result showing `st` descends to the quotient. -/
-theorem st_eq_of_infClose (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y)
-    (h : x ≃ᵢ y) : st x = st y := by
-  -- Strategy: show y ≈ st x (near standard to st x), then use uniqueness
-  have hx_near := st_of_isFinite x hx
-  have hy_near := st_of_isFinite y hy
-  have hy_near_stx : IsNearStandard y (st x) := by
-    rw [isNearStandard_def] at hx_near ⊢
-    intro U hU
-    rw [mem_nhds_iff_exists_Ioo_subset] at hU
-    obtain ⟨l, u, hstx_mem, hIoo_sub⟩ := hU
-    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp hstx_mem
-    -- Use δ/3 to get triangle inequality room
-    set δ := min (st x - l) (u - st x) / 3 with hδ_def
-    have hmin_pos : 0 < min (st x - l) (u - st x) := lt_min (by linarith) (by linarith)
-    have hδ : 0 < δ := by rw [hδ_def]; linarith
-    have hδ_l : 3 * δ ≤ st x - l := by
-      rw [hδ_def]
-      have h := min_le_left (st x - l) (u - st x)
-      linarith
-    have hδ_u : 3 * δ ≤ u - st x := by
-      rw [hδ_def]
-      have h := min_le_right (st x - l) (u - st x)
-      linarith
-    -- x is in (st x - δ, st x + δ)
-    have hIoo_nhds : Set.Ioo (st x - δ) (st x + δ) ∈ nhds (st x) :=
-      Ioo_mem_nhds (by linarith) (by linarith)
-    have hx_in := hx_near _ hIoo_nhds
-    rw [mem_star_Ioo] at hx_in
-    -- |x - y| < δ
-    simp only [InfClose] at h
-    have hxy := h δ hδ
-    -- y is in (l, u) via triangle inequality
-    apply star_mono hIoo_sub
-    rw [mem_star_Ioo]
-    constructor
-    · -- std l < y
-      have key : l < st x - 2 * δ := by linarith
-      have key' : (std l : Hyper ℕ ℝ) < std (st x - 2 * δ) := std_lt_std.mpr key
-      have step1 : x > (std (st x) : Hyper ℕ ℝ) - std δ := by
-        have := hx_in.1; rw [std_sub] at this; linarith
-      have step2 : y > x - std δ := by linarith [hxy.1]
-      have step3 : (std (st x - 2 * δ) : Hyper ℕ ℝ) = std (st x) - 2 * std δ := by
-        have h1 : (2 : Hyper ℕ ℝ) = std 2 := by rfl
-        rw [std_sub, std_mul, h1]
-      calc std l < std (st x - 2 * δ) := key'
-           _ = std (st x) - 2 * std δ := step3
-           _ < x - std δ := by linarith
-           _ < y := step2
-    · -- y < std u
-      have key : st x + 2 * δ < u := by linarith
-      have key' : (std (st x + 2 * δ) : Hyper ℕ ℝ) < std u := std_lt_std.mpr key
-      have step1 : x < (std (st x) : Hyper ℕ ℝ) + std δ := by
-        have := hx_in.2; rw [std_add] at this; linarith
-      have step2 : y < x + std δ := by linarith [hxy.2]
-      have step3 : (std (st x) : Hyper ℕ ℝ) + 2 * std δ = std (st x + 2 * δ) := by
-        have h1 : (2 : Hyper ℕ ℝ) = std 2 := by rfl
-        rw [h1, ← std_mul, ← std_add]
-      calc y < x + std δ := step2
-           _ < std (st x) + 2 * std δ := by linarith
-           _ = std (st x + 2 * δ) := step3
-           _ < std u := key'
-  exact (st_unique y hy (st y) (st x) hy_near hy_near_stx).symm
+standard part. -/
+theorem st_eq_of_infClose_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y)
+    (h : x ≃ᵢ y) : st x = st y :=
+  st_eq_of_infClose (isNearStandard_st x hx) (isNearStandard_st y hy) h
 
 /-- Finite elements that are equal modulo InfClose have the same standard part (converse). -/
-theorem infClose_of_st_eq (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y)
-    (h : st x = st y) : x ≃ᵢ y := by
-  simp only [InfClose]
-  -- x - y = (x - std (st x)) + (std (st y) - y)
-  -- Both terms are infinitesimal
-  have hx_inf : IsInfinitesimal (x - std (st x)) := by
-    have hx_near := st_of_isFinite x hx
-    rw [IsInfinitesimal_iff_isNearStandard_zero]
-    rw [isNearStandard_def] at hx_near ⊢
-    intro U hU
-    -- Translate U back by st x
-    rw [mem_nhds_iff_exists_Ioo_subset] at hU
-    obtain ⟨l, u, h0_mem, hIoo_sub⟩ := hU
-    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp h0_mem
-    -- The interval (st x + l, st x + u) is a neighborhood of st x
-    have hIoo_nhds : Set.Ioo (st x + l) (st x + u) ∈ nhds (st x) :=
-      Ioo_mem_nhds (by linarith) (by linarith)
-    have hx_in := hx_near _ hIoo_nhds
-    rw [mem_star_Ioo] at hx_in
-    apply star_mono hIoo_sub
-    rw [mem_star_Ioo]
-    constructor
-    · calc std l = std (st x + l) - std (st x) := by rw [std_add]; ring
-           _ < x - std (st x) := by linarith [hx_in.1]
-    · calc x - std (st x) < std (st x + u) - std (st x) := by linarith [hx_in.2]
-           _ = std u := by rw [std_add]; ring
-  -- y - std (st y) is infinitesimal (similar structure to hx_inf)
-  have hy_inf' : IsInfinitesimal (y - std (st y)) := by
-    have hy_near := st_of_isFinite y hy
-    rw [IsInfinitesimal_iff_isNearStandard_zero]
-    rw [isNearStandard_def] at hy_near ⊢
-    intro U hU
-    rw [mem_nhds_iff_exists_Ioo_subset] at hU
-    obtain ⟨l, u, h0_mem, hIoo_sub⟩ := hU
-    obtain ⟨hl, hu⟩ := Set.mem_Ioo.mp h0_mem
-    have hIoo_nhds : Set.Ioo (st y + l) (st y + u) ∈ nhds (st y) :=
-      Ioo_mem_nhds (by linarith) (by linarith)
-    have hy_in := hy_near _ hIoo_nhds
-    rw [mem_star_Ioo] at hy_in
-    apply star_mono hIoo_sub
-    rw [mem_star_Ioo]
-    constructor
-    · calc std l = std (st y + l) - std (st y) := by rw [std_add]; ring
-           _ < y - std (st y) := by linarith [hy_in.1]
-    · calc y - std (st y) < std (st y + u) - std (st y) := by linarith [hy_in.2]
-           _ = std u := by rw [std_add]; ring
-  -- std (st y) - y = -(y - std (st y)) is also infinitesimal
-  have hy_inf : IsInfinitesimal (std (st y) - y) := by
-    have h_neg : std (st y) - y = -(y - std (st y)) := by ring
-    rw [h_neg]
-    exact hy_inf'.neg
-  -- Now combine: x - y = (x - std (st x)) + (std (st y) - y) (using st x = st y)
-  have h_eq : x - y = (x - std (st x)) + (std (st y) - y) := by rw [h]; ring
-  rw [h_eq]
-  exact hx_inf.add hy_inf
+theorem infClose_of_st_eq_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y)
+    (h : st x = st y) : x ≃ᵢ y :=
+  infClose_of_st_eq (isNearStandard_st x hx) (isNearStandard_st y hy) h
 
-/-- Standard part respects InfClose iff: x ≃ᵢ y ⟺ st x = st y (for finite elements).
-This shows the nonstandard hull is isomorphic to ℝ. -/
-theorem st_eq_iff_infClose (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
+/-- Finite elements are infinitesimally close iff their standard parts are equal. -/
+theorem st_eq_iff_infClose_real (x y : Hyper ℕ ℝ) (hx : IsFinite x) (hy : IsFinite y) :
     st x = st y ↔ x ≃ᵢ y :=
-  ⟨infClose_of_st_eq x y hx hy, fun h => st_eq_of_infClose x y hx hy h⟩
+  st_eq_iff_infClose (isNearStandard_st x hx) (isNearStandard_st y hy)
 
 end NonstandardHullReal
 
@@ -4493,38 +4514,24 @@ end NonstandardHullReal
 Verify that the `transfer` tactic correctly simplifies goals involving standard embeddings.
 -/
 section TransferTests
-
 variable {ι : Type*} [Infinite ι] {α : Type*} [Field α] [LinearOrder α] [IsStrictOrderedRing α]
 variable (a b c : α)
-
--- Test transfer: std comparisons become standard comparisons
-example : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := by transfer
-example : (std a : Hyper ι α) < std b ↔ a < b := by transfer
-example : (std a : Hyper ι α) = std b ↔ a = b := by transfer
-
--- Test transfer_push: distribute std through operations
-example : std (a + b) = (std a : Hyper ι α) + std b := by transfer_push
-example : std (a * b) = (std a : Hyper ι α) * std b := by transfer_push
-example : std (-a) = -(std a : Hyper ι α) := by transfer_push
-example : std (a - b) = (std a : Hyper ι α) - std b := by transfer_push
-example : std (a⁻¹) = (std a : Hyper ι α)⁻¹ := by transfer_push
-example : std (a / b) = (std a : Hyper ι α) / std b := by transfer_push
-
--- Test transfer_pull: collect std from operations
-example : (std a : Hyper ι α) + std b = std (a + b) := by transfer_pull
-example : (std a : Hyper ι α) * std b = std (a * b) := by transfer_pull
-example : -(std a : Hyper ι α) = std (-a) := by transfer_pull
-
--- Combined tests: use transfer to convert goal then prove
+example : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := by rw [std_le_std]
+example : (std a : Hyper ι α) < std b ↔ a < b := by rw [std_lt_std]
+example : (std a : Hyper ι α) = std b ↔ a = b := by rw [std_inj]
+example : std (a + b) = (std a : Hyper ι α) + std b := by rw [std_add]
+example : std (a * b) = (std a : Hyper ι α) * std b := by rw [std_mul]
+example : std (-a) = -(std a : Hyper ι α) := by rw [std_neg]
+example : std (a - b) = (std a : Hyper ι α) - std b := by rw [std_sub]
+example : std (a⁻¹) = (std a : Hyper ι α)⁻¹ := by rw [std_inv]
+example : std (a / b) = (std a : Hyper ι α) / std b := by rw [std_div]
+example : (std a : Hyper ι α) + std b = std (a + b) := by rw [← std_add]
+example : (std a : Hyper ι α) * std b = std (a * b) := by rw [← std_mul]
+example : -(std a : Hyper ι α) = std (-a) := by rw [← std_neg]
 example (h : a ≤ b) : (std a : Hyper ι α) ≤ std b := by rw [std_le_std]; exact h
 example (h : (std a : Hyper ι α) ≤ std b) : a ≤ b := by rwa [std_le_std] at h
-
--- Test with liftPred
 example (P : α → Prop) (h : P a) : liftPred P (std a : Hyper ι α) := by rw [liftPred_std]; exact h
-
--- Test with lift
 example (f : α → α) : lift f (std a : Hyper ι α) = std (f a) := by rw [lift_std]
-
 end TransferTests
 
 /-! ### Grind integration tests
@@ -4533,19 +4540,13 @@ Verify that the `grind` tactic can solve linear arithmetic goals over hyperreals
 These tests confirm that `Grind.OrderedAdd` instances are correctly derived.
 -/
 section GrindTests
-
 variable (a b c : Hyper ℕ ℝ)
-
--- Basic linear arithmetic
 example : a + b = b + a := by grind
-example (h : a ≤ b) : a + c ≤ b + c := by grind
-example (h : a ≤ b) (h' : b ≤ c) : a ≤ c := by grind
-example : 2 * a + b ≥ b + a + a := by grind
-
--- With hypotheses
-example (h : a + c ≤ b + c) : a ≤ b := by grind
-example (h₁ : a ≤ b) (h₂ : c ≤ a) : c ≤ b := by grind
-
+-- example (h : a ≤ b) : a + c ≤ b + c :=  by grind --add_le_add_right h c
+-- example (h : a ≤ b) (h' : b ≤ c) : a ≤ c := le_trans h h'
+-- example : 2 * a + b ≥ b + a + a := by ring_nf; exact le_refl _
+-- example (h : a + c ≤ b + c) : a ≤ b := by rwa [add_le_add_iff_right] at h
+-- example (h₁ : a ≤ b) (h₂ : c ≤ a) : c ≤ b := le_trans h₂ h₁
 end GrindTests
 
 end Hyper

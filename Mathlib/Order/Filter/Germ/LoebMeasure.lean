@@ -2,7 +2,10 @@ import Mathlib.Order.Filter.Germ.Star
 import Mathlib.Data.Real.Basic
 import Mathlib.Topology.Instances.RealVectorSpace
 import Mathlib.MeasureTheory.Measure.MeasureSpace
-import Mathlib.MeasureTheory.Measure.Typeclasses
+import Mathlib.MeasureTheory.Measure.Typeclasses.Finite
+import Mathlib.MeasureTheory.Measure.Typeclasses.NoAtoms
+import Mathlib.MeasureTheory.Measure.Typeclasses.Probability
+import Mathlib.MeasureTheory.Measure.Typeclasses.SFinite
 
 import Mathlib.MeasureTheory.OuterMeasure.Caratheodory
 import Mathlib.MeasureTheory.OuterMeasure.OfFunction
@@ -21,7 +24,9 @@ import Mathlib.Data.Set.Finite.Basic
 import Mathlib.Data.Finset.Pairwise
 import Mathlib.Algebra.Order.Monoid.Defs
 import Mathlib.Algebra.Order.Monoid.Canonical.Defs
-import Mathlib.MeasureTheory.Integral.SetIntegral
+import Mathlib.MeasureTheory.Integral.Bochner.ContinuousLinearMap
+import Mathlib.MeasureTheory.Integral.Bochner.FundThmCalculus
+import Mathlib.MeasureTheory.Integral.Bochner.Set
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 
 set_option linter.style.multiGoal false
@@ -32,6 +37,7 @@ open Finset
 open Classical
 open Ultrafilter
 open scoped BigOperators
+open MeasureTheory
 
 attribute [local instance] Classical.propDecidable
 
@@ -96,54 +102,6 @@ lemma IsNearStandard_iff_forall_epsilon (x : Hyper ι ℝ) (r : ℝ) :
     rw [Real.ball_eq_Ioo] at sub
     exact (Hyper.star_mono sub) this
 
-lemma st_eq_of_isNearStandard [Infinite ι] (h : x ≈ r) : Hyper.st x = r := by
-    rw [Hyper.st_eq_sSup]
-    have h_lub : IsLUB {r' | Hyper.std r' ≤ x} r := by
-      constructor
-      · -- UpperBound
-        intro a ha
-        apply le_of_not_gt
-        intro han -- a > r
-        let ε := (a - r) / 2
-        have hε : 0 < ε := div_pos (sub_pos.mpr han) two_pos
-        have h_std := (IsNearStandard_iff_forall_epsilon x r).mp h ε hε
-        -- x < std (r+e).
-        have h1 : x < Hyper.std (r + ε) := h_std.2
-        -- std(r+e) < std a.
-        have h2 : (Hyper.std (r + ε) : Hyper ι ℝ) < Hyper.std a := by
-           apply (Hyper.std_lt_std).mpr
-           have : r + ε < a := by
-             change r + (a - r) / 2 < a
-             linarith
-           exact this
-        have : x < Hyper.std a := lt_trans h1 h2
-        exact not_le_of_gt this ha
-      · -- Least UpperBound
-        intro b hb
-        apply le_of_not_gt
-        intro hbn -- b < r
-        let ε := r - b
-        have hε : 0 < ε := sub_pos.mpr hbn
-        have h_std := (IsNearStandard_iff_forall_epsilon x r).mp h (ε/2) (by linarith)
-        let a := r - ε/2
-        -- std a < x.
-        have h1 : Hyper.std a < x := h_std.1
-        have ha : Hyper.std a ≤ x := le_of_lt h1
-        -- Apply hb (IsUpperBound) to a.
-        have h_ab : a ≤ b := by
-           apply hb
-           exact ha
-        -- Contract a <= b with a > b.
-        have : b < a := by
-          dsimp [a, ε]
-          linarith
-        exact not_le_of_gt this h_ab
-    have h_ne : {r' | Hyper.std r' ≤ x}.Nonempty := by
-      use r - 1
-      have h_std := (IsNearStandard_iff_forall_epsilon x r).mp h 1 (by norm_num)
-      exact le_of_lt h_std.1
-
-    apply IsLUB.csSup_eq h_lub h_ne
 
 lemma IsNearStandard_add (hx : x ≈ r) (hy : y ≈ s) : x + y ≈ r + s := by
   rw [IsNearStandard_iff_forall_epsilon] at *
@@ -162,10 +120,40 @@ lemma IsNearStandard_add (hx : x ≈ r) (hy : y ≈ s) : x + y ≈ r + s := by
     rw [Hyper.std_add]
     exact add_lt_add hx.2 hy.2
 
-lemma st_add (hx : Hyper.IsFinite x) (hy : Hyper.IsFinite y) :
-    Hyper.st (x + y) = Hyper.st x + Hyper.st y := by
-  apply st_eq_of_isNearStandard
-  exact IsNearStandard_add (Hyper.st_of_isFinite x hx) (Hyper.st_of_isFinite y hy)
+
+
+
+
+lemma IsFinite_sum {β : Type*} {s : Finset β} {f : β → Hyper ι ℝ} (hf : ∀ b ∈ s, Hyper.IsFinite (f b)) :
+    Hyper.IsFinite (∑ b ∈ s, f b) := by
+  induction s using Finset.induction with
+  | empty =>
+    simp only [Finset.sum_empty]
+    use 0, 0
+    rw [Hyper.std_zero]
+    exact ⟨le_refl _, le_refl _⟩
+  | insert a s' ha ih =>
+    simp only [Finset.sum_insert ha]
+    apply Hyper.IsFinite.add
+    · exact hf a (Finset.mem_insert_self a s')
+    · apply ih
+      intro b hb
+      exact hf b (Finset.mem_insert_of_mem hb)
+
+lemma st_sum {β : Type*} {s : Finset β} {f : β → Hyper ι ℝ} (hf : ∀ b ∈ s, Hyper.IsFinite (f b)) :
+    Hyper.st (∑ b ∈ s, f b) = ∑ b ∈ s, Hyper.st (f b) := by
+  induction s using Finset.induction with
+  | empty => rw [Finset.sum_empty]; exact st_std (ι := ι) 0
+  | insert a s ha ih =>
+    simp only [Finset.sum_insert ha]
+    rw [st_add_real]
+    · rw [ih]
+      intro b hb; exact hf b (Finset.mem_insert_of_mem hb)
+    · exact hf a (Finset.mem_insert_self a s)
+    · apply IsFinite_sum
+      intro b hb; exact hf b (Finset.mem_insert_of_mem hb)
+
+
 
 lemma isFinite_of_le_one {x : Hyper ι ℝ} (h0 : 0 ≤ x) (h1 : x ≤ 1) : Hyper.IsFinite x := by
   rw [Hyper.IsFinite_iff_abs_le]
@@ -174,21 +162,11 @@ lemma isFinite_of_le_one {x : Hyper ι ℝ} (h0 : 0 ≤ x) (h1 : x ≤ 1) : Hype
   exact h1
 
 theorem st_nonneg {x : Hyper ι ℝ} (h_fin : Hyper.IsFinite x) (hx : 0 ≤ x) : 0 ≤ Hyper.st x := by
-  rw [st_eq_sSup]
-  have h_bdd : BddAbove {r | Hyper.std r ≤ x} := by
-    obtain ⟨b, hb⟩ := Hyper.IsFinite_iff_abs_le.mp h_fin
-    use b
-    intro r hr
-    rw [abs_of_nonneg hx] at hb
-    have : Hyper.std r ≤ Hyper.std b := le_trans hr hb
-    exact (Hyper.std_le _ _).mp this
-  have h_ne : {r | Hyper.std r ≤ x}.Nonempty := by
-    use 0
-    dsimp
-    exact hx
-  apply le_csSup h_bdd
-  change Hyper.std 0 ≤ x
-  exact hx
+  rw [← st_std (ι := ι) 0]
+  apply st_mono (ι := ι)
+  · exact isNearStandard_st _ (IsStandard.isFinite ⟨0, rfl⟩)
+  · exact isNearStandard_st _ h_fin
+  · exact hx
 
 
 theorem st_zero_eq_zero : Hyper.st (0 : Hyper ι ℝ) = 0 := by
@@ -578,7 +556,7 @@ theorem preLoebMeasure_union {H : Set (Hyper ι α)} (hH : IsHyperfinite H)
   have h_fin_B : Hyper.IsFinite (μ B hB) := isFinite_of_le_one (internalCountingMeasure_nonneg hH hB) (internalCountingMeasure_le_one hH hB)
   rw [← ENNReal.ofReal_add (st_nonneg h_fin_A (internalCountingMeasure_nonneg hH hA)) (st_nonneg h_fin_B (internalCountingMeasure_nonneg hH hB))]
   congr 1
-  rw [← st_add h_fin_A h_fin_B]
+  rw [← st_add_real (μ A hA) (μ B hB) h_fin_A h_fin_B]
   exact congr_arg Hyper.st h_union
 
 /-- The pre-Loeb content. -/
@@ -614,10 +592,85 @@ noncomputable def loebMeasure (H : Set (Hyper ι α)) (hH : IsHyperfinite H) : @
 /-- Internal sum of an internal function over a hyperfinite set. -/
 noncomputable def internalSum (H : Set (Hyper ι α)) (hH : IsHyperfinite H)
     (f : Hyper ι (α → ℝ)) : Hyper ι ℝ :=
-  let S := hH.choose
   let hS_fin := hH.choose_spec.1
   let finsets : ι → Finset α := fun i => (hS_fin i).toFinset
   Hyper.lift₂ (fun (s : Finset α) (g : α → ℝ) => ∑ x ∈ s, g x) (Hyper.ofSeq finsets) f
+
+
+/-- The standard part function is Loeb measurable. -/
+theorem st_loebMeasurable (H : Set (Hyper ι ℝ)) (hH : IsHyperfinite H) :
+    @Measurable (Hyper ι ℝ) ℝ (loebMeasurableSet H hH) _ Hyper.st := by
+  sorry
+
+/-- The Loeb measure of an internal set is the standard part of its internal measure. -/
+theorem loebMeasure_internal (H : Set (Hyper ι α)) (hH : IsHyperfinite H)
+    (A : Set (Hyper ι α)) (hA : IsInternal A) :
+    loebMeasure H hH A = ENNReal.ofReal (Hyper.st (internalCountingMeasure H hH A hA)) := by
+  dsimp [loebMeasure]
+  let m := loebMeasurableSet H hH
+  have h_meas : @MeasurableSet (Hyper ι α) m A := isInternal_loebMeasurable H hH A hA
+  rw [toMeasure_apply _ _ h_meas]
+  sorry -- Depends on sigma-additivity of pre-measure (saturation) and induced measure property
+
+/-- The Loeb measure is finite. -/
+theorem loebMeasure_univ_finite (H : Set (Hyper ι α)) (hH : IsHyperfinite H) :
+    loebMeasure H hH Set.univ < ⊤ :=
+  sorry
+
+/-- Integration of an indicator function over Loeb measure. -/
+theorem loebIntegral_indicator (H : Set (Hyper ι α)) (hH : IsHyperfinite H)
+    (A : Set (Hyper ι α)) (hA : IsInternal A) :
+    letI m := loebMeasurableSet H hH
+    ∫ x, indicator A (fun _ => (1 : ℝ)) x ∂(loebMeasure H hH) =
+      Hyper.st (internalCountingMeasure H hH A hA) := by
+  have h_meas := isInternal_loebMeasurable H hH A hA
+  rw [@integral_indicator _ _ (loebMeasurableSet H hH) _ _ _ A (loebMeasure H hH) h_meas]
+  rw [integral_const, smul_eq_mul, mul_one]
+  · unfold Measure.real
+    have h_eq : (loebMeasure H hH).restrict A Set.univ = loebMeasure H hH A := sorry
+    rw [h_eq]
+    rw [loebMeasure_internal H hH A hA]
+    rw [ENNReal.toReal_ofReal]
+    · apply Hyper.st_nonneg
+      · apply isFinite_of_le_one
+        · exact internalCountingMeasure_nonneg hH hA
+        · exact internalCountingMeasure_le_one hH hA
+      · exact internalCountingMeasure_nonneg hH hA
+
+/-- Integration of a simple function over Loeb measure. -/
+theorem loebIntegral_simple_eq_sum (H : Set (Hyper ι α)) (hH : IsHyperfinite H)
+    [m : MeasurableSpace (Hyper ι α)] (hm : m = loebMeasurableSet H hH)
+    (f : SimpleFunc (Hyper ι α) ℝ) (hf_int : ∀ x, IsInternal {y | f y = x}) :
+    ∫ x, f x ∂(loebMeasure H hH) =
+      Hyper.st (∑ r ∈ f.range, Hyper.std r * internalCountingMeasure H hH {y | f y = r} (hf_int r)) := by
+  letI : MeasurableSpace (Hyper ι α) := m
+  subst hm
+  have hfi : Integrable f (loebMeasure H hH) := by
+    -- Every simple function on a finite measure space is integrable.
+    sorry
+  calc ∫ x, f x ∂(loebMeasure H hH)
+    _ = ∑ r ∈ f.range, (loebMeasure H hH).real (f ⁻¹' {r}) * r := by
+      rw [SimpleFunc.integral_eq_sum f hfi]
+      simp only [smul_eq_mul]
+    _ = ∑ r ∈ f.range, Hyper.st (internalCountingMeasure H hH {y | f y = r} (hf_int r)) * r := by
+      refine Finset.sum_congr rfl fun r _ => ?_
+      rw [Measure.real]
+      erw [loebMeasure_internal H hH _ (hf_int r)]
+      rw [ENNReal.toReal_ofReal]
+      let val := internalCountingMeasure H hH {y | f y = r} (hf_int r)
+      have h_le : val ≤ 1 := internalCountingMeasure_le_one hH (hf_int r)
+      have h_nn : 0 ≤ val := internalCountingMeasure_nonneg hH (hf_int r)
+      have h_fin : IsFinite val := isFinite_of_le_one h_nn h_le
+      apply Hyper.st_nonneg h_fin h_nn
+    _ = Hyper.st (∑ r ∈ f.range, Hyper.std r * internalCountingMeasure H hH {y | f y = r} (hf_int r)) := by
+      rw [st_sum]
+      · congr
+        ext r
+        rw [mul_comm, Hyper.st_std_mul]
+        apply isFinite_of_le_one (internalCountingMeasure_nonneg hH (hf_int r)) (internalCountingMeasure_le_one hH (hf_int r))
+      · intro r _
+        apply Hyper.IsFinite.mul ⟨r, r, le_refl _, le_refl _⟩
+        apply isFinite_of_le_one (internalCountingMeasure_nonneg hH (hf_int r)) (internalCountingMeasure_le_one hH (hf_int r))
 
 /-- Key Lemma: Integration of standard functions.
 For a standard bounded function `f`, the integral against Loeb measure is the standard part
@@ -631,21 +684,9 @@ theorem loebIntegral_eq_st_hyperSum
     ∫ x, f (Hyper.st x) ∂(loebMeasure H hH) =
       Hyper.st (internalSum H hH (Hyper.liftFun f) /
         Hyper.lift (Nat.cast : ℕ → ℝ) (hyperfiniteCard H hH)) := by
-  /- ROADMAP: This theorem requires the following steps:
-     1. Show f ∘ st is Loeb-measurable (follows from continuity + st being Loeb-measurable)
-     2. Approximate f by step functions: for any ε > 0, find simple function g with |f - g| < ε
-     3. For simple functions, integral equals finite sum over internal sets
-     4. Show: internalSum H hH (liftFun g) ≈ (integral of g)·(hyperfiniteCard H hH)
-     5. Use bounded convergence theorem and transfer to get the result
-
-     Prerequisites needed:
-     - `st_loebMeasurable`: Standard part is Loeb measurable
-     - `loebIntegral_indicator`: ∫ 1_A dμ = st(|A ∩ H| / |H|) for internal A
-     - `loebIntegral_simple_eq_sum`: Integral of simple functions
-     - `BoundedConvergence` for Loeb integral
-
-     This is the main theorem connecting nonstandard integration to standard integration.
-     A complete proof would take ~200 lines following Loeb's original 1975 paper. -/
+  -- 1. Approximate f by simple functions g_n
+  -- 2. Use loebIntegral_simple_eq_sum for g_n
+  -- 3. Take limits
   sorry
 
 end LoebMeasure
