@@ -318,9 +318,33 @@ theorem star_empty : star (ι := ι) (∅ : Set α) = (∅ : Set (Hyper ι α)) 
 
 theorem star_univ : star (ι := ι) (Set.univ : Set α) = (Set.univ : Set (Hyper ι α)) := by
   ext x
-  simp only [mem_star_iff, Set.mem_univ]
-  induction x using Germ.inductionOn
-  simp only [liftPred, Germ.liftPred_coe, Filter.eventually_true]
+  simp [mem_star_iff]
+
+/-- The **monadic** filter operation map.
+`monadic l` is the intersection of the stars of all elements of `l`.
+In NSA, this is used to define the halo (monad) of a filter. -/
+def monadic (l : Filter α) : Set (Hyper ι α) :=
+  ⋂ U ∈ l, ⋆U
+
+@[simp]
+theorem mem_monadic_iff (l : Filter α) (x : Hyper ι α) :
+    x ∈ monadic l ↔ ∀ U ∈ l, x ∈ ⋆U :=
+  Set.mem_iInter₂
+
+theorem monadic_le {l₁ l₂ : Filter α} (h : l₁ ≤ l₂) :
+    monadic (ι := ι) l₁ ⊆ monadic (ι := ι) l₂ :=
+  Set.biInter_subset_biInter_left h
+
+theorem monadic_iInf {ι' : Type*} {f : ι' → Filter α} :
+    monadic (ι := ι) (⨅ i, f i) = ⋂ i, monadic (ι := ι) (f i) := by
+  sorry
+
+@[simp]
+theorem monadic_principal (s : Set α) : monadic (Filter.principal s) = ⋆s := by
+  ext x
+  simp [mem_monadic_iff]
+
+
 
 theorem star_union (s t : Set α) : star (ι := ι) (s ∪ t) = ⋆s ∪ ⋆t := by
   ext x
