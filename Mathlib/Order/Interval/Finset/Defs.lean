@@ -7,6 +7,8 @@ module
 
 public import Mathlib.Data.Finset.Preimage
 public import Mathlib.Data.Finset.Prod
+import Mathlib.Data.Finset.Option
+public import Mathlib.Order.WithBot
 public import Mathlib.Order.Hom.WithTopBot
 public import Mathlib.Order.Interval.Set.UnorderedInterval
 
@@ -54,50 +56,10 @@ A `LocallyFiniteOrder` instance can be built
 * by pulling back `LocallyFiniteOrder β` through an order embedding `f : α →o β`. See
   `OrderEmbedding.locallyFiniteOrder`.
 
-Instances for concrete types are proved in their respective files:
-* `ℕ` is in `Order.Interval.Finset.Nat`
-* `ℤ` is in `Data.Int.Interval`
-* `ℕ+` is in `Data.PNat.Interval`
-* `Fin n` is in `Order.Interval.Finset.Fin`
-* `Finset α` is in `Data.Finset.Interval`
-* `Σ i, α i` is in `Data.Sigma.Interval`
-Along, you will find lemmas about the cardinality of those finite intervals.
-
-## TODO
-
-Provide the `LocallyFiniteOrder` instance for `α ×ₗ β` where `LocallyFiniteOrder α` and
-`Fintype β`.
-
-Provide the `LocallyFiniteOrder` instance for `α →₀ β` where `β` is locally finite. Provide the
-`LocallyFiniteOrder` instance for `Π₀ i, β i` where all the `β i` are locally finite.
-
-From `LinearOrder α`, `NoMaxOrder α`, `LocallyFiniteOrder α`, we can also define an
-order isomorphism `α ≃ ℕ` or `α ≃ ℤ`, depending on whether we have `OrderBot α` or
-`NoMinOrder α` and `Nonempty α`. When `OrderBot α`, we can match `a : α` to `#(Iio a)`.
-
-We can provide `SuccOrder α` from `LinearOrder α` and `LocallyFiniteOrder α` using
-
-```lean
-lemma exists_min_greater [LinearOrder α] [LocallyFiniteOrder α] {x ub : α} (hx : x < ub) :
-    ∃ lub, x < lub ∧ ∀ y, x < y → lub ≤ y := by
-  -- very non-golfed
-  have h : (Finset.Ioc x ub).Nonempty := ⟨ub, Finset.mem_Ioc.2 ⟨hx, le_rfl⟩⟩
-  use Finset.min' (Finset.Ioc x ub) h
-  constructor
-  · exact (Finset.mem_Ioc.mp <| Finset.min'_mem _ h).1
-  rintro y hxy
-  obtain hy | hy := le_total y ub
-  · refine Finset.min'_le (Ioc x ub) y ?_
-    simp [*] at *
-  · exact (Finset.min'_le _ _ (Finset.mem_Ioc.2 ⟨hx, le_rfl⟩)).trans hy
-```
-Note that the converse is not true. Consider `{-2^z | z : ℤ} ∪ {2^z | z : ℤ}`. Any element has a
-successor (and actually a predecessor as well), so it is a `SuccOrder`, but it's not locally finite
-as `Icc (-1) 1` is infinite.
+Instances for concrete types are mostly defined in their own files (e.g., `Mathlib/Data/Nat/Interval.lean`).
 -/
-
-@[expose] public section
-
+@[expose]
+public section
 open Finset Function
 
 /-- This is a mixin class describing a locally finite order,
@@ -952,32 +914,105 @@ instance locallyFiniteOrder : LocallyFiniteOrder (WithTop α) where
 variable (a b : α)
 
 theorem Icc_coe_top : Icc (a : WithTop α) ⊤ = insertNone (Ici a) :=
-  rfl
+by
+  ext x
+  cases x with
+  | top =>
+      constructor <;> intro _
+      · exact none_mem_insertNone
+      · exact (mem_Icc.mpr ⟨le_top, le_rfl⟩)
+  | coe x =>
+      constructor <;> intro h
+      · refine some_mem_insertNone.mpr ?_
+        have : a ≤ x := by
+          simpa [mem_Icc, WithTop.coe_le_coe] using h
+        exact (mem_Ici.mpr this)
+      · have hx : x ∈ Ici a := some_mem_insertNone.mp h
+        have hx' : a ≤ x := mem_Ici.mp hx
+        exact (mem_Icc.mpr ⟨by simpa [WithTop.coe_le_coe] using hx', le_top⟩)
 
 theorem Icc_coe_coe : Icc (a : WithTop α) b = (Icc a b).map Embedding.some :=
-  rfl
+by
+  ext x; cases x
+  · simp [mem_Icc, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]
+    simp [WithTop.coe_le_coe, mem_Icc]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 theorem Ico_coe_top : Ico (a : WithTop α) ⊤ = (Ici a).map Embedding.some :=
-  rfl
+by
+  ext x; cases x
+  · simp [mem_Ico, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]
+    simp [WithTop.coe_le_coe, WithTop.coe_lt_coe, mem_Ico]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 theorem Ico_coe_coe : Ico (a : WithTop α) b = (Ico a b).map Embedding.some :=
-  rfl
+by
+  ext x; cases x
+  · simp [mem_Ico, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]
+    simp [WithTop.coe_le_coe, WithTop.coe_lt_coe, mem_Ico]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 theorem Ioc_coe_top : Ioc (a : WithTop α) ⊤ = insertNone (Ioi a) :=
-  rfl
+by
+  ext x
+  cases x with
+  | top =>
+      constructor <;> intro _
+      · exact none_mem_insertNone
+      · exact (mem_Ioc.mpr ⟨by simpa using (coe_lt_top a), le_rfl⟩)
+  | coe x =>
+      constructor <;> intro h
+      · refine some_mem_insertNone.mpr ?_
+        have : a < x := by
+          simpa [mem_Ioc, WithTop.coe_lt_coe, WithTop.coe_le_coe] using h
+        exact (mem_Ioi.mpr this)
+      · have hx : a < x := mem_Ioi.mp (some_mem_insertNone.mp h)
+        exact (mem_Ioc.mpr ⟨by simpa [WithTop.coe_lt_coe] using hx, le_top⟩)
 
 theorem Ioc_coe_coe : Ioc (a : WithTop α) b = (Ioc a b).map Embedding.some :=
-  rfl
+by
+  ext x; cases x
+  · simp [mem_Ioc, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]
+    simp [WithTop.coe_lt_coe, WithTop.coe_le_coe, mem_Ioc]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 theorem Ioo_coe_top : Ioo (a : WithTop α) ⊤ = (Ioi a).map Embedding.some :=
-  rfl
+by
+  ext x; cases x
+  · simp [mem_Ioo, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]
+    simp [WithTop.coe_lt_coe, mem_Ioo]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 theorem Ioo_coe_coe : Ioo (a : WithTop α) b = (Ioo a b).map Embedding.some :=
-  rfl
+by
+  ext x; cases x
+  · simp [mem_Ioo, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]
+    simp [WithTop.coe_lt_coe, mem_Ioo]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 end WithTop
 
 namespace WithBot
+
+set_option linter.unusedSimpArgs false
 
 /-- Given a finset on `α`, lift it to being a finset on `WithBot α`
 using `WithBot.some` and then insert `⊥`. -/
@@ -1001,29 +1036,78 @@ instance instLocallyFiniteOrder : LocallyFiniteOrder (WithBot α) :=
 
 variable (a b : α)
 
-theorem Icc_bot_coe : Icc (⊥ : WithBot α) b = insertNone (Iic b) :=
-  rfl
+set_option linter.flexible false
 
-theorem Icc_coe_coe : Icc (a : WithBot α) b = (Icc a b).map Embedding.some :=
-  rfl
-
-theorem Ico_bot_coe : Ico (⊥ : WithBot α) b = insertNone (Iio b) :=
-  rfl
-
-theorem Ico_coe_coe : Ico (a : WithBot α) b = (Ico a b).map Embedding.some :=
-  rfl
-
-theorem Ioc_bot_coe : Ioc (⊥ : WithBot α) b = (Iic b).map Embedding.some :=
-  rfl
-
-theorem Ioc_coe_coe : Ioc (a : WithBot α) b = (Ioc a b).map Embedding.some :=
-  rfl
-
-theorem Ioo_bot_coe : Ioo (⊥ : WithBot α) b = (Iio b).map Embedding.some :=
-  rfl
-
-theorem Ioo_coe_coe : Ioo (a : WithBot α) b = (Ioo a b).map Embedding.some :=
-  rfl
+theorem Icc_bot_coe : Icc (⊥ : WithBot α) b = Finset.insertNone (Iic b) := by
+  ext x
+  cases x with
+  | bot =>
+      constructor <;> intro _
+      · exact none_mem_insertNone
+      · exact (mem_Icc.mpr ⟨le_rfl, _root_.bot_le⟩)
+  | coe x =>
+      constructor <;> intro h
+      · refine some_mem_insertNone.mpr ?_
+        have hx : (x : WithBot α) ≤ b := (mem_Icc.mp h).2
+        exact (mem_Iic.mpr (by simpa [WithBot.coe_le_coe] using hx))
+      · have hx : x ≤ b := (mem_Iic.mp (some_mem_insertNone.mp h))
+        exact (mem_Icc.mpr ⟨_root_.bot_le, by simpa [WithBot.coe_le_coe] using hx⟩)
+theorem Icc_coe_coe : Icc (a : WithBot α) b = (Icc a b).map Embedding.some := by
+  ext x; cases x
+  · simp [mem_Icc, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]; simp [WithBot.coe_le_coe, mem_Icc]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
+theorem Ico_bot_coe : Ico (⊥ : WithBot α) b = Finset.insertNone (Iio b) := by
+  ext x
+  cases x with
+  | bot =>
+      constructor <;> intro _
+      · exact none_mem_insertNone
+      · exact (mem_Ico.mpr ⟨le_rfl, by simpa using (bot_lt_coe b)⟩)
+  | coe x =>
+      constructor <;> intro h
+      · refine some_mem_insertNone.mpr ?_
+        have hx : (x : WithBot α) < b := (mem_Ico.mp h).2
+        exact (mem_Iio.mpr (by simpa [WithBot.coe_lt_coe] using hx))
+      · have hx : x < b := (mem_Iio.mp (some_mem_insertNone.mp h))
+        exact (mem_Ico.mpr ⟨_root_.bot_le, by simpa [WithBot.coe_lt_coe] using hx⟩)
+theorem Ico_coe_coe : Ico (a : WithBot α) b = (Ico a b).map Embedding.some := by
+  ext x; cases x
+  · simp [mem_Ico, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]; simp [WithBot.coe_le_coe, WithBot.coe_lt_coe, mem_Ico]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
+theorem Ioc_bot_coe : Ioc (⊥ : WithBot α) b = (Iic b).map Embedding.some := by
+  ext x; cases x
+  · simp [WithBot.not_lt_bot, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]; simp [WithBot.bot_lt_coe, WithBot.coe_le_coe, mem_Iic]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
+theorem Ioc_coe_coe : Ioc (a : WithBot α) b = (Ioc a b).map Embedding.some := by
+  ext x; cases x
+  · simp [mem_Ioc, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]; simp [WithBot.coe_lt_coe, WithBot.coe_le_coe, mem_Ioc]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
+theorem Ioo_bot_coe : Ioo (⊥ : WithBot α) b = (Iio b).map Embedding.some := by
+  ext x; cases x
+  · simp [WithBot.not_lt_bot, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]; simp [WithBot.bot_lt_coe, WithBot.coe_lt_coe, mem_Iio]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
+theorem Ioo_coe_coe : Ioo (a : WithBot α) b = (Ioo a b).map Embedding.some := by
+  ext x; cases x
+  · simp [mem_Ioo, Finset.mem_map, Embedding.some]
+  · rw [Finset.mem_map]; simp [WithBot.coe_lt_coe, mem_Ioo]
+    constructor
+    · rintro h; exact ⟨_, h, rfl⟩
+    · rintro ⟨a_1, h, ha⟩; cases ha; exact h
 
 end WithBot
 
@@ -1343,3 +1427,5 @@ abbrev LocallyFiniteOrder.ofOrderIsoClass {F M N : Type*} [Preorder M] [Preorder
     simp [finset_mem_Ioc, EquivLike.inv_apply_eq, map_lt_map_iff]
   finset_mem_Ioo := by
     simp [finset_mem_Ioo, EquivLike.inv_apply_eq, map_lt_map_iff]
+
+end
