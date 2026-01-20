@@ -3,19 +3,20 @@ Copyright (c) 2024 Alok Singh. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
-import Mathlib.Order.Filter.Germ.Basic
-import Mathlib.Order.Filter.Ultrafilter.Basic
-import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
-import Mathlib.Order.Interval.Finset.Defs
-import Mathlib.SetTheory.Cardinal.Basic
-import Mathlib.Algebra.Order.Monoid.Defs
-import Mathlib.Algebra.Order.Group.Defs
-import Mathlib.Algebra.Order.Ring.Defs
-import Mathlib.Algebra.Order.Monoid.Basic
-import Mathlib.Algebra.Order.Group.Basic
-import Mathlib.Algebra.Order.Ring.Basic
-import Mathlib.Algebra.Order.Field.Basic
-import Mathlib.Algebra.Order.Monoid.Unbundled.Defs
+module
+
+public import Mathlib.Order.Filter.Germ.Basic
+public import Mathlib.Order.Filter.Ultrafilter.Basic
+public import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+public import Mathlib.Order.Interval.Finset.Defs
+public import Mathlib.SetTheory.Cardinal.Basic
+public import Mathlib.Algebra.Order.Monoid.Defs
+public import Mathlib.Algebra.Order.Group.Defs
+public import Mathlib.Algebra.Order.Ring.Defs
+public import Mathlib.Algebra.Order.Monoid.Basic
+public import Mathlib.Algebra.Order.Group.Basic
+
+@[expose] public section
 import Mathlib.Data.Finset.Lattice.Fold
 import Mathlib.Data.Nat.Lattice
 import Mathlib.Order.Lattice
