@@ -142,6 +142,24 @@ theorem ofSeq_surjective {ι : Type*} [Infinite ι] {α : Type*} : Function.Surj
 theorem exists_seq_rep (x : Hyper ι α) : ∃ f : ι → α, ofSeq f = x :=
   ofSeq_surjective x
 
+theorem forall_ofSeq_iff (P : Hyper ι α → Prop) :
+    (∀ x : Hyper ι α, P x) ↔ ∀ f : ι → α, P (ofSeq f) := by
+  constructor
+  · intro h f
+    exact h (ofSeq f)
+  · intro h x
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    exact h f
+
+theorem exists_ofSeq_iff (P : Hyper ι α → Prop) :
+    (∃ x : Hyper ι α, P x) ↔ ∃ f : ι → α, P (ofSeq f) := by
+  constructor
+  · rintro ⟨x, hx⟩
+    obtain ⟨f, rfl⟩ := ofSeq_surjective x
+    exact ⟨f, hx⟩
+  · rintro ⟨f, hf⟩
+    exact ⟨ofSeq f, hf⟩
+
 /-- Induction principle for `Hyper ι α`.
 This allows proving a property for all hyper-elements by proving it for all sequences. -/
 @[elab_as_elim]
