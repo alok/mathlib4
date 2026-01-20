@@ -250,11 +250,13 @@ theorem IsSt_iff_isNearStandard (x : ℝ*) (r : ℝ) :
   constructor
   · intro h U hU
     -- Hyper.liftPred (· ∈ U) ↑f = Germ.LiftPred (· ∈ U) ↑f ↔ ∀ᶠ n, f n ∈ U
-    rw [Hyper.liftPred, Germ.liftPred_coe]
+    dsimp [Hyper.liftPred]
+    rw [Germ.liftPred_coe]
     exact h hU
   · intro h U hU
     have := h U hU
-    rw [Hyper.liftPred, Germ.liftPred_coe] at this
+    dsimp [Hyper.liftPred] at this
+    rw [Germ.liftPred_coe] at this
     exact this
 
 theorem isSt_of_tendsto {f : ℕ → ℝ} {r : ℝ} (hf : Tendsto f atTop (𝓝 r)) : IsSt (ofSeq f) r :=
