@@ -137,6 +137,60 @@ theorem forall_std_iff [NeBot (U : Filter iota)] (P : alpha → Prop) :
   · intro h a
     simpa using (h (std a))
 
+section LogicalConnectives
+
+variable {P Q : alpha → Prop}
+
+theorem liftPred_and (x : Ultrapower U alpha) :
+    liftPred (fun a => P a ∧ Q a) x ↔ liftPred P x ∧ liftPred Q x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact eventually_and
+
+theorem liftPred_or (x : Ultrapower U alpha) :
+    liftPred (fun a => P a ∨ Q a) x ↔ liftPred P x ∨ liftPred Q x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_or
+
+theorem liftPred_not (x : Ultrapower U alpha) :
+    liftPred (fun a => ¬ P a) x ↔ ¬ liftPred P x := by
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_not
+
+theorem liftPred_imp (x : Ultrapower U alpha) :
+    liftPred (fun a => P a → Q a) x ↔ (liftPred P x → liftPred Q x) := by
+  rw [show (fun a => P a → Q a) = (fun a => ¬ P a ∨ Q a) by ext; tauto]
+  rw [liftPred_or, liftPred_not]
+  tauto
+
+theorem liftPred_exists_iff {Q : alpha → beta → Prop} {x : Ultrapower U alpha} :
+    liftPred (fun a => ∃ b, Q a b) x ↔ ∃ y : Ultrapower U beta, liftRel Q x y := by
+  classical
+  obtain ⟨f, rfl⟩ := ofSeq_surjective x
+  simp only [liftPred_ofSeq]
+  constructor
+  · intro h
+    have : Nonempty beta := by
+      obtain ⟨n, hn⟩ := Filter.nonempty_of_mem h
+      obtain ⟨b, _⟩ := hn
+      exact ⟨b⟩
+    let g (n : iota) : beta := if h : ∃ b, Q (f n) b then Classical.choose h else Classical.choice ‹_›
+    refine ⟨ofSeq g, ?_⟩
+    rw [liftRel_ofSeq]
+    filter_upwards [h] with n hn
+    have h_ex : ∃ b, Q (f n) b := hn
+    simp [g, h_ex, dif_pos]
+    exact Classical.choose_spec h_ex
+  · rintro ⟨y, hy⟩
+    obtain ⟨g, rfl⟩ := ofSeq_surjective y
+    rw [liftRel_ofSeq] at hy
+    filter_upwards [hy] with n hn
+    exact ⟨g n, hn⟩
+
+end LogicalConnectives
+
 /-- An element of an ultrapower is standard if it is the image of some `a : alpha`. -/
 def IsStandard (x : Ultrapower U alpha) : Prop := ∃ a, x = std a
 
