@@ -4,10 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Lean.Elab.Tactic
+import Lean.Elab.Term
+import Lean.Util.Trace
 import Mathlib.Order.Filter.Germ.Star
-import Mathlib.Tactic.Basic
-import Mathlib.Util.AtLocation
 import Lean.Meta.Tactic.Simp.Main
+
+initialize Lean.registerTraceClass `Tactic.transfer
 set_option linter.missingDocs true
 /-!
 # The `transfer` Tactic for Nonstandard Analysis
@@ -18,15 +20,19 @@ It simplifies expressions involving `Hyper.lift`, `Hyper.liftPred`, `Hyper.std`,
 users to move between standard and nonstandard formulations easily.
 -/
 
-open Lean Meta Elab Tactic Hyper
+open Lean Meta Elab Tactic Term Hyper
 
 namespace Mathlib.Tactic.Nonstandard
+
+
 
 /--
 Finds the index type `ι` in a `Hyper ι α` type within the given expression.
 -/
 def findIndexType (e : Expr) : Option Expr :=
   if let some t := e.find? (·.isAppOfArity ``Hyper 3) then
+    some (t.getAppArgs[0]!)
+  else if let some t := e.find? (·.isAppOfArity ``Filter.Germ 2) then
     some (t.getAppArgs[0]!)
   else if let some t := e.find? (·.isAppOfArity ``Filter.hyperfilter 2) then
     some (t.getAppArgs[0]!)
@@ -144,7 +150,7 @@ elab_rules : tactic
       | none => #[]
 
     -- Lemmas that always reduce complexity (e.g. eliminate std/liftPred on standard args)
-    let reductionLemmas : List Name := [
+    let reductionLemmasBase : List Name := [
       ``Hyper.liftPred_std,
       ``Hyper.liftRel_std,
       ``Hyper.lift_std,
@@ -152,8 +158,8 @@ elab_rules : tactic
       ``Hyper.lift_ofSeq,
       ``Hyper.lift₂_ofSeq,
       ``Hyper.std_inj,
-      ``Hyper.std_le,
-      ``Hyper.std_lt,
+      -- ``Hyper.std_le, -- Moved to structuralLemmas
+      -- ``Hyper.std_lt, -- Moved to structuralLemmas
       ``Hyper.liftPred_ofSeq,
       ``Hyper.liftRel_ofSeq,
       ``Hyper.liftRel_const_coe,
@@ -174,8 +180,22 @@ elab_rules : tactic
       ``Hyper.sub_eq_lift₂,
       ``Hyper.neg_eq_lift,
       ``Hyper.zero_eq_std,
-      ``Hyper.one_eq_std
+      ``Hyper.one_eq_std,
+      ``Hyper.ofSeq_eq_zero,
+      ``Hyper.le_iff_liftRel_le,
+      ``Hyper.lt_iff_liftRel_lt,
+      ``Hyper.eq_iff_liftRel_eq,
+      ``Hyper.star_subset,
+      ``Hyper.star_disjoint,
+      ``Hyper.liftRel_std,
+      ``Hyper.liftRel_std_left,
+      ``Hyper.liftRel_std_right,
+      ``Hyper.liftRel_lift_left,
+      ``Hyper.liftRel_lift_right,
+      ``Hyper.liftPred_lift
     ]
+
+    let reductionLemmas := reductionLemmasBase
 
     -- Lemmas that distribute/commute structure (need reversal for upward transfer)
     let structuralLemmas : List Name := [
@@ -190,27 +210,44 @@ elab_rules : tactic
       ``Hyper.std_neg,
       ``Hyper.std_sub,
       ``Hyper.std_inv,
-      ``Hyper.std_div
+      ``Hyper.std_div,
+      -- Quantifiers
+      ``Hyper.forall_std_iff,
+      ``Hyper.exists_std_iff,
+      -- Sets
+      ``Hyper.star_univ,
+      ``Hyper.star_empty,
+      ``Hyper.star_union,
+      ``Hyper.star_inter,
+      ``Hyper.star_compl,
+      ``Hyper.std_le,
+      ``Hyper.std_lt
     ]
 
-    let mut simpArgs : Array (TSyntax ``Lean.Parser.Tactic.simpLemma) := #[]
+    let env ← getEnv
+    let mut simpArgs : Array (TSyntax `Lean.Parser.Tactic.simpLemma) := #[]
+
+    -- Add the [transfer] simp set itself
+    simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| transfer))
 
     -- Add reduction lemmas (always forward)
     for n in reductionLemmas do
-      let resolvedName ← resolveGlobalConstNoOverload (mkIdent n)
-      let term : TSyntax `term := mkIdent resolvedName
-      simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| $term:term))
+      if env.contains n then
+        let resolvedName ← resolveGlobalConstNoOverload (mkIdent n)
+        let term : TSyntax `term := mkIdent resolvedName
+        simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| $term:term))
 
     -- Add structural lemmas (direction depends on transfer type)
     for n in structuralLemmas do
-      let resolvedName ← resolveGlobalConstNoOverload (mkIdent n)
-      let term : TSyntax `term := mkIdent resolvedName
-      if isDownward then
-        -- Downward: expand structure (forward)
-        simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| $term:term))
-      else
-        -- Upward: contract structure (backward)
-        simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| ← $term:term))
+      if env.contains n then
+        let resolvedName ← resolveGlobalConstNoOverload (mkIdent n)
+        let term : TSyntax `term := mkIdent resolvedName
+        if isDownward then
+          -- Downward: expand structure (forward)
+          simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| $term:term))
+        else
+          -- Upward: contract structure (backward)
+          simpArgs := simpArgs.push (← `(Lean.Parser.Tactic.simpLemma| ← $term:term))
 
     -- Add quantifier lemmas with explicit ι if found, otherwise generic
     if let some ι := ι? then
@@ -240,11 +277,15 @@ elab_rules : tactic
     let simpArgsStx := simpArgs.map (·)
 
     -- Run simp
+    let simpTactic ← `(tactic|
+      simp (config := { failIfUnchanged := false }) only [$simpArgsStx,*] $[$loc]?)
+
     if isDownward then
-      evalTactic (← `(tactic| simp (config := { failIfUnchanged := false }) only [$simpArgsStx,*] $[$loc]?))
+      evalTactic simpTactic
     else
       -- Upward: Run simp first (to handle structural lemmas), then custom quantifier rewriting
-      evalTactic (← `(tactic| simp (config := { failIfUnchanged := false }) only [$simpArgsStx,*] $[$loc]?))
+      evalTactic (← `(tactic|
+        simp (config := { failIfUnchanged := false }) only [$simpArgsStx,*] at *))
 
       if (← getGoals).isEmpty then return
 
@@ -345,6 +386,9 @@ elab_rules : tactic
              replaceMainGoal [← applySimpResultToTarget goal tgt res]
 
       -- Final attempt to close goal
+      evalTactic (← `(tactic| try apply Filter.eventually_congr))
+      evalTactic (← `(tactic| try apply Filter.Eventually.of_forall))
+      evalTactic (← `(tactic| try intro))
       if (← getGoals).isEmpty then return
       try evalTactic (← `(tactic| assumption)) catch _ => pure ()
 
