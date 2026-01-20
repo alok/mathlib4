@@ -124,8 +124,6 @@ alias _root_.Set.Finite.compl_mem_hyperfilter := compl_mem_hyperfilter_of_finite
 theorem mem_hyperfilter_of_finite_compl {s : Set α} (hf : Set.Finite sᶜ) : s ∈ hyperfilter α :=
   compl_compl s ▸ hf.compl_mem_hyperfilter
 
-end Hyperfilter
-
 end Filter
 
 end
