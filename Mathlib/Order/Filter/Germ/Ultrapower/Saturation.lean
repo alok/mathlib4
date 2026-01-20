@@ -23,8 +23,8 @@ class Saturated (U : Ultrafilter iota) (kappa : Type*) : Prop :=
   (sat :
     forall {alpha : Type*} {P : kappa -> alpha -> Prop},
       (forall F : Finset kappa, exists x : Ultrapower U alpha,
-        forall k, Membership.mem k F -> Ultrapower.mapPred (P k) x) ->
-      exists x : Ultrapower U alpha, forall k : kappa, Ultrapower.mapPred (P k) x)
+        forall k, Membership.mem k F -> Ultrapower.liftPred (P k) x) ->
+      exists x : Ultrapower U alpha, forall k : kappa, Ultrapower.liftPred (P k) x)
 
 /-- Abbreviation for countable saturation. -/
 abbrev CountablySaturated (U : Ultrafilter iota) : Prop := Saturated U Nat
@@ -41,11 +41,11 @@ instance hyperfilter_saturated (iota : Type*) [Infinite iota] (kappa : Type*)
     have hfin' :
         forall F : Finset kappa, exists x : Hyper iota alpha,
           forall k, Membership.mem k F -> Hyper.liftPred (P k) x := by
-      simpa [Filter.Ultrapower, Ultrapower.mapPred, Hyper.liftPred] using hfin
+      simpa [Filter.Ultrapower, Ultrapower.liftPred, Hyper.liftPred] using hfin
     cases Hyper.cardinal_saturation (iota := iota) (kappa := kappa) e hfin' with
     | intro x hx =>
       refine Exists.intro x ?_
       intro k
-      simpa [Filter.Ultrapower, Ultrapower.mapPred, Hyper.liftPred] using hx k
+      simpa [Filter.Ultrapower, Ultrapower.liftPred, Hyper.liftPred] using hx k
 
 end Filter

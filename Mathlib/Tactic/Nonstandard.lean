@@ -7,6 +7,7 @@ import Lean.Elab.Tactic
 import Lean.Elab.Term
 import Lean.Util.Trace
 import Mathlib.Order.Filter.Germ.Star
+import Mathlib.Order.Filter.Germ.Ultrapower
 import Lean.Meta.Tactic.Simp.Main
 
 initialize Lean.registerTraceClass `Tactic.transfer
@@ -154,6 +155,9 @@ elab_rules : tactic
       ``Hyper.liftPred_std,
       ``Hyper.liftRel_std,
       ``Hyper.lift_std,
+      ``Filter.Ultrapower.liftPred_std,
+      ``Filter.Ultrapower.liftRel_std,
+      ``Filter.Ultrapower.lift_std,
       ``Hyper.lift₂_std,
       ``Hyper.lift_ofSeq,
       ``Hyper.lift₂_ofSeq,
@@ -162,6 +166,8 @@ elab_rules : tactic
       -- ``Hyper.std_lt, -- Moved to structuralLemmas
       ``Hyper.liftPred_ofSeq,
       ``Hyper.liftRel_ofSeq,
+      ``Filter.Ultrapower.liftPred_ofSeq,
+      ``Filter.Ultrapower.liftRel_ofSeq,
       ``Hyper.liftRel_const_coe,
       ``Hyper.ofSeq_le_ofSeq,
       ``Hyper.ofSeq_lt_ofSeq,
@@ -214,6 +220,8 @@ elab_rules : tactic
       -- Quantifiers
       ``Hyper.forall_std_iff,
       ``Hyper.exists_std_iff,
+      ``Filter.Ultrapower.forall_std_iff,
+      ``Filter.Ultrapower.exists_std_iff,
       -- Sets
       ``Hyper.star_univ,
       ``Hyper.star_empty,
@@ -307,10 +315,10 @@ elab_rules : tactic
           if (← (try isHyperDomain target.bindingDomain! catch _ => pure false)) then
              try
                if let some ι := ι? then
-                 let ιStx ← PrettyPrinter.delab ι
-                 evalTactic (← `(tactic| rw [Hyper.forall_ofSeq_iff (ι := $ιStx)]))
+                let ιStx ← PrettyPrinter.delab ι
+                 evalTactic (← `(tactic| rw [Filter.Ultrapower.forall_ofSeq_iff (iota := $ιStx)]))
                else
-                 evalTactic (← `(tactic| rw [Hyper.forall_ofSeq_iff]))
+                 evalTactic (← `(tactic| rw [Filter.Ultrapower.forall_ofSeq_iff]))
                changed := true
                currentGoal ← getMainGoal -- update goal
              catch _ => pure ()
@@ -329,9 +337,9 @@ elab_rules : tactic
              try
                if let some ι := ι? then
                  let ιStx ← PrettyPrinter.delab ι
-                 evalTactic (← `(tactic| rw [Hyper.exists_ofSeq_iff (ι := $ιStx)]))
+                 evalTactic (← `(tactic| rw [Filter.Ultrapower.exists_ofSeq_iff (iota := $ιStx)]))
                else
-                 evalTactic (← `(tactic| rw [Hyper.exists_ofSeq_iff]))
+                 evalTactic (← `(tactic| rw [Filter.Ultrapower.exists_ofSeq_iff]))
                changed := true
                evalTactic (← `(tactic| transfer))
                return
