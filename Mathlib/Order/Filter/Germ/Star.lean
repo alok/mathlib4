@@ -7,7 +7,7 @@ module
 
 public import Mathlib.Order.Filter.Germ.Basic
 public import Mathlib.Order.Filter.Ultrafilter.Basic
-public import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+public import Mathlib.Order.Filter.Ultrafilter.Nonstandard
 public import Mathlib.Order.Interval.Finset.Defs
 public import Mathlib.SetTheory.Cardinal.Basic
 public import Mathlib.Algebra.Order.Monoid.Defs
@@ -15,28 +15,28 @@ public import Mathlib.Algebra.Order.Group.Defs
 public import Mathlib.Algebra.Order.Ring.Defs
 public import Mathlib.Algebra.Order.Monoid.Basic
 public import Mathlib.Algebra.Order.Group.Basic
+public import Mathlib.Data.Finset.Lattice.Fold
+public import Mathlib.Data.Nat.Lattice
+public import Mathlib.Order.Lattice
+public import Mathlib.Topology.Basic
+public import Mathlib.Topology.Compactness.Compact
+public import Mathlib.Topology.Order
+public import Mathlib.Topology.Order.Basic
+public import Mathlib.Topology.Order.DenselyOrdered
+public import Mathlib.Order.ConditionallyCompleteLattice.Basic
+public import Mathlib.Tactic.Linarith
+public import Mathlib.Algebra.Field.Defs
+public import Mathlib.Algebra.Order.Field.Defs
+public import Mathlib.Topology.MetricSpace.Cauchy
+public import Mathlib.Topology.MetricSpace.Pseudo.Defs
+public import Mathlib.Topology.Separation.Hausdorff
+public import Mathlib.Topology.Sequences
+public import Mathlib.Topology.Bases
+public import Mathlib.Topology.Algebra.Ring.Real
+public import Mathlib.Topology.Algebra.Group.Basic
+public import Mathlib.Topology.Algebra.Group.Defs
 
 @[expose] public section
-import Mathlib.Data.Finset.Lattice.Fold
-import Mathlib.Data.Nat.Lattice
-import Mathlib.Order.Lattice
-import Mathlib.Topology.Basic
-import Mathlib.Topology.Compactness.Compact
-import Mathlib.Topology.Order
-import Mathlib.Topology.Order.Basic
-import Mathlib.Topology.Order.DenselyOrdered
-import Mathlib.Order.ConditionallyCompleteLattice.Basic
-import Mathlib.Tactic.Linarith
-import Mathlib.Algebra.Field.Defs
-import Mathlib.Algebra.Order.Field.Defs
-import Mathlib.Topology.MetricSpace.Cauchy
-import Mathlib.Topology.MetricSpace.Pseudo.Defs
-import Mathlib.Topology.Separation.Hausdorff
-import Mathlib.Topology.Sequences
-import Mathlib.Topology.Bases
-import Mathlib.Topology.Algebra.Ring.Real
-import Mathlib.Topology.Algebra.Group.Basic
-import Mathlib.Topology.Algebra.Group.Defs
 
 open scoped Classical
 
@@ -52,7 +52,7 @@ This file defines the hyper operation that maps standard objects to their nonsta
 ## Main definitions
 
 * `Hyper ι α` - The nonstandard extension of `α` over index type `ι`, defined as
-  `Filter.Germ (hyperfilter ι) α`
+  `Filter.Germ (nonstandardUltrafilter ι) α`
 * `Hyper.std` - The standard embedding `α → Hyper ι α`
 * `Hyper.lift` - Lifts a function `α → β` to `Hyper ι α → Hyper ι β`
 * `Hyper.lift₂` - Lifts a binary function
@@ -76,16 +76,14 @@ and nonstandard worlds. This is implemented via:
 
 open Filter
 
-@[expose] public section
-
-variable {ι κ : Type*} [Infinite ι] {α β γ : Type*}
+variable {ι κ : Type*} [NonstandardIndex ι] {α β γ : Type*}
 
 /-! ## The Hyper Type -/
 
 /-- The nonstandard extension of `α` over index type `ι`.
-This is the ultraproduct `∏_U α` where `U` is the hyperfilter on `ι`. -/
-abbrev Hyper (ι : Type*) [Infinite ι] (α : Type*) : Type _ :=
-  Germ (hyperfilter ι : Filter ι) α
+This is the ultraproduct `∏_U α` where `U` is the nonstandardUltrafilter on `ι`. -/
+abbrev Hyper (ι : Type*) [NonstandardIndex ι] (α : Type*) : Type _ :=
+  Germ (nonstandardUltrafilter ι : Filter ι) α
 
 
 
@@ -135,7 +133,7 @@ theorem lift_ofSeq (f : α → β) (s : ι → α) : lift f (ofSeq s) = ofSeq (f
 
 /-- Every nonstandard element can be represented by a sequence.
 This is the surjectivity of the quotient map. -/
-theorem ofSeq_surjective {ι : Type*} [Infinite ι] {α : Type*} : Function.Surjective (fun f : ι → α => ofSeq f) :=
+theorem ofSeq_surjective : Function.Surjective (fun f : ι → α => ofSeq f) :=
   Quot.exists_rep
 
 /-- Alias for the representation theorem. -/
@@ -231,11 +229,11 @@ theorem lift₂_ofSeq (f : α → β → γ) (s : ι → α) (t : ι → β) :
 
 /-- Lift a sequence of predicates to the nonstandard extension. -/
 def liftPredSeq (P : ι → α → Prop) (x : Hyper ι α) : Prop :=
-  x.liftOn (fun f => ∀ᶠ i in hyperfilter ι, P i (f i))
+  x.liftOn (fun f => ∀ᶠ i in nonstandardUltrafilter ι, P i (f i))
     (fun f g h => propext (Filter.eventually_congr (h.mono fun i hi => by simp [hi])))
 
 theorem liftPredSeq_ofSeq (P : ι → α → Prop) (f : ι → α) :
-    liftPredSeq P (ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, P i (f i) := by
+    liftPredSeq P (ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, P i (f i) := by
   dsimp [liftPredSeq, ofSeq]
   rfl
 
@@ -258,7 +256,7 @@ theorem isInternal_empty : IsInternal (∅ : Set (Hyper ι α)) := by
   intro h
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
   simp only [liftPredSeq_ofSeq] at h
-  have : NeBot (hyperfilter ι : Filter ι) := inferInstance
+  have : NeBot (nonstandardUltrafilter ι : Filter ι) := inferInstance
   exact this.ne (Filter.eventually_false_iff_eq_bot.mp h)
 
 theorem IsInternal.union {A B : Set (Hyper ι α)} (hA : IsInternal A) (hB : IsInternal B) :
@@ -315,7 +313,7 @@ theorem liftPred_std (P : α → Prop) (a : α) : liftPred P (std a : Hyper ι �
   Germ.liftPred_const_iff
 
 theorem liftPred_ofSeq (P : α → Prop) (f : ι → α) :
-    liftPred P (ofSeq f : Hyper ι α) ↔ ∀ᶠ n in hyperfilter ι, P (f n) :=
+    liftPred P (ofSeq f : Hyper ι α) ↔ ∀ᶠ n in nonstandardUltrafilter ι, P (f n) :=
   Germ.liftPred_coe
 
 /-- The star map sends a set `s` to its nonstandard extension `*s`.
@@ -333,11 +331,12 @@ theorem star_empty : star (ι := ι) (∅ : Set α) = (∅ : Set (Hyper ι α)) 
   induction x using Germ.inductionOn
   simp only [liftPred, Germ.liftPred_coe, Set.mem_empty_iff_false]
   rw [Filter.eventually_false_iff_eq_bot]
-  exact iff_false_intro (hyperfilter ι).neBot.ne
+  exact iff_false_intro (nonstandardUltrafilter ι).neBot.ne
 
 theorem star_univ : star (ι := ι) (Set.univ : Set α) = (Set.univ : Set (Hyper ι α)) := by
   ext x
-  simp [mem_star_iff]
+  induction x using Germ.inductionOn
+  simp [mem_star_iff, liftPred, Germ.liftPred_coe]
 
 /-- The **monadic** filter operation map.
 `monadic l` is the intersection of the stars of all elements of `l`.
@@ -354,14 +353,23 @@ theorem monadic_le {l₁ l₂ : Filter α} (h : l₁ ≤ l₂) :
     monadic (ι := ι) l₁ ⊆ monadic (ι := ι) l₂ :=
   Set.biInter_subset_biInter_left h
 
-theorem monadic_iInf {ι' : Type*} {f : ι' → Filter α} :
-    monadic (ι := ι) (⨅ i, f i) = ⋂ i, monadic (ι := ι) (f i) := by
-  sorry
-
 @[simp]
-theorem monadic_principal (s : Set α) : monadic (Filter.principal s) = ⋆s := by
+theorem monadic_principal (s : Set α) :
+    monadic (ι := ι) (Filter.principal s) = (⋆s : Set (Hyper ι α)) := by
   ext x
-  simp [mem_monadic_iff]
+  constructor
+  · intro hx
+    have hx' := (mem_monadic_iff (l := Filter.principal s) (x := x)).1 hx
+    exact hx' s (by intro _ hs; exact hs)
+  · intro hx
+    refine (mem_monadic_iff (l := Filter.principal s) (x := x)).2 ?_
+    intro U hU
+    -- prove monotonicity of star directly
+    rw [mem_star_iff] at hx ⊢
+    induction x using Germ.inductionOn
+    simp only [liftPred, Germ.liftPred_coe] at hx ⊢
+    filter_upwards [hx] with i hi
+    exact hU hi
 
 
 
@@ -382,6 +390,51 @@ theorem star_compl (s : Set α) : star (ι := ι) (sᶜ) = (⋆s)ᶜ := by
   simp only [mem_star_iff, Set.mem_compl_iff]
   induction x using Germ.inductionOn
   simp only [liftPred, Germ.liftPred_coe, Ultrafilter.eventually_not]
+
+theorem monadic_iInf {ι' : Type*} {f : ι' → Filter α} :
+    monadic (ι := ι) (⨅ i, f i) = ⋂ i, monadic (ι := ι) (f i) := by
+  ext x
+  constructor
+  · intro hx
+    refine (Set.mem_iInter).2 ?_
+    intro i
+    apply (mem_monadic_iff (l := f i) (x := x)).2
+    intro U hU
+    have hx' := (mem_monadic_iff (l := ⨅ i, f i) (x := x)).1 hx
+    exact hx' U (Filter.mem_iInf_of_mem i hU)
+  · intro hx
+    apply (mem_monadic_iff (l := ⨅ i, f i) (x := x)).2
+    intro U hU
+    rcases (Filter.mem_iInf (s := f) (U := U)).1 hU with ⟨I, hIfin, V, hV, rfl⟩
+    classical
+    have h_mem : ∀ i : I, x ∈ ⋆(V i) := by
+      intro i
+      have hx_i : x ∈ monadic (ι := ι) (f i) := by
+        simpa using (Set.mem_iInter.1 hx i)
+      exact (mem_monadic_iff (l := f i) (x := x)).1 hx_i (V i) (hV i)
+    have h_star_inter :
+        x ∈ ⋆(⋂ i : I, V i) := by
+      have h_star_inter_finset :
+          ∀ s : Finset I, (∀ i ∈ s, x ∈ ⋆(V i)) → x ∈ ⋆(⋂ i ∈ s, V i) := by
+        classical
+        refine Finset.induction ?base ?step
+        · intro _; simpa [star_univ]
+        · intro a s ha hs hmem
+          have ha_mem : x ∈ ⋆(V a) := hmem a (by simp [ha])
+          have hs_mem : x ∈ ⋆(⋂ i ∈ s, V i) := hs (by
+            intro i hi
+            exact hmem i (by simp [hi, ha]))
+          have hx_mem : x ∈ ⋆(V a ∩ ⋂ i ∈ s, V i) := by
+            simpa [star_inter, Set.mem_inter_iff] using And.intro ha_mem hs_mem
+          simpa [Finset.set_biInter_insert, ha] using hx_mem
+      haveI := hIfin.fintype
+      have h_univ : (⋂ i ∈ (Finset.univ : Finset I), V i) = ⋂ i : I, V i := by
+        ext y; simp [Finset.mem_univ]
+      have h_fin : x ∈ ⋆(⋂ i ∈ (Finset.univ : Finset I), V i) :=
+        h_star_inter_finset (Finset.univ : Finset I)
+          (by intro i hi; simpa using h_mem i)
+      simpa [h_univ] using h_fin
+    exact h_star_inter
 
 theorem star_subset {s t : Set α} (h : s ⊆ t) : star (ι := ι) s ⊆ ⋆t := by
   intro x hx
@@ -405,7 +458,7 @@ theorem liftRel_std (R : α → β → Prop) (a : α) (b : β) :
   Germ.liftRel_const_iff
 
 theorem liftRel_ofSeq (R : α → β → Prop) (f : ι → α) (g : ι → β) :
-    liftRel R (ofSeq f : Hyper ι α) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ι, R (f n) (g n) :=
+    liftRel R (ofSeq f : Hyper ι α) (ofSeq g) ↔ ∀ᶠ n in nonstandardUltrafilter ι, R (f n) (g n) :=
   Germ.liftRel_coe
 
 theorem liftRel_lift_left (R : β → γ → Prop) (f : α → β) (x : Hyper ι α) (y : Hyper ι γ) :
@@ -471,8 +524,8 @@ theorem forall_liftRel (R : α → β → Prop) (x : Hyper ι α) :
     haveI := hβ
     let S := {i | ∀ b, R (f i) b}
     by_contra hS
-    have hSc : {i | ∃ b, ¬ R (f i) b} ∈ hyperfilter ι := by
-      have : {i | ∀ b, R (f i) b}ᶜ ∈ hyperfilter ι := by
+    have hSc : {i | ∃ b, ¬ R (f i) b} ∈ nonstandardUltrafilter ι := by
+      have : {i | ∀ b, R (f i) b}ᶜ ∈ nonstandardUltrafilter ι := by
         rwa [Ultrafilter.compl_mem_iff_notMem]
       rw [Set.compl_setOf] at this
       simp only [not_forall] at this
@@ -481,7 +534,7 @@ theorem forall_liftRel (R : α → β → Prop) (x : Hyper ι α) :
     have hg : ∀ i, (∃ b, ¬ R (f i) b) → ¬ R (f i) (g i) := by
       intro i hi
       exact Classical.epsilon_spec hi
-    have : {i | ¬ R (f i) (g i)} ∈ hyperfilter ι := by
+    have : {i | ¬ R (f i) (g i)} ∈ nonstandardUltrafilter ι := by
       filter_upwards [hSc] with i hi
       exact hg i hi
     have : ¬ liftRel R (ofSeq f) (ofSeq g) := by
@@ -489,10 +542,10 @@ theorem forall_liftRel (R : α → β → Prop) (x : Hyper ι α) :
       change ¬ Germ.LiftRel R (ofSeq f) (ofSeq g)
       erw [Germ.liftRel_coe]
       intro h
-      have : {i | R (f i) (g i)} ∩ {i | ¬ R (f i) (g i)} ∈ hyperfilter ι := Filter.inter_mem h ‹_›
-      change {i | R (f i) (g i)} ∩ {i | R (f i) (g i)}ᶜ ∈ hyperfilter ι at this
+      have : {i | R (f i) (g i)} ∩ {i | ¬ R (f i) (g i)} ∈ nonstandardUltrafilter ι := Filter.inter_mem h ‹_›
+      change {i | R (f i) (g i)} ∩ {i | R (f i) (g i)}ᶜ ∈ nonstandardUltrafilter ι at this
       rw [Set.inter_compl_self] at this
-      change ∅ ∈ hyperfilter ι at this
+      change ∅ ∈ nonstandardUltrafilter ι at this
       exact False.elim (Ultrafilter.empty_notMem this)
     specialize h (ofSeq g)
     dsimp [liftRel, ofSeq] at h
@@ -523,7 +576,7 @@ theorem exists_liftRel (R : α → β → Prop) (x : Hyper ι α) :
   · intro h
     rcases isEmpty_or_nonempty β with hβ | hβ
     · have : ∀ i, ¬ ∃ b, R (f i) b := fun i ⟨b, _⟩ => IsEmpty.false b
-      rcases (hyperfilter ι).nonempty_of_mem h with ⟨i, hi⟩
+      rcases (nonstandardUltrafilter ι).nonempty_of_mem h with ⟨i, hi⟩
       exact (this i hi).elim
     haveI := hβ
     let g := fun i => Classical.epsilon (fun b => R (f i) b)
@@ -620,7 +673,7 @@ end LogicalConnectives
 
 /-! ## Algebraic Operations
 
-Since `Hyper ι α = Germ (hyperfilter ι) α`, all algebraic instances are inherited from `Germ`.
+Since `Hyper ι α = Germ (nonstandardUltrafilter ι) α`, all algebraic instances are inherited from `Germ`.
 We provide simp lemmas relating `std` to the inherited operations. -/
 
 section Algebra
@@ -666,8 +719,8 @@ noncomputable instance instPreorderHyper [Preorder α] : Preorder (Hyper ι α) 
     lt_iff_le_not_ge := fun x y => by
       induction x using Germ.inductionOn with | h f =>
       induction y using Germ.inductionOn with | h g =>
-      change (∀ᶠ i in hyperfilter ι, f i < g i) ↔
-        (∀ᶠ i in hyperfilter ι, f i ≤ g i) ∧ ¬(∀ᶠ i in hyperfilter ι, g i ≤ f i)
+      change (∀ᶠ i in nonstandardUltrafilter ι, f i < g i) ↔
+        (∀ᶠ i in nonstandardUltrafilter ι, f i ≤ g i) ∧ ¬(∀ᶠ i in nonstandardUltrafilter ι, g i ≤ f i)
       simp only [lt_iff_le_not_ge]
       rw [Filter.eventually_and]
       apply and_congr_right
@@ -689,13 +742,13 @@ theorem le_total [LinearOrder α] : IsTotal (Hyper ι α) (· ≤ ·) where
     induction x using Germ.inductionOn; next f =>
     induction y using Germ.inductionOn; next g =>
     simp only [LE.le, Germ.liftRel_coe]
-    exact (hyperfilter ι).eventually_or.1
+    exact (nonstandardUltrafilter ι).eventually_or.1
       (Eventually.of_forall fun i => LinearOrder.le_total (f i) (g i))
 
 /-- Germ's Max equals the if-then-else form. This bridges the Max instance from Germ
 with the canonical form expected by LinearOrder. -/
-private theorem Hyper.max_def [LinearOrder α] (a b : Hyper ι α) :
-    Max.max a b = if a ≤ b then b else a := by
+theorem hyper_max_def [LinearOrder α] (a b : Hyper ι α) :
+    @max (α := Hyper ι α) (self := Germ.instSup) a b = if a ≤ b then b else a := by
   induction a using Germ.inductionOn with | h f =>
   induction b using Germ.inductionOn with | h g =>
   split_ifs with hab
@@ -705,8 +758,8 @@ private theorem Hyper.max_def [LinearOrder α] (a b : Hyper ι α) :
     exact sup_of_le_left hba
 
 /-- Germ's Min equals the if-then-else form. -/
-private theorem Hyper.min_def [LinearOrder α] (a b : Hyper ι α) :
-    Min.min a b = if a ≤ b then a else b := by
+theorem hyper_min_def [LinearOrder α] (a b : Hyper ι α) :
+    @min (α := Hyper ι α) (self := Germ.instInf) a b = if a ≤ b then a else b := by
   induction a using Germ.inductionOn with | h f =>
   induction b using Germ.inductionOn with | h g =>
   split_ifs with hab
@@ -724,8 +777,8 @@ noncomputable instance instLinearOrderHyper [LinearOrder α] : LinearOrder (Hype
     toDecidableLE := Classical.decRel _
     toDecidableEq := Classical.decEq _
     toDecidableLT := Classical.decRel _
-    max_def := Hyper.max_def
-    min_def := Hyper.min_def }
+    max_def := hyper_max_def
+    min_def := hyper_min_def }
 
 noncomputable instance instSemiringHyper [Semiring α] : Semiring (Hyper ι α) :=
   Filter.Germ.instSemiring
@@ -748,7 +801,7 @@ noncomputable instance instFieldHyper [Field α] : Field (Hyper ι α) :=
       induction x using Germ.inductionOn; next f =>
       rw [ne_eq, ← Germ.coe_zero, Germ.coe_eq] at hx
       rw [← Germ.coe_inv, ← Germ.coe_mul, ← Germ.coe_one, Germ.coe_eq]
-      filter_upwards [Iff.mpr (hyperfilter ι).eventually_not hx] with i hi
+      filter_upwards [Iff.mpr (nonstandardUltrafilter ι).eventually_not hx] with i hi
       simp only [Pi.mul_apply, Pi.inv_apply, Pi.one_apply]
       exact GroupWithZero.mul_inv_cancel (f i) hi
     inv_zero := by
@@ -764,13 +817,13 @@ noncomputable instance instFieldHyper [Field α] : Field (Hyper ι α) :=
       exact div_eq_mul_inv (f i) (g i)
     exists_pair_ne := ⟨0, 1, by
       rw [ne_eq, ← Germ.coe_zero, ← Germ.coe_one, Germ.coe_eq]
-      exact Iff.mp (hyperfilter ι).eventually_not (Eventually.of_forall fun _ => zero_ne_one)⟩
+      exact Iff.mp (nonstandardUltrafilter ι).eventually_not (Eventually.of_forall fun _ => zero_ne_one)⟩
     nnqsmul := _
     qsmul := _ }
 
 noncomputable instance instIsOrderedRingHyper [Ring α] [PartialOrder α] [IsOrderedRing α] :
     IsOrderedRing (Hyper ι α) :=
-  { @Filter.Germ.instRing ι (hyperfilter ι) α _,
+  { @Filter.Germ.instRing ι (nonstandardUltrafilter ι) α _,
     @instPartialOrderHyper ι _ α _ with
     add_le_add_left := fun a b h c => by
       induction a using Germ.inductionOn; next f =>
@@ -823,8 +876,8 @@ noncomputable instance instIsStrictOrderedRingHyper
       induction b using Germ.inductionOn; next g =>
       induction c using Germ.inductionOn; next k =>
       rw [← Germ.coe_zero] at hc
-      have hc' : ∀ᶠ i in hyperfilter ι, 0 < k i := hc
-      have hab' : ∀ᶠ i in hyperfilter ι, f i < g i := hab
+      have hc' : ∀ᶠ i in nonstandardUltrafilter ι, 0 < k i := hc
+      have hab' : ∀ᶠ i in nonstandardUltrafilter ι, f i < g i := hab
       filter_upwards [hab', hc'] with i hab hc
       exact mul_lt_mul_of_pos_left hab hc
     mul_lt_mul_of_pos_right := fun c hc a b hab => by
@@ -832,8 +885,8 @@ noncomputable instance instIsStrictOrderedRingHyper
       induction b using Germ.inductionOn; next g =>
       induction c using Germ.inductionOn; next k =>
       rw [← Germ.coe_zero] at hc
-      have hc' : ∀ᶠ i in hyperfilter ι, 0 < k i := hc
-      have hab' : ∀ᶠ i in hyperfilter ι, f i < g i := hab
+      have hc' : ∀ᶠ i in nonstandardUltrafilter ι, 0 < k i := hc
+      have hab' : ∀ᶠ i in nonstandardUltrafilter ι, f i < g i := hab
       filter_upwards [hab', hc'] with i hab hc
       exact mul_lt_mul_of_pos_right hab hc }
 
@@ -872,8 +925,8 @@ theorem lt_def [Preorder α] (x y : Hyper ι α) : x < y ↔ liftRel (· < ·) x
   induction x using Germ.inductionOn with | h f =>
   induction y using Germ.inductionOn with | h g =>
   simp only [lt_iff_le_not_ge]
-  change (∀ᶠ i in hyperfilter ι, f i ≤ g i) ∧ ¬(∀ᶠ i in hyperfilter ι, g i ≤ f i) ↔
-      (∀ᶠ i in hyperfilter ι, f i ≤ g i ∧ ¬(g i ≤ f i))
+  change (∀ᶠ i in nonstandardUltrafilter ι, f i ≤ g i) ∧ ¬(∀ᶠ i in nonstandardUltrafilter ι, g i ≤ f i) ↔
+      (∀ᶠ i in nonstandardUltrafilter ι, f i ≤ g i ∧ ¬(g i ≤ f i))
   rw [← Ultrafilter.eventually_not, ← Filter.eventually_and]
 
 instance [AddCommSemigroup α] [PartialOrder α] [i_mono : AddLeftMono α] : AddLeftMono (Hyper ι α) :=
@@ -962,22 +1015,22 @@ theorem internal_induction (P : Set (Hyper ι ℕ)) (h_int : IsInternal P)
   rw [liftPredSeq]
   -- We want to show {i | f i ∈ A i} ∈ U
   -- We know 0 ∈ P, so {i | 0 ∈ A i} ∈ U
-  have h0_seq : ∀ᶠ i in hyperfilter ι, 0 ∈ A i := by
+  have h0_seq : ∀ᶠ i in nonstandardUltrafilter ι, 0 ∈ A i := by
     have : (0 : Hyper ι ℕ) ∈ P := h0
     rw [← std_zero, std_eq_ofSeq_const] at this
     rwa [hA, liftPredSeq_ofSeq] at this
   -- We know ∀ n, n ∈ P → n + 1 ∈ P
   -- This transfers to: ∀ᶠ i, ∀ k, k ∈ A i → k + 1 ∈ A i
-  have hs_seq : ∀ᶠ i in hyperfilter ι, ∀ k, k ∈ A i → k + 1 ∈ A i := by
+  have hs_seq : ∀ᶠ i in nonstandardUltrafilter ι, ∀ k, k ∈ A i → k + 1 ∈ A i := by
     by_contra h_not
-    have h_ex : ∀ᶠ i in hyperfilter ι, ∃ k, k ∈ A i ∧ k + 1 ∉ A i := by
+    have h_ex : ∀ᶠ i in nonstandardUltrafilter ι, ∃ k, k ∈ A i ∧ k + 1 ∉ A i := by
       rw [← Ultrafilter.eventually_not] at h_not
       filter_upwards [h_not] with i hi
       push_neg at hi
       exact hi
     -- Construct a sequence of counterexamples
     let k_seq (i : ι) : ℕ := if h : ∃ k, k ∈ A i ∧ k + 1 ∉ A i then Classical.choose h else 0
-    have hk : ∀ᶠ i in hyperfilter ι, k_seq i ∈ A i ∧ k_seq i + 1 ∉ A i := by
+    have hk : ∀ᶠ i in nonstandardUltrafilter ι, k_seq i ∈ A i ∧ k_seq i + 1 ∉ A i := by
       filter_upwards [h_ex] with i hi
       dsimp [k_seq]
       rw [dif_pos hi]
@@ -1005,7 +1058,7 @@ theorem internal_induction (P : Set (Hyper ι ℕ)) (h_int : IsInternal P)
 theorem std_le_std [Preorder α] {a b : α} : (std a : Hyper ι α) ≤ std b ↔ a ≤ b := by
   constructor
   · intro h
-    have : {i | a ≤ b} ∈ (hyperfilter ι : Filter ι) := h
+    have : {i | a ≤ b} ∈ (nonstandardUltrafilter ι : Filter ι) := h
     by_contra hab
     have h_empty : ({i | a ≤ b} : Set ι) = ∅ := by
       ext (i : ι)
@@ -1013,14 +1066,14 @@ theorem std_le_std [Preorder α] {a b : α} : (std a : Hyper ι α) ≤ std b �
       exact hab
     rw [h_empty] at this
     exact absurd (Filter.empty_mem_iff_bot.mp this)
-      (NeBot.ne (inferInstance : NeBot (hyperfilter ι : Filter ι)))
+      (NeBot.ne (inferInstance : NeBot (nonstandardUltrafilter ι : Filter ι)))
   · intro h
     filter_upwards with _ using h
 
 theorem std_lt_std [Preorder α] {a b : α} : (std a : Hyper ι α) < std b ↔ a < b := by
   constructor
   · intro h
-    have : {i | a < b} ∈ (hyperfilter ι : Filter ι) := h
+    have : {i | a < b} ∈ (nonstandardUltrafilter ι : Filter ι) := h
     by_contra hab
     have h_empty : ({i | a < b} : Set ι) = ∅ := by
       ext (i : ι)
@@ -1028,7 +1081,7 @@ theorem std_lt_std [Preorder α] {a b : α} : (std a : Hyper ι α) < std b ↔ 
       exact hab
     rw [h_empty] at this
     exact absurd (Filter.empty_mem_iff_bot.mp this)
-      (NeBot.ne (inferInstance : NeBot (hyperfilter ι : Filter ι)))
+      (NeBot.ne (inferInstance : NeBot (nonstandardUltrafilter ι : Filter ι)))
   · intro h
     filter_upwards with _ using h
 
@@ -1066,7 +1119,7 @@ theorem IsInfinitesimal.neg [AddCommGroup α] [PartialOrder α] [IsOrderedAddMon
         induction x using Germ.inductionOn; next f =>
         induction y using Germ.inductionOn; next g =>
         rw [neg_eq_lift, neg_eq_lift]
-        exact Iff.refl (∀ᶠ i in @hyperfilter ι (by infer_instance), R (-f i) (-g i))
+        exact Iff.refl (∀ᶠ i in @nonstandardUltrafilter ι (by infer_instance), R (-f i) (-g i))
     constructor
     · -- -std r < -x ↔ x < std r
       rw [lt_def]
@@ -1113,11 +1166,11 @@ theorem IsInfinitesimal.abs [Field α] [LinearOrder α] [IsOrderedRing α] {x : 
     exact abs_lt.mpr ⟨hneg, hpos⟩
 
 theorem ofSeq_le_ofSeq [LE α] (f g : ι → α) :
-    (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i ≤ g i :=
+    (ofSeq f : Hyper ι α) ≤ ofSeq g ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ≤ g i :=
   Germ.coe_le
 
 theorem ofSeq_lt_ofSeq [LT α] (f g : ι → α) :
-    (ofSeq f : Hyper ι α) < ofSeq g ↔ ∀ᶠ i in hyperfilter ι, f i < g i :=
+    (ofSeq f : Hyper ι α) < ofSeq g ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i < g i :=
   Germ.liftRel_coe
 
 theorem eq_iff_liftRel_eq {ι : Type*} [Infinite ι] {α : Type*} (x y : Hyper ι α) :
@@ -1129,12 +1182,12 @@ theorem eq_iff_liftRel_eq {ι : Type*} [Infinite ι] {α : Type*} (x y : Hyper �
   exact Germ.coe_eq
 
 theorem liftRel_const_coe {R : α → α → Prop} {c : α} {f : ι → α} :
-    liftRel R (std c) (ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, R c (f i) :=
+    liftRel R (std c) (ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, R c (f i) :=
   Iff.rfl
 
 /-- `std a < ofSeq f` iff `a < f n` for almost all `n`. -/
 theorem std_lt_ofSeq [LT α] (x : α) (f : ι → α) :
-    (std x : Hyper ι α) < ofSeq f ↔ ∀ᶠ i in hyperfilter ι, x < f i := by
+    (std x : Hyper ι α) < ofSeq f ↔ ∀ᶠ i in nonstandardUltrafilter ι, x < f i := by
   change liftRel (· < ·) (std x) (ofSeq f) ↔ _
   exact liftRel_const_coe
 
@@ -1328,15 +1381,15 @@ theorem exists_std_le_abs_of_not_infinitesimal [Field α] [LinearOrder α] [IsOr
   push_neg at hx_not_inf
   obtain ⟨ε, hε, h⟩ := hx_not_inf
   use ε, hε
-  -- h : -std ε < x → std ε ≤ x
   by_cases hcase : -std ε < x
   · -- x > -std ε, so by h we have std ε ≤ x, hence |x| ≥ std ε
-    calc std ε ≤ x := h hcase
+    have hxge : std ε ≤ x := h hcase
+    calc std ε ≤ x := hxge
          _ ≤ |x| := le_abs_self x
   · -- x ≤ -std ε, so |x| ≥ std ε via -x
-    push_neg at hcase
+    have hcase' : x ≤ -std ε := not_lt.mp hcase
     calc std ε = -(-std ε) := by ring
-         _ ≤ -x := neg_le_neg hcase
+         _ ≤ -x := neg_le_neg hcase'
          _ ≤ |x| := neg_le_abs x
 
 /-- If |x| ≥ std ε for some standard ε > 0, then x⁻¹ is finite. -/
@@ -1348,7 +1401,7 @@ theorem IsFinite.inv_of_abs_ge [Field α] [LinearOrder α] [IsStrictOrderedRing 
   use 1 / ε
   -- Need to show |f⁻¹| ≤ std (1/ε) eventually
   -- From hx: std ε ≤ |ofSeq f|, meaning ε ≤ |f i| eventually
-  have hx' : ∀ᶠ i in hyperfilter ι, ε ≤ |f i| := by
+  have hx' : ∀ᶠ i in nonstandardUltrafilter ι, ε ≤ |f i| := by
     have : (std ε : Hyper ι α) ≤ |ofSeq f| := hx
     rw [std_eq_ofSeq_const] at this
     -- |ofSeq f| = ofSeq |f| by abs lifting
@@ -1358,7 +1411,7 @@ theorem IsFinite.inv_of_abs_ge [Field α] [LinearOrder α] [IsStrictOrderedRing 
       rfl
     rw [h_abs, ofSeq_le_ofSeq] at this
     exact this
-  have h_bound : ∀ᶠ i in hyperfilter ι, |f⁻¹ i| ≤ 1 / ε := by
+  have h_bound : ∀ᶠ i in nonstandardUltrafilter ι, |f⁻¹ i| ≤ 1 / ε := by
     filter_upwards [hx'] with i hi
     have hfi_ne : f i ≠ 0 := fun h => by simp [h] at hi; linarith
     have hfi_pos : 0 < |f i| := abs_pos.mpr hfi_ne
@@ -1389,7 +1442,7 @@ The set of infinitesimals forms an ideal in the ring of finite hyperreals:
 This is the foundation for the nonstandard hull construction. -/
 
 /-- The monad of 0 (set of infinitesimals) as a set. -/
-def infinitesimals (ι : Type*) [Infinite ι] (α : Type*) [AddCommGroup α] [Preorder α] :
+def infinitesimals (ι : Type*) [NonstandardIndex ι] (α : Type*) [AddCommGroup α] [Preorder α] :
     Set (Hyper ι α) :=
   {x | IsInfinitesimal x}
 
@@ -1647,7 +1700,7 @@ theorem exists_infinite_nat : ∃ ω : Hyper ℕ ℕ, ∀ n : ℕ, std n < ω :=
   use ofSeq id
   intro n
   rw [std_lt_ofSeq]
-  apply Filter.mem_hyperfilter_of_finite_compl
+  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
   simp only [Set.compl_setOf, not_lt]
   exact Set.finite_le_nat n
 
@@ -1659,14 +1712,14 @@ theorem coe_nat_eq_std (n : ℕ) : (n : Hypernatural) = std n := rfl
 theorem omega_gt_nat (n : ℕ) : (n : Hypernatural) < omega := by
   rw [lt_def]
   simp only [omega, coe_nat_eq_std, std_def, Germ.const, ofSeq, Germ.ofFun]
-  apply Filter.mem_hyperfilter_of_finite_compl
+  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
   dsimp
   simp only [Set.compl_setOf, not_lt]
   exact Set.finite_le_nat n
 
 theorem omega_gt_std (n : ℕ) : std n < omega := by
   rw [omega, std_lt_ofSeq]
-  apply Filter.mem_hyperfilter_of_finite_compl
+  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
   simp only [Set.compl_setOf, not_lt]
   exact Set.finite_le_nat n
 
@@ -1681,7 +1734,7 @@ theorem underflow {P : ℕ → Prop} {ω : Hyper ℕ ℕ} (hω : ∀ n : ℕ, st
   -- P holds almost everywhere for f
   rw [liftPred_ofSeq] at hP
   -- f(k) > n for almost all k (since ω > std n)
-  have hgt : ∀ᶠ k in hyperfilter ℕ, n < f k := by
+  have hgt : ∀ᶠ k in nonstandardUltrafilter ℕ, n < f k := by
     specialize hω n
     rw [std_lt_ofSeq] at hω
     exact hω
@@ -1731,7 +1784,7 @@ theorem exists_infinite [LinearOrder ι] [LocallyFiniteOrderBot ι] :
   use ofSeq id
   intro a
   rw [std_lt_ofSeq]
-  apply Filter.mem_hyperfilter_of_finite_compl
+  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
   simp only [Set.compl_setOf, not_lt]
   exact Set.finite_Iic a
 
@@ -1741,7 +1794,7 @@ noncomputable def omega' [LinearOrder ι] : Hyper ι ι := ofSeq id
 theorem omega'_gt_std [LinearOrder ι] [LocallyFiniteOrderBot ι] (a : ι) :
     std a < (omega' : Hyper ι ι) := by
   rw [omega', std_lt_ofSeq]
-  apply Filter.mem_hyperfilter_of_finite_compl
+  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
   simp only [Set.compl_setOf, not_lt]
   exact Set.finite_Iic a
 
@@ -1749,9 +1802,9 @@ theorem omega'_gt_std [LinearOrder ι] [LocallyFiniteOrderBot ι] (a : ι) :
 
 These lemmas show how IST principles apply to analysis on `Hyper ι α`. -/
 
-/-- If a property holds "eventually" in the hyperfilter sense, it is consistent
+/-- If a property holds "eventually" in the nonstandardUltrafilter sense, it is consistent
 with the standard world. -/
-theorem liftPred_of_eventually {P : α → Prop} (f : ι → α) (h : ∀ᶠ n in hyperfilter ι, P (f n)) :
+theorem liftPred_of_eventually {P : α → Prop} (f : ι → α) (h : ∀ᶠ n in nonstandardUltrafilter ι, P (f n)) :
     liftPred P (ofSeq f : Hyper ι α) := by
   rw [liftPred_ofSeq]
   exact h
@@ -1794,8 +1847,8 @@ theorem overspill_internal {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P)
     (hstd : ∀ n : ℕ, std n ∈ P) : ∃ N : Hyper ℕ ℕ, IsInfinitePos N ∧ N ∈ P := by
   -- P is internal, so P corresponds to a sequence of sets S
   obtain ⟨S, hS⟩ := hP
-  -- For each standard n, we have std n ∈ P, i.e., {i : n ∈ S i} ∈ hyperfilter
-  have h_std_mem : ∀ n : ℕ, ∀ᶠ i in hyperfilter ℕ, n ∈ S i := by
+  -- For each standard n, we have std n ∈ P, i.e., {i : n ∈ S i} ∈ nonstandardUltrafilter
+  have h_std_mem : ∀ n : ℕ, ∀ᶠ i in nonstandardUltrafilter ℕ, n ∈ S i := by
     intro n
     have := hstd n
     rw [hS, liftPredSeq, std_eq_ofSeq_const] at this
@@ -1808,7 +1861,7 @@ theorem overspill_internal {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P)
       exact ⟨n, Finset.mem_filter.mpr ⟨Finset.mem_range.mpr (Nat.lt_succ_of_le hn_le), hn_mem⟩⟩)
     else 0
   -- Claim 1: f(i) ∈ S i eventually (when 0 ∈ S i, the condition is satisfied)
-  have hf_mem : ∀ᶠ i in hyperfilter ℕ, f i ∈ S i := by
+  have hf_mem : ∀ᶠ i in nonstandardUltrafilter ℕ, f i ∈ S i := by
     filter_upwards [h_std_mem 0] with i h0
     simp only [f]
     have hex : ∃ n ≤ i, n ∈ S i := ⟨0, Nat.zero_le i, h0⟩
@@ -1818,11 +1871,11 @@ theorem overspill_internal {P : Set (Hyper ℕ ℕ)} (hP : IsInternal P)
     have hmax := Finset.max'_mem T hT_ne
     exact (Finset.mem_filter.mp hmax).2
   -- Claim 2: f(i) > n eventually for each standard n
-  have hf_large : ∀ n : ℕ, ∀ᶠ i in hyperfilter ℕ, n < f i := by
+  have hf_large : ∀ n : ℕ, ∀ᶠ i in nonstandardUltrafilter ℕ, n < f i := by
     intro n
-    have h_succ : ∀ᶠ i in hyperfilter ℕ, (n + 1) ∈ S i := h_std_mem (n + 1)
-    have h_large : ∀ᶠ i in hyperfilter ℕ, i ≥ n + 1 := by
-      apply Filter.mem_hyperfilter_of_finite_compl
+    have h_succ : ∀ᶠ i in nonstandardUltrafilter ℕ, (n + 1) ∈ S i := h_std_mem (n + 1)
+    have h_large : ∀ᶠ i in nonstandardUltrafilter ℕ, i ≥ n + 1 := by
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       convert Set.finite_lt_nat (n + 1) using 1
       ext; simp only [Set.mem_compl_iff, Set.mem_setOf_eq, not_le]
     filter_upwards [h_succ, h_large] with i hi_mem hi_ge
@@ -1985,11 +2038,11 @@ then the entire countable family `{P n : n ∈ ℕ}` has a common witness.
 This is a key property that unlocks "backward" directions in NSA theorems,
 allowing us to go from "monad membership for all elements" back to standard topological
 properties. -/
-theorem countable_saturation {α : Type*} {P : ℕ → α → Prop}
+theorem countable_saturation {α : Type*} {P : ℕ → α → Prop} [NonstandardIndex ℕ]
     (hfin : ∀ F : Finset ℕ, ∃ x : Hyper ℕ α, ∀ n ∈ F, liftPred (P n) x) :
     ∃ x : Hyper ℕ α, ∀ n : ℕ, liftPred (P n) x := by
   -- For each finite prefix [0..k], choose a witness and a representing sequence
-  have hwit : ∀ k : ℕ, ∃ f : ℕ → α, ∀ n ≤ k, ∀ᶠ i in hyperfilter ℕ, P n (f i) := by
+  have hwit : ∀ k : ℕ, ∃ f : ℕ → α, ∀ n ≤ k, ∀ᶠ i in nonstandardUltrafilter ℕ, P n (f i) := by
     intro k
     obtain ⟨x, hx⟩ := hfin (Finset.range (k + 1))
     obtain ⟨f, rfl⟩ := ofSeq_surjective x
@@ -1998,30 +2051,30 @@ theorem countable_saturation {α : Type*} {P : ℕ → α → Prop}
     have hn' : n ∈ Finset.range (k + 1) := Finset.mem_range.mpr (Nat.lt_succ_of_le hn)
     exact (liftPred_ofSeq (P n) f).mp (hx n hn')
   choose f hf using hwit
-  -- For each k, the set {i : ∀ n ≤ k, P n (f k i)} is in the hyperfilter
-  -- Since hyperfilter ⊇ cofinite on ℕ, this set is infinite; pick M_k ≥ k from it
+  -- For each k, the set {i : ∀ n ≤ k, P n (f k i)} is in the nonstandardUltrafilter
+  -- Since nonstandardUltrafilter ⊇ cofinite on ℕ, this set is infinite; pick M_k ≥ k from it
   have hgood : ∀ k : ℕ, ∃ M : ℕ, M ≥ k ∧ ∀ n ≤ k, P n (f k M) := by
     intro k
-    -- The intersection of finitely many hyperfilter sets is in the hyperfilter
+    -- The intersection of finitely many nonstandardUltrafilter sets is in the nonstandardUltrafilter
     -- Use Finset.range (k + 1) = {0, 1, ..., k}
-    have hall : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ∀ n ∈ Finset.range (k + 1), P n (f k i) := by
+    have hall : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), ∀ n ∈ Finset.range (k + 1), P n (f k i) := by
       rw [Finset.eventually_all]
       intro n hn
       rw [Finset.mem_range] at hn
       exact hf k n (Nat.lt_succ_iff.mp hn)
-    -- Also {i : i ≥ k} is in hyperfilter (cofinite ⊆ hyperfilter)
-    have hge : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), i ≥ k := by
-      apply Filter.mem_of_superset (Filter.mem_hyperfilter_of_finite_compl _)
+    -- Also {i : i ≥ k} is in nonstandardUltrafilter (cofinite ⊆ nonstandardUltrafilter)
+    have hge : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), i ≥ k := by
+      apply Filter.mem_of_superset (Filter.mem_nonstandardUltrafilter_of_finite_compl _)
       · intro i hi; exact hi
       · convert Set.finite_lt_nat k using 1
         ext i
         simp only [Set.mem_compl_iff, Set.mem_setOf_eq, not_le]
     -- Convert hall to the ≤ form
-    have hall' : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ∀ n ≤ k, P n (f k i) := by
+    have hall' : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), ∀ n ≤ k, P n (f k i) := by
       apply hall.mono
       intro i hi n hn
       exact hi n (Finset.mem_range.mpr (Nat.lt_succ_of_le hn))
-    -- The conjunction is in the hyperfilter, hence nonempty
+    -- The conjunction is in the nonstandardUltrafilter, hence nonempty
     have hboth := hall'.and hge
     exact hboth.exists.imp fun M ⟨h1, h2⟩ => ⟨h2, h1⟩
   choose M hM using hgood
@@ -2032,7 +2085,7 @@ theorem countable_saturation {α : Type*} {P : ℕ → α → Prop}
   intro n
   rw [liftPred_ofSeq]
   -- For k ≥ n: g(k) = f_k(M_k), and since k ≥ n, the witness f_k works for P n
-  apply Filter.mem_hyperfilter_of_finite_compl
+  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
   -- {k : ¬ P n (g k)} ⊆ {0, 1, ..., n-1}
   have hsub : {k : ℕ | ¬P n (g k)} ⊆ {k : ℕ | k < n} := by
     intro k hk
@@ -2045,7 +2098,7 @@ theorem countable_saturation {α : Type*} {P : ℕ → α → Prop}
   exact Set.Finite.subset (Set.finite_lt_nat n) hsub
 
 /-- Variant of countable saturation with `Finset.range` -/
-theorem countable_saturation' {α : Type*} [Nonempty α] {P : ℕ → α → Prop}
+theorem countable_saturation' {α : Type*} [Nonempty α] {P : ℕ → α → Prop} [NonstandardIndex ℕ]
     (hfin : ∀ k : ℕ, ∃ x : Hyper ℕ α, ∀ n < k, liftPred (P n) x) :
     ∃ x : Hyper ℕ α, ∀ n : ℕ, liftPred (P n) x := by
   apply countable_saturation
@@ -2075,11 +2128,12 @@ The condition `#κ ≤ #ι` ensures we can embed `κ` into `ι` for the diagonal
 **Mathematical Note**: Classically, an ultraproduct over index set `I` is `|I|⁺`-saturated,
 meaning it satisfies the saturation property for families of size `< |I|⁺ = (|I|).succ`.
 The condition `#κ ≤ #ι` is equivalent to `#κ < (#ι)⁺`. -/
-theorem cardinal_saturation (e : κ ↪ ι) {α : Type*} {P : κ → α → Prop}
+theorem cardinal_saturation (e : κ ↪ ι) {α : Type*} {P : κ → α → Prop} [RegularIndex ι]
     (hfin : ∀ F : Finset κ, ∃ x : Hyper ι α, ∀ k ∈ F, liftPred (P k) x) :
     ∃ x : Hyper ι α, ∀ k : κ, liftPred (P k) x := by
-  -- Use the regularity of the hyperfilter
-  let E := hyperfilterBijection ι
+  classical
+  -- Use the regularity data of the index ultrafilter
+  let E := RegularIndex.family (ι := ι)
   -- For each i, we find an element satisfying the required predicates
   have h_exists : ∀ i, ∃ a : α, ∀ k, e k ∈ E i → P k a := by
     intro i
@@ -2087,33 +2141,27 @@ theorem cardinal_saturation (e : κ ↪ ι) {α : Type*} {P : κ → α → Prop
     obtain ⟨x, hx⟩ := hfin K_i
     obtain ⟨u, rfl⟩ := Hyper.ofSeq_surjective x
     let Y := {j | ∀ k ∈ K_i, P k (u j)}
-    have hY : Y ∈ hyperfilter ι := by
-      change ∀ᶠ j in hyperfilter ι, ∀ k ∈ K_i, P k (u j)
-      rw [Finset.eventually_all]
+    have hY : Y ∈ nonstandardUltrafilter ι := by
+      change ∀ᶠ j in nonstandardUltrafilter ι, ∀ k ∈ K_i, P k (u j)
+      refine (Finset.eventually_all (I := K_i)).2 ?_
       intro k hk
-      have hk' : k ∈ K_i := Finset.mem_coe.mp hk
-      specialize hx k hk'
+      specialize hx k hk
       rw [Hyper.liftPred_ofSeq] at hx
       exact hx
     obtain ⟨j, hj⟩ := Filter.nonempty_of_mem hY
-    use u j
+    refine ⟨u j, ?_⟩
     intro k hke
     have hk : k ∈ K_i := Finset.mem_preimage.mpr hke
     exact hj k hk
   choose f hf using h_exists
   use Hyper.ofSeq f
   intro k
-  rw [Hyper.liftPred_ofSeq]
+  change ∀ᶠ i in nonstandardUltrafilter ι, P k (f i)
   let W_k := {i | e k ∈ E i}
-  have hW : W_k ∈ hyperfilter ι := by
-    have : W_k = {i | i ∈ {j | e k ∈ E j}} := rfl
-    rw [this]
-    have : hyperfilter ι ≤ hyperfilterRegularizer ι :=
-      le_trans (Ultrafilter.of_le _) inf_le_left
-    apply this
-    apply Filter.mem_generate_of_mem
-    use e k
-    rfl
+  have hW' : {i | e k ∈ E i} ∈ (nonstandardUltrafilter ι : Filter ι) := by
+    simpa [E] using (RegularIndex.family_mem (ι := ι) (a := e k))
+  have hW : W_k ∈ (nonstandardUltrafilter ι : Filter ι) := by
+    simpa [W_k] using hW'
   apply Filter.mem_of_superset hW
   intro i hi
   exact hf i k hi
@@ -2248,7 +2296,7 @@ local infix:50 " ≈ " => IsNearStandard
 
 /-- The ultrafilter corresponding to a hyperreal `x`. -/
 noncomputable def asUltrafilter (x : Hyper ι α) : Ultrafilter α :=
-  Ultrafilter.map (Classical.choose (Hyper.exists_seq_rep x)) (hyperfilter ι)
+  Ultrafilter.map (Classical.choose (Hyper.exists_seq_rep x)) (nonstandardUltrafilter ι)
 
 omit [TopologicalSpace α] in
 theorem mem_star_iff_mem_asUltrafilter (x : Hyper ι α) (S : Set α) :
@@ -2259,9 +2307,8 @@ theorem mem_star_iff_mem_asUltrafilter (x : Hyper ι α) (S : Set α) :
   conv_lhs => rw [← hf, liftPred_ofSeq]
   rfl
 
-omit [TopologicalSpace α] in
 /-- If the model is sufficiently saturated, every ultrafilter is represented by some hyperreal. -/
-theorem exists_hyper_of_ultrafilter [Nonempty (Set α ↪ ι)] (F : Ultrafilter α) :
+theorem exists_hyper_of_ultrafilter [RegularIndex ι] [Nonempty (Set α ↪ ι)] (F : Ultrafilter α) :
     ∃ x : Hyper ι α, asUltrafilter x = F := by
   classical
   obtain ⟨e⟩ := ‹Nonempty (Set α ↪ ι)›
@@ -2283,10 +2330,12 @@ theorem exists_hyper_of_ultrafilter [Nonempty (Set α ↪ ι)] (F : Ultrafilter 
     rw [liftPred_std]
     simp only [P]
     intro hSF
-    apply Set.mem_sInter.mp ha S
-    change S ∈ G.filter (fun S => S ∈ F)
-    rw [Finset.mem_filter]
-    exact ⟨hS, hSF⟩
+    have ha' := Set.mem_sInter.mp ha
+    have hS' : S ∈ (G_in_F : Set (Set α)) := by
+      change S ∈ G.filter (fun S => S ∈ F)
+      rw [Finset.mem_filter]
+      exact ⟨hS, hSF⟩
+    exact ha' S hS'
   obtain ⟨x, hx⟩ := cardinal_saturation e hfin
   use x
   apply Ultrafilter.ext
@@ -2314,7 +2363,7 @@ theorem exists_hyper_of_ultrafilter [Nonempty (Set α ↪ ι)] (F : Ultrafilter 
       obtain ⟨f, rfl⟩ := Hyper.ofSeq_surjective x
       rw [Hyper.liftPred_ofSeq]
       simp only [Filter.eventually_false_iff_eq_bot]
-      exact iff_false_intro (hyperfilter ι).neBot.ne
+      exact iff_false_intro (nonstandardUltrafilter ι).neBot.ne
     rwa [h_false] at h_inter
   · intro hSF
     specialize hx S
@@ -2326,7 +2375,7 @@ theorem exists_hyper_of_ultrafilter [Nonempty (Set α ↪ ι)] (F : Ultrafilter 
 /-- Characterization of compactness using nonstandard analysis.
 A set `K` is compact iff every point in `*K` is near standard to some point in `K`.
 (Reverse direction requires saturation). -/
-theorem isCompact_iff_nearStd [Nonempty (Set α ↪ ι)] (K : Set α) :
+theorem isCompact_iff_nearStd [RegularIndex ι] [Nonempty (Set α ↪ ι)] (K : Set α) :
     IsCompact K ↔ ∀ x : Hyper ι α, x ∈★ K → ∃ y ∈ K, x ≈ y := by
   constructor
   · intro hK x hx
@@ -2423,7 +2472,7 @@ theorem mem_star_Ioi [Preorder α] (x : Hyper ι α) (a : α) : x ∈★ Set.Ioi
 
 theorem mem_star_inter (x : Hyper ι α) (s t : Set α) : x ∈★ (s ∩ t) ↔ x ∈★ s ∧ x ∈★ t := by
   induction x using Germ.inductionOn with | h f =>
-  change (∀ᶠ i in hyperfilter ι, f i ∈ s ∩ t) ↔ (∀ᶠ i in hyperfilter ι, f i ∈ s) ∧ (∀ᶠ i in hyperfilter ι, f i ∈ t)
+  change (∀ᶠ i in nonstandardUltrafilter ι, f i ∈ s ∩ t) ↔ (∀ᶠ i in nonstandardUltrafilter ι, f i ∈ s) ∧ (∀ᶠ i in nonstandardUltrafilter ι, f i ∈ t)
   simp only [Set.mem_inter_iff, Filter.eventually_and]
 
 theorem mem_star_Ici [Preorder α] (x : Hyper ι α) (a : α) : x ∈★ Set.Ici a ↔ std a ≤ x := by
@@ -2549,11 +2598,11 @@ theorem IsNearStandard.unique [T2Space α] {x : Hyper ι α} {r s : α}
   have hxV := hs V hV
   -- Combine: x ∈★ U and x ∈★ V means x ∈★ (U ∩ V)
   simp only [liftPred_ofSeq] at hxU hxV
-  have hx_inter : ∀ᶠ i in hyperfilter ι, f i ∈ U ∩ V := hxU.and hxV
+  have hx_inter : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ U ∩ V := hxU.and hxV
   -- But U ∩ V = ∅, so this is eventually false
   have h_empty : U ∩ V = ∅ := Set.disjoint_iff_inter_eq_empty.mp hUV
   simp only [h_empty, Set.mem_empty_iff_false, Filter.eventually_false_iff_eq_bot] at hx_inter
-  exact (hyperfilter ι).neBot.ne hx_inter
+  exact (nonstandardUltrafilter ι).neBot.ne hx_inter
 
 /-- The standard part is unique in any Hausdorff space. -/
 theorem st_unique [TopologicalSpace α] [T2Space α] {x : Hyper ι α} {r s : α}
@@ -2595,12 +2644,12 @@ lemma isNearStandard_limit [Infinite ι] [TopologicalSpace α]
   have hx_in := hx (Sᶜ) h_nhds
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
   rw [liftPred_ofSeq] at hx_in
-  have hf_star : ∀ᶠ i in hyperfilter ι, f i ∈ S := h_star
+  have hf_star : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S := h_star
   have h_bot := hx_in.and hf_star
   have : (fun i => f i ∈ Sᶜ ∧ f i ∈ S) = (fun _ => False) := by
     ext i; simp [Set.mem_compl_iff]
   rw [this] at h_bot
-  exact (hyperfilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h_bot)
+  exact (nonstandardUltrafilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h_bot)
 
 /-- A continuous function preserves near-standardness.
 If `x ≈ a` and `f` is continuous at `a`, then `lift f x ≈ f a`. -/
@@ -2668,12 +2717,12 @@ theorem st_mono [Infinite ι] [LinearOrder α] [TopologicalSpace α] [OrderClose
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
   obtain ⟨g, rfl⟩ := ofSeq_surjective y
   simp only [lift₂_ofSeq, liftPred_ofSeq, Set.mem_compl_iff, Set.mem_setOf_eq, not_le] at h_ns
-  have h_le : ∀ᶠ i in hyperfilter ι, f i ≤ g i := h
+  have h_le : ∀ᶠ i in nonstandardUltrafilter ι, f i ≤ g i := h
   have h_bot := h_ns.and h_le
   have : (fun i => g i < f i ∧ f i ≤ g i) = (fun _ => False) := by
     ext i; simp [not_le]
   rw [this] at h_bot
-  exact (hyperfilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h_bot)
+  exact (nonstandardUltrafilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h_bot)
 
 /-- Standard part of a constant hyperreal is the constant itself. -/
 theorem st_std [TopologicalSpace α] [T2Space α] [Nonempty α] (r : α) :
@@ -2717,9 +2766,9 @@ theorem isFinite_iff_exists_st [ConditionallyCompleteLinearOrder α] [IsStrictOr
       -- Thus std s ≤ x implies s ≤ sSup S < u, so x < std u
       have hu : sSup S < u := hsup_mem.2
       by_contra hxu
-      push_neg at hxu
+      have hxu' : std u ≤ x := not_lt.mp hxu
       -- If std u ≤ x, then u ∈ S, but u > sSup S, contradiction
-      have : u ∈ S := hxu
+      have : u ∈ S := hxu'
       exact not_lt.mpr (le_csSup hS_bddAbove this) hu
   · -- Backward: ∃ r, IsNearStandard x r → IsFinite x
     intro ⟨r, hr⟩
@@ -2815,7 +2864,8 @@ variable [TopologicalSpace α] [OrderTopology α] [DenselyOrdered α] [NoMaxOrde
 variable [Nonempty (Set α ↪ ι)]
 
 set_option linter.style.longLine false in
-theorem isCompact_Icc {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b : α} : IsCompact (Set.Icc a b) := by
+theorem isCompact_Icc {ι : Type*} [NonstandardIndex ι] [RegularIndex ι] [Infinite ι]
+    [Nonempty (Set α ↪ ι)] {a b : α} : IsCompact (Set.Icc a b) := by
   rw [isCompact_iff_nearStd (ι := ι) (α := α)]
   intro x hx
   rw [mem_star_Icc] at hx
@@ -2839,7 +2889,9 @@ theorem isCompact_Icc {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b
       exact ((std_lt_std.mpr hbu).trans h_mem).not_ge hx.2
   · exact hy
 
-theorem not_isCompact_Ioo {ι : Type*} [Infinite ι] [Nonempty (Set α ↪ ι)] {a b : α} (h : a < b) :
+theorem not_isCompact_Ioo {ι : Type*} [NonstandardIndex ι] [RegularIndex ι] [Infinite ι]
+    [Nonempty (Set α ↪ ι)]
+    {a b : α} (h : a < b) :
     ¬ IsCompact (Set.Ioo a b) := by
   rw [isCompact_iff_nearStd (ι := ι) (α := α)]
   push_neg
@@ -2950,8 +3002,8 @@ theorem exists_hyperfinite_sandwich [LinearOrder ι] [LocallyFiniteOrderBot ι]
       simp only [Set.mem_compl_iff, Set.mem_setOf_eq, Set.mem_Iio] at hi ⊢
       rw [hS_mem i a ha] at hi
       exact lt_of_not_ge hi
-    -- Then lift to hyperfilter (hyperfilter_le_cofinite : hyperfilter ≤ cofinite)
-    exact hyperfilter_le_cofinite h_cofin
+    -- Then lift to nonstandardUltrafilter (nonstandardUltrafilter_le_cofinite : nonstandardUltrafilter ≤ cofinite)
+    exact (nonstandardUltrafilter_le_cofinite (ι := ι)) h_cofin
   · -- H ⊆ *A: elements of H are in the star of A
     intro x hx
     simp only [H, Set.mem_setOf_eq, S'] at hx
@@ -2990,8 +3042,8 @@ theorem exists_hyperfinite_sandwich_nat {A : Set α} (hA : A.Countable) :
         simp only [Set.mem_setOf_eq] at hx
         obtain ⟨f, rfl⟩ := ofSeq_surjective x
         rw [liftPredSeq_ofSeq] at hx
-        have hbot : (hyperfilter ℕ : Filter ℕ) = ⊥ := Filter.eventually_false_iff_eq_bot.mp hx
-        exact ((hyperfilter ℕ).neBot.ne hbot).elim
+        have hbot : (nonstandardUltrafilter ℕ : Filter ℕ) = ⊥ := Filter.eventually_false_iff_eq_bot.mp hx
+        exact ((nonstandardUltrafilter ℕ).neBot.ne hbot).elim
   · -- Nonempty case
     have hA_nonempty : A.Nonempty := Set.nonempty_iff_ne_empty.mpr hA_empty
     obtain ⟨e, he_inj⟩ := hA.exists_injective_nat
@@ -3020,7 +3072,7 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
   have hS_fin : ∀ i, (S i).Finite := hH.choose_spec.1
   have hS_mem : ∀ x, x ∈ H ↔ liftPredSeq (fun i y => y ∈ S i) x := hH.choose_spec.2
   -- Define B' = "stable base" = {a : std a ∈ H} = {a : ∀ᶠ i, a ∈ S_i}
-  let B' := {a : α | ∀ᶠ i in hyperfilter ι, a ∈ S i}
+  let B' := {a : α | ∀ᶠ i in nonstandardUltrafilter ι, a ∈ S i}
   -- First establish that α is nonempty (hyperfiniteCard > 0 implies some S i nonempty)
   have hS_ne_some : ∃ i, (S i).Nonempty := by
     have h0 := hCard 0
@@ -3031,21 +3083,21 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
   obtain ⟨i₀, hi₀⟩ := hS_ne_some
   haveI : Nonempty α := ⟨hi₀.some⟩
   -- Case split on transients
-  by_cases h_transient : ∀ᶠ i in hyperfilter ι, ∃ a ∈ S i, a ∉ B'
-  · -- Case 1: Transient elements exist for hyperfilter-many i
+  by_cases h_transient : ∀ᶠ i in nonstandardUltrafilter ι, ∃ a ∈ S i, a ∉ B'
+  · -- Case 1: Transient elements exist for nonstandardUltrafilter-many i
     have h_nonempty : ∀ i, (∃ a ∈ S i, a ∉ B') → Set.Nonempty (S i ∩ B'ᶜ) :=
       fun i ⟨a, ha_in, ha_notB'⟩ => ⟨a, ha_in, ha_notB'⟩
     let f : ι → α := fun i =>
       if h : ∃ a ∈ S i, a ∉ B' then (h_nonempty i h).some else Classical.arbitrary α
-    have hf_in_S : ∀ᶠ i in hyperfilter ι, f i ∈ S i := by
+    have hf_in_S : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i := by
       filter_upwards [h_transient] with i hi
       simp only [f, hi, dif_pos]; exact ((h_nonempty i hi).some_mem).1
-    have hf_transient : ∀ᶠ i in hyperfilter ι, f i ∉ B' := by
+    have hf_transient : ∀ᶠ i in nonstandardUltrafilter ι, f i ∉ B' := by
       filter_upwards [h_transient] with i hi
       simp only [f, hi, dif_pos]; exact ((h_nonempty i hi).some_mem).2
     have hOfSeq_in_H : ofSeq f ∈ H := by rw [hS_mem, liftPredSeq_ofSeq]; exact hf_in_S
     obtain ⟨a, ha⟩ := h_all_std (ofSeq f) hOfSeq_in_H
-    have hf_eq_a : ∀ᶠ i in hyperfilter ι, f i = a := by
+    have hf_eq_a : ∀ᶠ i in nonstandardUltrafilter ι, f i = a := by
       have heq : ofSeq f = std a := ha
       rw [eq_iff_liftRel_eq] at heq
       rw [← liftRel_flip] at heq
@@ -3058,8 +3110,8 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
       have := Filter.Eventually.and hf_transient hf_eq_a
       obtain ⟨i, hi_trans, hi_eq⟩ := this.exists; rw [← hi_eq]; exact hi_trans
     exact ha_not_B' ha_in_B'
-  · -- Case 2: S_i ⊆ B' for hyperfilter-many i
-    have h_subset : ∀ᶠ i in hyperfilter ι, ∀ a ∈ S i, a ∈ B' := by
+  · -- Case 2: S_i ⊆ B' for nonstandardUltrafilter-many i
+    have h_subset : ∀ᶠ i in nonstandardUltrafilter ι, ∀ a ∈ S i, a ∈ B' := by
       rw [← Ultrafilter.eventually_not] at h_transient
       simp only [not_exists, not_and, not_not] at h_transient; exact h_transient
     by_cases hB'_inf : B'.Infinite
@@ -3068,29 +3120,29 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
       let g : ℕ → α := fun n => (hg n).val
       have hg_inj : Function.Injective g := fun m n h => hg.injective (Subtype.val_injective h)
       have hg_in_B' : ∀ n, g n ∈ B' := fun n => (hg n).property
-      have hI : ∀ n, ∀ᶠ i in hyperfilter ι, g n ∈ S i := hg_in_B'
+      have hI : ∀ n, ∀ᶠ i in nonstandardUltrafilter ι, g n ∈ S i := hg_in_B'
       have hK_fin : ∀ i, {k : ℕ | g k ∈ S i}.Finite := fun i =>
         Set.Finite.preimage hg_inj.injOn (hS_fin i)
-      have hK_ne : ∀ᶠ i in hyperfilter ι, {k : ℕ | g k ∈ S i}.Nonempty := by
+      have hK_ne : ∀ᶠ i in nonstandardUltrafilter ι, {k : ℕ | g k ∈ S i}.Nonempty := by
         filter_upwards [hI 0] with i hi; exact ⟨0, hi⟩
       let maxK : ι → ℕ := fun i =>
         if h : {k : ℕ | g k ∈ S i}.Nonempty then
           (hK_fin i).toFinset.max' ((hK_fin i).toFinset_nonempty.mpr h)
         else 0
-      have hmaxK_unbounded : ∀ m : ℕ, ∀ᶠ i in hyperfilter ι, maxK i > m := by
+      have hmaxK_unbounded : ∀ m : ℕ, ∀ᶠ i in nonstandardUltrafilter ι, maxK i > m := by
         intro m; filter_upwards [hI (m + 1), hK_ne] with i hi_in hi_ne
         simp only [maxK, hi_ne, dif_pos]
         apply Nat.lt_of_lt_of_le (Nat.lt_succ_self m); apply Finset.le_max'
         simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq]; exact hi_in
       let f : ι → α := fun i => g (maxK i)
-      have hf_in_S : ∀ᶠ i in hyperfilter ι, f i ∈ S i := by
+      have hf_in_S : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i := by
         filter_upwards [hK_ne] with i hi_ne
         simp only [f, maxK, hi_ne, dif_pos]
         have hmax_mem := Finset.max'_mem _ ((hK_fin i).toFinset_nonempty.mpr hi_ne)
         simp only [Set.Finite.mem_toFinset, Set.mem_setOf_eq] at hmax_mem; exact hmax_mem
       have hOfSeq_in_H : ofSeq f ∈ H := by rw [hS_mem, liftPredSeq_ofSeq]; exact hf_in_S
       obtain ⟨a, ha⟩ := h_all_std (ofSeq f) hOfSeq_in_H
-      have hf_eq_a : ∀ᶠ i in hyperfilter ι, f i = a := by
+      have hf_eq_a : ∀ᶠ i in nonstandardUltrafilter ι, f i = a := by
         have heq : ofSeq f = std a := ha
         rw [eq_iff_liftRel_eq] at heq
         rw [← liftRel_flip] at heq
@@ -3099,7 +3151,7 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
         filter_upwards [heq] with i hi; exact hi
       by_cases ha_range : a ∈ Set.range g
       · obtain ⟨m, rfl⟩ := ha_range
-        have hmax_eq_m : ∀ᶠ i in hyperfilter ι, maxK i = m := by
+        have hmax_eq_m : ∀ᶠ i in nonstandardUltrafilter ι, maxK i = m := by
           filter_upwards [hf_eq_a] with i hi; simp only [f] at hi; exact hg_inj hi
         have hmax_gt_m := hmaxK_unbounded m
         have := Filter.Eventually.and hmax_eq_m hmax_gt_m
@@ -3111,12 +3163,12 @@ theorem IsHyperfinite.exists_nonstandard_of_large_card {H : Set (Hyper ι α)}
     · -- Case 2a: B' finite - cardinality bound contradiction
       rw [Set.not_infinite] at hB'_inf
       let k := hB'_inf.toFinset.card
-      have hcard_bound : ∀ᶠ i in hyperfilter ι, (hS_fin i).toFinset.card ≤ k := by
+      have hcard_bound : ∀ᶠ i in nonstandardUltrafilter ι, (hS_fin i).toFinset.card ≤ k := by
         filter_upwards [h_subset] with i hi; apply Finset.card_le_card
         intro a ha; rw [Set.Finite.mem_toFinset] at ha ⊢; exact hi a ha
       have hCard_le : hyperfiniteCard H hH ≤ std k := by
         rw [hyperfiniteCard, std_eq_ofSeq_const, ofSeq_le_ofSeq]; exact hcard_bound
-      exact not_lt.mpr hCard_le (hCard k)
+      exact (not_lt_of_ge hCard_le) (hCard k)
 
 /-- For any set with a countable enumeration, the hyperfinite approximation
 gives strict containment when A is infinite. -/
@@ -3139,18 +3191,18 @@ theorem hyperfinite_sandwich_strict {A : Set α} (hA : A.Countable) (hA_inf : A.
   let S := hH_hf.choose
   have hS_fin : ∀ i, (S i).Finite := hH_hf.choose_spec.1
   have hS_mem : ∀ x, x ∈ H ↔ liftPredSeq (fun i y => y ∈ S i) x := hH_hf.choose_spec.2
-  -- For each a ∈ t, std a ∈ H, so a ∈ S i for hyperfilter-many i
-  have h_in : ∀ a ∈ t, ∀ᶠ i in hyperfilter ℕ, a ∈ S i := by
+  -- For each a ∈ t, std a ∈ H, so a ∈ S i for nonstandardUltrafilter-many i
+  have h_in : ∀ a ∈ t, ∀ᶠ i in nonstandardUltrafilter ℕ, a ∈ S i := by
     intro a ha
     have h_std_in : std a ∈ H := hH_std a (ht_sub (Finset.mem_coe.mp ha))
     rw [hS_mem, liftPredSeq, std, Germ.const] at h_std_in
     exact h_std_in
-  -- By finite intersection, all elements of t are in S i for hyperfilter-many i
-  have h_all : ∀ᶠ i in hyperfilter ℕ, ∀ a ∈ t, a ∈ S i := by
+  -- By finite intersection, all elements of t are in S i for nonstandardUltrafilter-many i
+  have h_all : ∀ᶠ i in nonstandardUltrafilter ℕ, ∀ a ∈ t, a ∈ S i := by
     rw [Filter.eventually_all_finset]
     exact h_in
   -- On this set, |S i| ≥ |t| = n + 1 > n
-  have h_card : ∀ᶠ i in hyperfilter ℕ, n < (hS_fin i).toFinset.card := by
+  have h_card : ∀ᶠ i in nonstandardUltrafilter ℕ, n < (hS_fin i).toFinset.card := by
     filter_upwards [h_all] with i hi
     have h_sub : ↑t ⊆ S i := by
       intro a ha
@@ -3221,10 +3273,10 @@ theorem hyperfinite_strict_sandwich {A : Set α} (hA : A.Countable) (hA_inf : A.
       rw [hS_eq, liftPredSeq_ofSeq]
       simp only [Filter.eventually_iff_exists_mem, not_exists, not_and]
       intro U hU
-      -- U ∈ hyperfilter ℕ is infinite (nonprincipal ultrafilter)
+      -- U ∈ nonstandardUltrafilter ℕ is infinite (nonprincipal ultrafilter)
       have hU_inf : U.Infinite := by
         by_contra hU_fin
-        exact Set.Finite.notMem_hyperfilter (Set.not_infinite.mp hU_fin) hU
+        exact Set.Finite.notMem_nonstandardUltrafilter (Set.not_infinite.mp hU_fin) hU
       obtain ⟨i, hi⟩ := hU_inf.nonempty
       intro h_all
       exact (hf i).2 (h_all i hi)
@@ -3289,14 +3341,14 @@ theorem liftPred_of_eventually_ge {P : ℕ → Prop} {N : ℕ}
   obtain ⟨f, rfl⟩ := ofSeq_surjective ω
   rw [liftPred_ofSeq]
   -- ω is unlimited means ∀ k, std k < ω, so f(i) > N for almost all i
-  have hgt : ∀ᶠ i in hyperfilter ℕ, N < f i := by
+  have hgt : ∀ᶠ i in nonstandardUltrafilter ℕ, N < f i := by
     have hω' : std N < ofSeq f := by
       by_contra hle
-      push_neg at hle
+      have hle' : ofSeq f ≤ std N := not_lt.mp hle
       have h0_le : std 0 ≤ ofSeq f := by
         rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
         exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
-      have hfin : IsFinite (ofSeq f) := ⟨0, N, h0_le, hle⟩
+      have hfin : IsFinite (ofSeq f) := ⟨0, N, h0_le, hle'⟩
       exact hω hfin
     rw [std_lt_ofSeq] at hω'
     exact hω'
@@ -3330,26 +3382,26 @@ theorem IsCauchyNSA_of_cauchySeq (u : ℕ → α) (hu : CauchySeq u) : IsCauchyN
   · -- Show: lift₂ (dist on u) (ofSeq f) (ofSeq g) < std ε
     rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
     -- ofSeq f is unlimited, so f(i) ≥ K for almost all i
-    have hfK : ∀ᶠ i in hyperfilter ℕ, K ≤ f i := by
+    have hfK : ∀ᶠ i in nonstandardUltrafilter ℕ, K ≤ f i := by
       have hN' : std K < ofSeq f := by
         by_contra hle
-        push_neg at hle
+        have hle' : ofSeq f ≤ std K := not_lt.mp hle
         have h0_le : std 0 ≤ ofSeq f := by
           rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
           exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
-        have hfin : IsFinite (ofSeq f) := ⟨0, K, h0_le, hle⟩
+        have hfin : IsFinite (ofSeq f) := ⟨0, K, h0_le, hle'⟩
         exact hN hfin
       rw [std_lt_ofSeq] at hN'
       exact hN'.mono (fun i hi => Nat.le_of_lt hi)
     -- ofSeq g is unlimited, so g(i) ≥ K for almost all i
-    have hgK : ∀ᶠ i in hyperfilter ℕ, K ≤ g i := by
+    have hgK : ∀ᶠ i in nonstandardUltrafilter ℕ, K ≤ g i := by
       have hM' : std K < ofSeq g := by
         by_contra hle
-        push_neg at hle
+        have hle' : ofSeq g ≤ std K := not_lt.mp hle
         have h0_le : std 0 ≤ ofSeq g := by
           rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
           exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
-        have hfin : IsFinite (ofSeq g) := ⟨0, K, h0_le, hle⟩
+        have hfin : IsFinite (ofSeq g) := ⟨0, K, h0_le, hle'⟩
         exact hM hfin
       rw [std_lt_ofSeq] at hM'
       exact hM'.mono (fun i hi => Nat.le_of_lt hi)
@@ -3378,11 +3430,11 @@ theorem cauchySeq_of_isCauchyNSA (u : ℕ → α) (hu : IsCauchyNSA u) : CauchyS
     intro hfin
     obtain ⟨a, b, ha, hb⟩ := hfin
     -- ofSeq m_seq ≤ std b, but m_seq k ≥ k, so for large k, m_seq k > b
-    have hle : ∀ᶠ k in hyperfilter ℕ, m_seq k ≤ b := by
+    have hle : ∀ᶠ k in nonstandardUltrafilter ℕ, m_seq k ≤ b := by
       rw [std_eq_ofSeq_const, ofSeq_le_ofSeq] at hb
       exact hb
-    have hbig : ∀ᶠ k in hyperfilter ℕ, m_seq k > b := by
-      apply Filter.mem_hyperfilter_of_finite_compl
+    have hbig : ∀ᶠ k in nonstandardUltrafilter ℕ, m_seq k > b := by
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       simp only [Set.compl_setOf, not_lt]
       have hsub : {k | m_seq k ≤ b} ⊆ {k | k ≤ b} := fun k hk => Nat.le_trans (hm k) hk
       exact Set.Finite.subset (Set.finite_le_nat b) hsub
@@ -3391,11 +3443,11 @@ theorem cauchySeq_of_isCauchyNSA (u : ℕ → α) (hu : IsCauchyNSA u) : CauchyS
   have hN_inf : (ofSeq n_seq).IsInfinite := by
     intro hfin
     obtain ⟨a, b, ha, hb⟩ := hfin
-    have hle : ∀ᶠ k in hyperfilter ℕ, n_seq k ≤ b := by
+    have hle : ∀ᶠ k in nonstandardUltrafilter ℕ, n_seq k ≤ b := by
       rw [std_eq_ofSeq_const, ofSeq_le_ofSeq] at hb
       exact hb
-    have hbig : ∀ᶠ k in hyperfilter ℕ, n_seq k > b := by
-      apply Filter.mem_hyperfilter_of_finite_compl
+    have hbig : ∀ᶠ k in nonstandardUltrafilter ℕ, n_seq k > b := by
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       simp only [Set.compl_setOf, not_lt]
       have hsub : {k | n_seq k ≤ b} ⊆ {k | k ≤ b} := fun k hk => Nat.le_trans (hn k) hk
       exact Set.Finite.subset (Set.finite_le_nat b) hsub
@@ -3409,7 +3461,7 @@ theorem cauchySeq_of_isCauchyNSA (u : ℕ → α) (hu : IsCauchyNSA u) : CauchyS
     exact Filter.Eventually.of_forall hdist
   -- This contradicts infinitesimality: hinf says lift₂ < std ε
   obtain ⟨_, h2⟩ := hinf ε hε
-  exact not_lt.mpr hε_lift h2
+  exact (not_lt_of_ge hε_lift) h2
 
 /-- **Main theorem**: Nonstandard characterization of Cauchy sequences.
 
@@ -3448,13 +3500,13 @@ theorem IsInfinitePos_of_IsInfinite_nat {N : Hyper ℕ ℕ} (hN : N.IsInfinite) 
   obtain ⟨k, hk⟩ := exists_nat_gt r
   have hN_gt : std k < N := by
     by_contra hle
-    push_neg at hle
+    have hle' : N ≤ std k := not_lt.mp hle
     -- N ≤ std k means N is finite (bounded between 0 and k)
     have h0_le : std 0 ≤ N := by
       obtain ⟨f, rfl⟩ := ofSeq_surjective N
       rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
       exact Filter.Eventually.of_forall fun i => Nat.zero_le (f i)
-    have hfin : N.IsFinite := ⟨0, k, h0_le, hle⟩
+    have hfin : N.IsFinite := ⟨0, k, h0_le, hle'⟩
     exact hN hfin
   calc std r < std (k : ℝ) := std_lt_std.mpr (by exact_mod_cast hk)
     _ = liftNatToReal (std k) := (liftNatToReal_std k).symm
@@ -3599,14 +3651,14 @@ theorem ConvergesTo_NSA_of_tendsto (u : ℕ → α) (L : α)
     exact lt_of_lt_of_le hneg h0
   · -- lift (dist · L) (ofSeq f) < std ε
     rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
-    have hfK : ∀ᶠ i in hyperfilter ℕ, K ≤ f i := by
+    have hfK : ∀ᶠ i in nonstandardUltrafilter ℕ, K ≤ f i := by
       have hN' : std K < ofSeq f := by
         by_contra hle
-        push_neg at hle
+        have hle' : ofSeq f ≤ std K := not_lt.mp hle
         have h0_le : std 0 ≤ ofSeq f := by
           rw [std_eq_ofSeq_const, ofSeq_le_ofSeq]
           exact Filter.Eventually.of_forall (fun _ => Nat.zero_le _)
-        exact hN ⟨0, K, h0_le, hle⟩
+        exact hN ⟨0, K, h0_le, hle'⟩
       rw [std_lt_ofSeq] at hN'
       exact hN'.mono (fun i hi => Nat.le_of_lt hi)
     exact hfK.mono (fun i hi => hK (f i) hi)
@@ -3623,11 +3675,11 @@ theorem tendsto_of_ConvergesTo_NSA (u : ℕ → α) (L : α)
   have hf_inf : (ofSeq f).IsInfinite := by
     intro hfin
     obtain ⟨a, b, ha, hb⟩ := hfin
-    have hle : ∀ᶠ k in hyperfilter ℕ, f k ≤ b := by
+    have hle : ∀ᶠ k in nonstandardUltrafilter ℕ, f k ≤ b := by
       rw [std_eq_ofSeq_const, ofSeq_le_ofSeq] at hb
       exact hb
-    have hbig : ∀ᶠ k in hyperfilter ℕ, f k > b := by
-      apply Filter.mem_hyperfilter_of_finite_compl
+    have hbig : ∀ᶠ k in nonstandardUltrafilter ℕ, f k > b := by
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       simp only [Set.compl_setOf, not_lt]
       have hsub : {k | f k ≤ b} ⊆ {k | k ≤ b} := fun k hk => Nat.le_trans (hf k) hk
       exact Set.Finite.subset (Set.finite_le_nat b) hsub
@@ -3638,7 +3690,7 @@ theorem tendsto_of_ConvergesTo_NSA (u : ℕ → α) (L : α)
     rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
     exact Filter.Eventually.of_forall hfε
   obtain ⟨_, h2⟩ := hinf ε hε
-  exact not_lt.mpr hε_lift h2
+  exact (not_lt_of_ge hε_lift) h2
 
 /-- **Main theorem**: Nonstandard characterization of sequence convergence.
 
@@ -3689,7 +3741,7 @@ theorem IsContinuousAt_NSA_of_continuousAt (f : α → β) (x : α)
   · -- lift (dist (f ·) (f x)) (ofSeq g) < std ε
     rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
     -- y is infinitely close to x means dist(g i, x) < δ for almost all i
-    have hclose : ∀ᶠ i in hyperfilter ℕ, dist (g i) x < δ := by
+    have hclose : ∀ᶠ i in nonstandardUltrafilter ℕ, dist (g i) x < δ := by
       have := (hy δ hδ).2
       rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
       exact this
@@ -3732,7 +3784,7 @@ theorem continuousAt_of_IsContinuousAt_NSA (f : α → β) (x : α)
         calc 1 = δ * (1 / δ) := hδ_inv.symm
           _ < δ * N := by nlinarith
           _ < δ * (N + 1) := by nlinarith
-      apply Filter.mem_hyperfilter_of_finite_compl
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       -- Show: {n | ¬dist (seq n) x < δ} ⊆ {n | n < N} (finite set)
       have hsub : {n | ¬dist (seq n) x < δ} ⊆ {n | n < N} := by
         intro n hn
@@ -3755,7 +3807,7 @@ theorem continuousAt_of_IsContinuousAt_NSA (f : α → β) (x : α)
     rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
     exact Filter.Eventually.of_forall hseq_far
   obtain ⟨_, h2⟩ := h_result ε hε
-  exact not_lt.mpr hε_lift h2
+  exact (not_lt_of_ge hε_lift) h2
 
 /-- **Main theorem**: Nonstandard characterization of continuity at a point.
 
@@ -3792,7 +3844,7 @@ theorem IsUniformContinuous_NSA_of_uniformContinuous (f : α → β)
       exact neg_lt_zero.mpr hε
     exact lt_of_lt_of_le hneg h0
   · rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq]
-    have hclose : ∀ᶠ i in hyperfilter ℕ, dist (fx i) (fy i) < δ := by
+    have hclose : ∀ᶠ i in nonstandardUltrafilter ℕ, dist (fx i) (fy i) < δ := by
       have := (hxy δ hδ).2
       rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
       exact this
@@ -3832,7 +3884,7 @@ theorem IsUniformContinuous_NSA_of_uniformContinuous (f : α → β)
         calc 1 = δ * (1 / δ) := hδ_inv.symm
           _ < δ * N := by nlinarith
           _ < δ * (N + 1) := by nlinarith
-      apply Filter.mem_hyperfilter_of_finite_compl
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       -- Show: {n | ¬dist (seq_x n) (seq_y n) < δ} ⊆ {n | n < N} (finite set)
       have hsub : {n | ¬dist (seq_x n) (seq_y n) < δ} ⊆ {n | n < N} := by
         intro n hn
@@ -3855,7 +3907,7 @@ theorem IsUniformContinuous_NSA_of_uniformContinuous (f : α → β)
     rw [lift₂_ofSeq, std_eq_ofSeq_const, ofSeq_le_ofSeq]
     exact Filter.Eventually.of_forall hfar
   obtain ⟨_, h2⟩ := h_result ε hε
-  exact not_lt.mpr hε_lift h2
+  exact (not_lt_of_ge hε_lift) h2
 
 /-- **Main theorem**: Nonstandard characterization of uniform continuity.
 
@@ -4003,14 +4055,14 @@ theorem HasLimit_NSA_of_tendsto (f : α → β) (a : α) (L : β)
     change ofSeq (fun i => dist (f (g i)) L) < ofSeq (fun _ => ε)
     rw [ofSeq_lt_ofSeq]
     -- x is infinitely close to a means dist(g i, a) < δ for almost all i
-    have hclose : ∀ᶠ i in hyperfilter ℕ, dist (g i) a < δ := by
+    have hclose : ∀ᶠ i in nonstandardUltrafilter ℕ, dist (g i) a < δ := by
       have := (hx_close δ hδ).2
       rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
       exact this
     -- x ≠ std a means g i ≠ a for almost all i
-    have hne : ∀ᶠ i in hyperfilter ℕ, g i ≠ a := by
+    have hne : ∀ᶠ i in nonstandardUltrafilter ℕ, g i ≠ a := by
       by_contra h_eq
-      have h_eq' : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), g i = a := by
+      have h_eq' : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), g i = a := by
         rw [Filter.not_eventually] at h_eq
         have h := Ultrafilter.frequently_iff_eventually.mp h_eq
         filter_upwards [h] with i hi
@@ -4044,10 +4096,10 @@ theorem tendsto_of_HasLimit_NSA (f : α → β) (a : α) (L : β)
   have h_ne_std : (ofSeq seq : Hyper ℕ α) ≠ std a := by
     rw [std_eq_ofSeq_const]
     intro heq
-    have heq' : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), seq i = a := Filter.Germ.coe_eq.mp heq
-    have hne_ae : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), seq i ≠ a :=
+    have heq' : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), seq i = a := Filter.Germ.coe_eq.mp heq
+    have hne_ae : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), seq i ≠ a :=
       Filter.Eventually.of_forall hseq_ne
-    have hfalse : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), False := by
+    have hfalse : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
       filter_upwards [heq', hne_ae] with i heq hne
       exact hne heq
     exact Filter.NeBot.ne inferInstance (Filter.eventually_false_iff_eq_bot.mp hfalse)
@@ -4074,7 +4126,7 @@ theorem tendsto_of_HasLimit_NSA (f : α → β) (a : α) (L : β)
         calc 1 = δ * (1 / δ) := hδ_inv.symm
           _ < δ * N := by nlinarith
           _ < δ * (N + 1) := by nlinarith
-      apply Filter.mem_hyperfilter_of_finite_compl
+      apply Filter.mem_nonstandardUltrafilter_of_finite_compl
       have hsub : {n | ¬dist (seq n) a < δ} ⊆ {n | n < N} := by
         intro n hn
         simp only [Set.mem_setOf_eq] at hn ⊢
@@ -4091,16 +4143,16 @@ theorem tendsto_of_HasLimit_NSA (f : α → β) (a : α) (L : β)
       exact Set.Finite.subset (Set.finite_lt_nat N) hsub
   -- But h says this should make f values infinitely close to L
   have h_result := h (ofSeq seq) h_ne_std h_inf_close
-  have hε_lift : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ε ≤ dist (f (seq i)) L :=
+  have hε_lift : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), ε ≤ dist (f (seq i)) L :=
     Filter.Eventually.of_forall hseq_far
   obtain ⟨_, h2⟩ := h_result ε hε
   rw [lift_ofSeq, std_eq_ofSeq_const] at h2
   change ofSeq (fun i => dist (f (seq i)) L) < ofSeq (fun _ => ε) at h2
   rw [ofSeq_lt_ofSeq] at h2
-  have hcontra : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), ε ≤ dist (f (seq i)) L ∧ dist (f (seq i)) L < ε := by
+  have hcontra : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), ε ≤ dist (f (seq i)) L ∧ dist (f (seq i)) L < ε := by
     filter_upwards [hε_lift, h2] with i h1 h2
     exact ⟨h1, h2⟩
-  have hfalse : ∀ᶠ i in (hyperfilter ℕ : Filter ℕ), False := by
+  have hfalse : ∀ᶠ i in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
     filter_upwards [hcontra] with i ⟨h1, h2⟩
     exact (not_lt.mpr h1) h2
   exact Filter.NeBot.ne inferInstance (Filter.eventually_false_iff_eq_bot.mp hfalse)
@@ -4159,13 +4211,13 @@ def IsCompact_NSA (K : Set α) : Prop :=
 theorem IsCompact_NSA_of_isCompact {K : Set α} (hK : IsCompact K) : IsCompact_NSA K := by
   intro x hx
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  -- hx : liftPred (· ∈ K) (ofSeq f), i.e., ∀ᶠ i in hyperfilter ℕ, f i ∈ K
+  -- hx : liftPred (· ∈ K) (ofSeq f), i.e., ∀ᶠ i in nonstandardUltrafilter ℕ, f i ∈ K
   rw [liftPred_ofSeq] at hx
-  -- This means map f (hyperfilter ℕ) ≤ 𝓟 K
-  have hmap : Filter.map f (hyperfilter ℕ) ≤ Filter.principal K := by
+  -- This means map f (nonstandardUltrafilter ℕ) ≤ 𝓟 K
+  have hmap : Filter.map f (nonstandardUltrafilter ℕ) ≤ Filter.principal K := by
     rw [Filter.le_principal_iff, Filter.mem_map]
     exact hx
-  -- By compactness, there exists y ∈ K with MapClusterPt y (hyperfilter ℕ) f
+  -- By compactness, there exists y ∈ K with MapClusterPt y (nonstandardUltrafilter ℕ) f
   obtain ⟨y, hy_K, hy_cluster⟩ := hK.exists_mapClusterPt hmap
   use y, hy_K
   -- Show IsInfinitesimal (lift (dist · y) (ofSeq f))
@@ -4185,7 +4237,7 @@ theorem IsCompact_NSA_of_isCompact {K : Set α} (hK : IsCompact K) : IsCompact_N
     rw [ofSeq_lt_ofSeq]
     -- By MapClusterPt, dist(f i, y) < ε frequently (and hence eventually for ultrafilters)
     have hball : Metric.ball y ε ∈ nhds y := Metric.ball_mem_nhds y hε
-    have hfreq : ∃ᶠ i in hyperfilter ℕ, f i ∈ Metric.ball y ε :=
+    have hfreq : ∃ᶠ i in nonstandardUltrafilter ℕ, f i ∈ Metric.ball y ε :=
       hy_cluster.frequently hball
     -- For ultrafilters, ∃ᶠ = ∀ᶠ
     have heventual := Ultrafilter.frequently_iff_eventually.mp hfreq
@@ -4207,18 +4259,18 @@ theorem isCompact_of_IsCompact_NSA {K : Set α} (_hK_closed : IsClosed K)
       exact Filter.Eventually.of_forall hseq_K
     -- By IsCompact_NSA, there exists y ∈ K with ofSeq seq infinitely close to y
     obtain ⟨y, hy_K, hy_close⟩ := h (ofSeq seq) hx_K
-    -- For all ε > 0, {i | dist(seq i, y) < ε} ∈ hyperfilter ℕ
-    have hball : ∀ ε > 0, {i : ℕ | dist (seq i) y < ε} ∈ hyperfilter ℕ := by
+    -- For all ε > 0, {i | dist(seq i, y) < ε} ∈ nonstandardUltrafilter ℕ
+    have hball : ∀ ε > 0, {i : ℕ | dist (seq i) y < ε} ∈ nonstandardUltrafilter ℕ := by
       intro ε hε
       have := (hy_close ε hε).2
       rw [lift_ofSeq, std_eq_ofSeq_const, ofSeq_lt_ofSeq] at this
       exact this
-    -- Sets in hyperfilter are infinite (since finite sets are not in hyperfilter)
+    -- Sets in nonstandardUltrafilter are infinite (since finite sets are not in nonstandardUltrafilter)
     have hinf : ∀ ε > 0, {i : ℕ | dist (seq i) y < ε}.Infinite := by
       intro ε hε
       by_contra hfin
       push_neg at hfin
-      exact Set.Finite.notMem_hyperfilter hfin (hball ε hε)
+      exact Set.Finite.notMem_nonstandardUltrafilter hfin (hball ε hε)
     -- This means y is a cluster point of seq along atTop
     have hcluster : MapClusterPt y Filter.atTop seq := by
       rw [mapClusterPt_def]
