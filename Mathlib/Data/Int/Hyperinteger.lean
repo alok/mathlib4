@@ -79,6 +79,79 @@ def InfiniteNeg (x : ℤ*) : Prop := ∀ m : ℤ, x < (m : ℤ*)
 /-- A hyperinteger is infinite if it is either positive or negative infinite. -/
 def Infinite (x : ℤ*) : Prop := InfinitePos x ∨ InfiniteNeg x
 
+/-! ### Transfer Principle Lemmas -/
+
+section Transfer
+
+open Germ Ultrafilter
+
+/-- Lift a predicate on ℤ to ℤ* via the hyperfilter. -/
+def liftPred (P : ℤ → Prop) (x : ℤ*) : Prop :=
+  Germ.LiftPred P x
+
+/-- Lift a binary relation on ℤ to ℤ* via the hyperfilter. -/
+def liftRel (R : ℤ → ℤ → Prop) (x y : ℤ*) : Prop :=
+  Germ.LiftRel R x y
+
+@[simp]
+theorem liftPred_ofSeq {P : ℤ → Prop} {f : ℕ → ℤ} :
+    liftPred P (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, P (f n) :=
+  Germ.liftPred_coe
+
+@[simp]
+theorem liftPred_coe {P : ℤ → Prop} {z : ℤ} :
+    liftPred P (z : ℤ*) ↔ P z :=
+  Germ.liftPred_const_iff
+
+@[simp]
+theorem liftRel_ofSeq {R : ℤ → ℤ → Prop} {f g : ℕ → ℤ} :
+    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ℕ, R (f n) (g n) :=
+  Germ.liftRel_coe
+
+@[simp]
+theorem liftRel_coe {R : ℤ → ℤ → Prop} {a b : ℤ} :
+    liftRel R (a : ℤ*) (b : ℤ*) ↔ R a b :=
+  Germ.liftRel_const_iff
+
+theorem liftPred_and {P Q : ℤ → Prop} {x : ℤ*} :
+    liftPred (fun z => P z ∧ Q z) x ↔ liftPred P x ∧ liftPred Q x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq, eventually_and]
+
+theorem liftPred_or {P Q : ℤ → Prop} {x : ℤ*} :
+    liftPred (fun z => P z ∨ Q z) x ↔ liftPred P x ∨ liftPred Q x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_or
+
+theorem liftPred_not {P : ℤ → Prop} {x : ℤ*} :
+    liftPred (fun z => ¬P z) x ↔ ¬liftPred P x := by
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  simp only [liftPred_ofSeq]
+  exact Ultrafilter.eventually_not
+
+theorem liftPred_imp {P Q : ℤ → Prop} {x : ℤ*} :
+    liftPred (fun z => P z → Q z) x ↔ (liftPred P x → liftPred Q x) := by
+  simp only [imp_iff_not_or, liftPred_or, liftPred_not]
+
+theorem forall_iff_forall_liftPred {P : ℤ → Prop} :
+    (∀ z : ℤ, P z) ↔ (∀ x : ℤ*, liftPred P x) := by
+  constructor
+  · intro hP x
+    rcases ofSeq_surjective x with ⟨f, rfl⟩
+    simp only [liftPred_ofSeq]
+    exact Eventually.of_forall (fun n => hP (f n))
+  · intro hP z
+    have := hP (z : ℤ*)
+    simpa using (liftPred_coe.mp this)
+
+theorem exists_implies_exists_liftPred {P : ℤ → Prop} :
+    (∃ z : ℤ, P z) → (∃ x : ℤ*, liftPred P x) := by
+  intro ⟨z, hz⟩
+  exact ⟨z, liftPred_coe.mpr hz⟩
+
+end Transfer
+
 /-- Standard-part predicate for hyperintegers: `IsSt x z` means `x` equals the standard integer `z`.
 
 For discrete types like `ℤ*`, this is just equality (`IsSt x z ↔ x = z`), but provides
