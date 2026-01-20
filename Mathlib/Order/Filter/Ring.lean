@@ -6,11 +6,8 @@ Authors: Johannes Hölzl, Jeremy Avigad
 module
 
 public import Mathlib.Order.Filter.Germ.OrderedMonoid
-public import Mathlib.Algebra.Order.Ring.Defs
 
-/-!
-# Lemmas about filters and ordered rings.
--/
+public import Mathlib.Algebra.Order.Ring.Defs
 
 @[expose] public section
 namespace Filter
@@ -58,3 +55,5 @@ instance instIsOrderedRing [Semiring β] [PartialOrder β] [IsOrderedRing β] :
 end Germ
 
 end Filter
+
+end

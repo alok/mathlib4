@@ -12,6 +12,8 @@ public import Mathlib.Data.Int.Cast.Pi
 public import Mathlib.Data.Nat.Cast.Basic
 public import Mathlib.Order.Filter.Tendsto
 
+@[expose] public section
+
 /-!
 # Germ of a function at a filter
 
@@ -763,3 +765,5 @@ instance instExistsMulOfLE [Mul β] [LE β] [ExistsMulOfLE β] : ExistsMulOfLE (
 end Germ
 
 end Filter
+
+end

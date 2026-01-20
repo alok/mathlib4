@@ -7,7 +7,10 @@ module
 
 public import Mathlib.Order.Filter.Map
 public import Mathlib.Order.ZornAtoms
+public import Mathlib.Order.Atoms
+public import Mathlib.Tactic.Basic
 
+@[expose] public section
 /-!
 # Ultrafilters
 
@@ -20,7 +23,6 @@ In this file we define
 * `Ultrafilter.map`, `Ultrafilter.bind`, `Ultrafilter.comap` : operations on ultrafilters;
 -/
 
-@[expose] public section
 
 assert_not_exists Set.Finite
 
@@ -28,7 +30,7 @@ universe u v
 
 variable {α : Type u} {β : Type v} {γ : Type*}
 
-open Set Filter Function
+open Set Filter Function Order
 
 /-- `Filter α` is an atomic type: for every filter there exists an ultrafilter that is less than or
 equal to this filter. -/
@@ -393,3 +395,5 @@ theorem eq_of_le_pure {X : Type _} {α : Filter X} (hα : α.NeBot) {x y : X}
   Filter.pure_injective (hα.le_pure_iff.mp hx ▸ hα.le_pure_iff.mp hy)
 
 end Ultrafilter
+
+end

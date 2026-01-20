@@ -21,7 +21,6 @@ ultrafilter. Definitions and properties that work for any filter should go to `O
 
 ultrafilter, ultraproduct
 -/
-
 @[expose] public section
 
 
@@ -135,3 +134,5 @@ theorem const_abs [AddCommGroup β] [LinearOrder β] (x : β) :
 end Germ
 
 end Filter
+
+end

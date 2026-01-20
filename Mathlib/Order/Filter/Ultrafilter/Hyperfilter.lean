@@ -1,13 +1,10 @@
-/-
-Copyright (c) 2024 Alok Singh. All rights reserved.
-Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Alok Singh
--/
 module
 
 public import Mathlib.Order.Filter.Ultrafilter.Basic
 public import Mathlib.SetTheory.Cardinal.Arithmetic
 public import Mathlib.Data.Finset.Image
+
+@[expose] public section
 
 /-!
 # Hyperfilter
@@ -22,7 +19,6 @@ It is constructed to be regular, ensuring saturation properties of the ultrapowe
 
 open Set Classical
 
-@[expose] public section
 
 namespace Filter
 
@@ -185,6 +181,5 @@ alias _root_.Set.Finite.compl_mem_hyperfilter := compl_mem_hyperfilter_of_finite
 theorem mem_hyperfilter_of_finite_compl {s : Set α} (hf : Set.Finite sᶜ) : s ∈ hyperfilter α :=
   compl_compl s ▸ hf.compl_mem_hyperfilter
 
-end Filter
 
-end
+end Filter

@@ -9,6 +9,8 @@ public import Mathlib.Order.Filter.Ultrafilter.Defs
 public import Mathlib.Order.Filter.Cofinite
 public import Mathlib.Order.ZornAtoms
 
+@[expose] public section
+
 
 /-!
 # Ultrafilters
@@ -19,7 +21,6 @@ In this file we define
 * `hyperfilter`: the ultrafilter extending the cofinite filter.
 -/
 
-@[expose] public section
 
 universe u v
 
@@ -126,3 +127,5 @@ theorem mem_hyperfilter_of_finite_compl {s : Set α} (hf : Set.Finite sᶜ) : s 
 end Hyperfilter
 
 end Filter
+
+end

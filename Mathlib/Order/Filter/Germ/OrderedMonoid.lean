@@ -9,6 +9,8 @@ public import Mathlib.Algebra.Module.Pi
 public import Mathlib.Algebra.Order.Monoid.Canonical.Defs
 public import Mathlib.Order.Filter.Germ.Basic
 
+@[expose] public section
+
 /-!
 # Ordered monoid instances on the space of germs of a function at a filter
 
@@ -47,3 +49,5 @@ instance instCanonicallyOrderedMul [Mul β] [LE β] [CanonicallyOrderedMul β] :
   le_self_mul x y := inductionOn₂ x y fun _ _ ↦ Eventually.of_forall fun _ ↦ le_self_mul
 
 end Filter.Germ
+
+end
