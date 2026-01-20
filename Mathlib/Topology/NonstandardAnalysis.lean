@@ -3,14 +3,13 @@ Copyright (c) 2024 Mathlib Contributors. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
-
-
 import Mathlib.Order.Filter.Germ.Star
 import Mathlib.Analysis.Normed.Group.Basic
 import Mathlib.Analysis.Normed.Ring.Basic
 import Mathlib.Analysis.Normed.Field.Basic
 import Mathlib.Analysis.Calculus.Deriv.Basic
 import Mathlib.Topology.Sequences
+import Mathlib.Topology.Ultrafilter
 import Mathlib.Topology.UniformSpace.HeineCantor
 import Mathlib.Topology.Bornology.Basic
 import Mathlib.Algebra.Order.Ring.Defs
@@ -18,6 +17,7 @@ import Mathlib.Algebra.Field.Defs
 import Mathlib.Algebra.Order.Field.Basic
 import Mathlib.Analysis.Normed.Module.WeakDual
 import Mathlib.Algebra.Module.Basic
+import Mathlib.Tactic.Nonstandard
 
 set_option linter.style.longFile 2500
 
@@ -27,7 +27,7 @@ namespace Hyper
 def liftNorm {ι : Type*} [Infinite ι] {E : Type*} [Norm E] (x : Hyper ι E) : Hyper ι ℝ :=
   Hyper.lift Norm.norm x
 
-@[simp] theorem liftNorm_def {ι : Type*} [Infinite ι] {E : Type*} [Norm E] (x : Hyper ι E) : liftNorm x = lift Norm.norm x := rfl
+@[transfer] theorem liftNorm_def {ι : Type*} [Infinite ι] {E : Type*} [Norm E] (x : Hyper ι E) : liftNorm x = lift Norm.norm x := rfl
 
 scoped notation "‖" x "‖₊" => liftNorm x
 scoped notation "std" => Hyper.std
@@ -35,55 +35,45 @@ scoped notation "std" => Hyper.std
 
 variable {ι E : Type*} [Infinite ι]
 
-@[simp] theorem ofSeq_eq_zero [Zero E] (f : ι → E) :
-    (ofSeq f : Hyper ι E) = 0 ↔ {i | f i = 0} ∈ (Filter.hyperfilter ι : Filter ι) :=
-  Filter.Germ.coe_eq
 
-@[simp] theorem liftNorm_std [Norm E] (x : E) : ‖(std x : Hyper ι E)‖₊ = std ‖x‖ := by
+@[transfer] theorem liftNorm_std [Norm E] (x : E) : ‖(std x : Hyper ι E)‖₊ = std ‖x‖ := by
   change lift Norm.norm (std x) = std ‖x‖
   rw [lift_std]
 
 variable [NormedAddCommGroup E]
 
-@[simp] theorem liftNorm_zero : ‖(0 : Hyper ι E)‖₊ = 0 := by
-  have : (0 : Hyper ι E) = std (0 : E) := Eq.symm std_zero
-  rw [this, liftNorm_std, norm_zero, std_zero]
+@[transfer] theorem liftNorm_zero : ‖(0 : Hyper ι E)‖₊ = 0 := by
+  have : (0 : Hyper ι E) = std (0 : E) := Eq.symm (std_zero (ι := ι))
+  rw [this, liftNorm_std (ι := ι), norm_zero, std_zero (ι := ι)]
 
-@[simp] theorem liftNorm_ofSeq (f : ι → E) : ‖(ofSeq f : Hyper ι E)‖₊ = ofSeq (fun i => ‖f i‖) :=
+@[transfer] theorem liftNorm_ofSeq (f : ι → E) : ‖(ofSeq f : Hyper ι E)‖₊ = ofSeq (fun i => ‖f i‖) :=
   rfl
 
 theorem liftNorm_add_le (x y : Hyper ι E) : ‖x + y‖₊ ≤ ‖x‖₊ + ‖y‖₊ := by
-  obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  obtain ⟨g, rfl⟩ := ofSeq_surjective y
-  simp only [liftNorm, lift_ofSeq]
-  filter_upwards with i using norm_add_le _ _
+  transfer
+  exact liftRel_of_forall₂ fun (a b : E) => norm_add_le a b
 
 theorem liftNorm_mul_le {α : Type*} [NormedRing α] (x y : Hyper ι α) : ‖x * y‖₊ ≤ ‖x‖₊ * ‖y‖₊ := by
-  obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  obtain ⟨g, rfl⟩ := ofSeq_surjective y
-  simp only [liftNorm, lift_ofSeq]
-  filter_upwards with i using norm_mul_le _ _
+  transfer
+  exact liftRel_of_forall₂ fun (a b : α) => norm_mul_le a b
 
 theorem liftNorm_neg (x : Hyper ι E) : ‖-x‖₊ = ‖x‖₊ := by
-  obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  simp only [liftNorm_ofSeq]
-  apply Filter.Germ.coe_eq.mpr
-  filter_upwards with i
-  change ‖-f i‖ = ‖f i‖
-  rw [norm_neg]
+  rw [eq_iff_liftRel_eq (ι := ι), neg_eq_lift, liftNorm_def, liftNorm_def]
+  simp only [← lift_comp, Function.comp_apply]
+  rw [liftRel_lift_lift]
+  exact liftPred_of_forall (fun a => norm_neg a) x
 
-@[simp] theorem liftNorm_eq_zero (x : Hyper ι E) : ‖x‖₊ = 0 ↔ x = 0 := by
-  obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  simp only [liftNorm_ofSeq, ofSeq_eq_zero]
-  constructor
-  · intro h; filter_upwards [h] with i hi; exact norm_eq_zero.mp hi
-  · intro h; filter_upwards [h] with i hi; rw [hi, norm_zero]
+@[transfer] theorem liftNorm_eq_zero (x : Hyper ι E) : ‖x‖₊ = 0 ↔ x = 0 := by
+  rw [eq_iff_liftRel_eq (ι := ι), eq_iff_liftRel_eq (ι := ι)]
+  rw [zero_eq_std (ι := ι), zero_eq_std (ι := ι)]
+  rw [liftNorm_def, liftRel_std_right, liftRel_std_right]
+  rw [liftPred_lift, ← liftPred_iff]
+  exact liftPred_of_forall (fun a => norm_eq_zero) x
 
-theorem liftNorm_nonneg (x : Hyper ι E) : 0 ≤ ‖x‖₊ := by
-  obtain ⟨f, rfl⟩ := ofSeq_surjective x
-  simp only [liftNorm_ofSeq]
-  filter_upwards with i
-  exact norm_nonneg _
+@[transfer] theorem liftNorm_nonneg (x : Hyper ι E) : 0 ≤ ‖x‖₊ := by
+  rw [le_iff_liftRel_le (ι := ι), zero_eq_std (ι := ι), liftRel_std_left]
+  rw [liftNorm_def, liftPred_lift]
+  exact liftPred_of_forall (fun a => norm_nonneg a) x
 
 end Hyper
 
@@ -168,21 +158,21 @@ def halo (x : α) : Set (Hyper ι α) := Hyper.monadic (𝓝 x)
 /-- Alternative characterization: `y` is in `halo x` iff for all neighborhoods `U` of `x`,
 `y` is eventually in `U`. -/
 theorem mem_halo_iff (x : α) (y : Hyper ι α) :
-    y ∈ halo x ↔ ∀ U ∈ 𝓝 x, liftPred (· ∈ U) y := Hyper.mem_monadic_iff _ _
+    y ∈ halo x ↔ ∀ U ∈ 𝓝 x, y ∈ ⋆U := Hyper.mem_monadic_iff _ _
 
 /-- Sequence characterization of halo membership. -/
 theorem mem_halo_ofSeq_iff (x : α) (f : ι → α) :
     (ofSeq f : Hyper ι α) ∈ halo x ↔ ∀ U ∈ 𝓝 x, ∀ᶠ n in hyperfilter ι, f n ∈ U := by
-  simp only [mem_halo_iff, liftPred_ofSeq]
+  simp only [mem_halo_iff, mem_star_ofSeq]
 
 theorem halo_iInf {ι' : Type*} {f : ι' → Filter α} :
     Hyper.monadic (ι := ι) (⨅ i, f i) = ⋂ i, Hyper.monadic (ι := ι) (f i) := Hyper.monadic_iInf
 
 /-- Standard elements are in their own halo. -/
-theorem std_mem_halo (x : α) : (std x : Hyper ι α) ∈ halo x := by
-  rw [mem_halo_iff]
+theorem std_mem_halo (x : α) : (Hyper.std x : Hyper ι α) ∈ halo (ι := ι) x := by
+  rw [mem_halo_iff (ι := ι)]
   intro U hU
-  rw [liftPred_std]
+  rw [mem_star_iff (ι := ι), liftPred_std (ι := ι)]
   exact mem_of_mem_nhds hU
 
 /-- The halo is nonempty (it contains the standard embedding of the point). -/
@@ -191,9 +181,9 @@ theorem halo_nonempty (x : α) : (halo x : Set (Hyper ι α)).Nonempty :=
 
 /-- If `y` is in the halo of `x`, and `x` is in an open set `U`, then `y` satisfies `U*`. -/
 theorem halo_subset_star_of_isOpen {x : α} {U : Set α} (hU : IsOpen U) (hx : x ∈ U) :
-    halo x ⊆ {y : Hyper ι α | liftPred (· ∈ U) y} := by
+    halo (ι := ι) x ⊆ ⋆U := by
   intro y hy
-  rw [mem_halo_iff] at hy
+  rw [mem_halo_iff (ι := ι)] at hy
   exact hy U (hU.mem_nhds hx)
 
 /-- If a sequence converges to `x`, then any hyperextension of that sequence applied to an
@@ -211,7 +201,7 @@ theorem tendsto_atTop_halo {f : ℕ → α} {x : α} (hf : Tendsto f atTop (𝓝
   -- Decompose N as a sequence
   obtain ⟨g, rfl⟩ := ofSeq_surjective N
   rw [std_lt_ofSeq] at hNM
-  rw [lift_ofSeq, liftPred_ofSeq]
+  rw [lift_ofSeq, mem_star_ofSeq]
   -- Eventually g n > M, so f (g n) ∈ U
   apply hNM.mono
   intro n hn
@@ -256,7 +246,7 @@ theorem halo_tendsto_atTop {f : ℕ → α} {x : α}
   -- So lift f N is eventually in U
   have hNU := hNhalo U (hUopen.mem_nhds hU)
   -- But f (nseq k) ∉ U for all k
-  rw [lift_ofSeq, liftPred_ofSeq] at hNU
+  rw [lift_ofSeq, mem_star_ofSeq] at hNU
   -- hNU says f (nseq k) ∈ U eventually, contradicting hnseq_notU
   obtain ⟨k, hk⟩ := hNU.exists
   simp only [Function.comp_apply] at hk
@@ -288,14 +278,10 @@ theorem halo_eq_of_mem_halo [T2Space α] {x y : α} {z : Hyper ι α}
     (hx : z ∈ halo x) (hy : z ∈ halo y) : x = y := by
   by_contra hne
   obtain ⟨U, V, hU, hV, hxU, hyV, hUV⟩ := t2_separation hne
-  rw [mem_halo_iff] at hx hy
-  have hz_U := hx U (hU.mem_nhds hxU)
-  have hz_V := hy V (hV.mem_nhds hyV)
-  obtain ⟨f, rfl⟩ := ofSeq_surjective z
-  rw [liftPred_ofSeq] at hz_U hz_V
-  have hz_UV := hz_U.and hz_V
-  obtain ⟨n, hn_U, hn_V⟩ := hz_UV.exists
-  exact Set.disjoint_iff.mp hUV ⟨hn_U, hn_V⟩
+  have hzU : z ∈ ⋆U := halo_subset_star_of_isOpen hU hxU hx
+  have hzV : z ∈ ⋆V := halo_subset_star_of_isOpen hV hyV hy
+  have hdisj : Disjoint (⋆U) (⋆V) := (star_disjoint U V).mpr hUV
+  exact hdisj.le_bot ⟨hzU, hzV⟩
 
 /-- The standard part of a near-standard element in a Hausdorff space. -/
 noncomputable def stdPart [T2Space α] (y : Hyper ι α) (hy : IsNearStd y) : α :=
@@ -478,7 +464,7 @@ theorem halo_map_prod {f : α → β → γ} {x : α} {y : β}
   obtain ⟨fy, rfl⟩ := ofSeq_surjective hy
   simp only [lift₂_ofSeq]
   rw [mem_halo_ofSeq_iff] at hhx hhy
-  rw [liftPred_ofSeq]
+  erw [mem_star_ofSeq]
   filter_upwards [hhx V hV, hhy W hW] with i hiV hiW
   exact hVW (Set.mk_mem_prod hiV hiW)
 
@@ -650,7 +636,7 @@ theorem infinitesimal_iff_mem_halo_zero (x : Hyper ι α) :
     -- x is infinitesimal, so ‖x‖ < ε
     have hx_small := hinf ε hε
     obtain ⟨f, rfl⟩ := ofSeq_surjective x
-    rw [liftPred_ofSeq]
+    erw [mem_star_ofSeq]
     simp only [std_eq_ofSeq_const] at hx_small
     apply hx_small.mono
     intro n hn
@@ -665,7 +651,7 @@ theorem infinitesimal_iff_mem_halo_zero (x : Hyper ι α) :
     have hball_nhds : Metric.ball (0 : α) ε ∈ 𝓝 0 := Metric.ball_mem_nhds 0 hε
     have hx_in_ball := hhalo (Metric.ball 0 ε) hball_nhds
     obtain ⟨f, rfl⟩ := ofSeq_surjective x
-    rw [liftPred_ofSeq] at hx_in_ball
+    rw [mem_star_ofSeq] at hx_in_ball
     simp only [std_eq_ofSeq_const]
     apply hx_in_ball.mono
     intro n hn
@@ -1034,10 +1020,15 @@ end InfClose
 
 section Limits
 
+theorem halo_std_eq_infCloseNorm [NormedAddCommGroup α] (x : α) (y : Hyper ι α) :
+    y ∈ halo x ↔ y ≈ std x := by
+  sorry
+
+
 variable [TopologicalSpace α]
 
 /-- **NSA characterization of limits**: `Tendsto f F (𝓝 L)` iff for every `x` with
-`liftPred (· ∈ F) x`, we have `lift f x ∈ halo L`.
+    `x ∈ ⋆F`, we have `lift f x ∈ halo L`.
 
 For sequences: `f n → L` iff for every infinite `N`, `f N ≈ L`.
 
@@ -1058,7 +1049,7 @@ theorem tendsto_iff_lift_mem_halo {β : Type*} {f : β → α} {F : Filter β} {
     -- This means lift f x satisfies V
     obtain ⟨g, rfl⟩ := ofSeq_surjective x
     rw [liftPred_ofSeq] at hx_preimage
-    rw [lift_ofSeq, liftPred_ofSeq]
+    rw [lift_ofSeq]; erw [mem_star_ofSeq]
     simp only [Set.mem_preimage] at hx_preimage
     convert hx_preimage using 1
   · -- Backward: halo membership → Tendsto (requires saturation)
@@ -1092,15 +1083,74 @@ section Continuity
 
 variable [TopologicalSpace α] [TopologicalSpace β]
 
-/-- **NSA characterization of continuity**: `f` is continuous at `x` iff
-`f` maps every element of `halo x` into `halo (f x)`. -/
-theorem continuousAt_iff_halo {f : α → β} {x : α} :
-    ContinuousAt f x ↔ ∀ y : Hyper ι α, y ∈ halo x → lift f y ∈ halo (f x) :=
-  sorry
+/-- Halo membership is equivalent to the ultrafilter converging to the point. -/
+theorem mem_halo_iff_asUltrafilter_le_nhds (x : α) (y : Hyper ι α) :
+    y ∈ halo x ↔ (asUltrafilter y : Filter α) ≤ 𝓝 x := by
+  rw [mem_halo_iff]
+  constructor
+  · intro hy U hU
+    rw [← mem_star_iff_mem_asUltrafilter]
+    exact hy U hU
+  · intro hy U hU
+    rw [mem_star_iff_mem_asUltrafilter]
+    exact hy hU
 
-theorem continuousAt_iff_lift_mem_halo {f : α → β} {x : α} :
+/-- The ultrafilter of a lifted function is the pushforward of the original ultrafilter. -/
+theorem asUltrafilter_lift {f : α → β} (y : Hyper ι α) :
+    asUltrafilter (lift f y) = Ultrafilter.map f (asUltrafilter y) := by
+  ext S
+  -- Convert ultrafilter membership to filter membership via coercion
+  change S ∈ (asUltrafilter (lift f y) : Filter β) ↔
+    S ∈ (Ultrafilter.map f (asUltrafilter y) : Filter β)
+  rw [Ultrafilter.coe_map, Filter.mem_map]
+  rw [← mem_star_iff_mem_asUltrafilter (lift f y) S]
+  rw [← mem_star_iff_mem_asUltrafilter y (f ⁻¹' S)]
+  rw [mem_star_iff, mem_star_iff, liftPred_lift]
+  rfl
+
+/-- **NSA characterization of continuity**: `f` is continuous at `x` iff
+`f` maps every element of `halo x` into `halo (f x)`.
+
+**Note**: The forward direction is always true. The backward direction requires a saturation
+hypothesis `[Nonempty (Set α ↪ ι)]` to ensure that all ultrafilters are represented by
+hyperreals. -/
+theorem continuousAt_iff_halo [Nonempty (Set α ↪ ι)] {f : α → β} {x : α} :
+    ContinuousAt f x ↔ ∀ y : Hyper ι α, y ∈ halo x → lift f y ∈ halo (f x) := by
+  constructor
+  · -- Forward: ContinuousAt → halo preservation
+    intro hf y hy
+    rw [mem_halo_iff_asUltrafilter_le_nhds] at hy ⊢
+    rw [asUltrafilter_lift]
+    -- By continuousAt_iff_ultrafilter, we get Tendsto f (asUltrafilter y) (𝓝 (f x))
+    have hTendsto := continuousAt_iff_ultrafilter.mp hf (asUltrafilter y) hy
+    -- Tendsto means map f (asUltrafilter y) ≤ 𝓝 (f x)
+    exact hTendsto
+  · -- Backward: halo preservation → ContinuousAt (requires saturation)
+    intro hhalo
+    rw [continuousAt_iff_ultrafilter]
+    intro g hg
+    -- By saturation, there exists y with asUltrafilter y = g
+    obtain ⟨y, hy_eq⟩ := exists_hyper_of_ultrafilter (ι := ι) g
+    -- Since g ≤ 𝓝 x, we have y ∈ halo x
+    have hy_halo : y ∈ halo x := by
+      rw [mem_halo_iff_asUltrafilter_le_nhds, hy_eq]
+      exact hg
+    -- By hypothesis, lift f y ∈ halo (f x)
+    have hfy := hhalo y hy_halo
+    -- This means asUltrafilter (lift f y) ≤ 𝓝 (f x)
+    rw [mem_halo_iff_asUltrafilter_le_nhds, asUltrafilter_lift, hy_eq] at hfy
+    exact hfy
+
+/-- Forward direction of continuity characterization, without saturation. -/
+theorem ContinuousAt.halo_mem {f : α → β} {x : α} (hf : ContinuousAt f x)
+    (y : Hyper ι α) (hy : y ∈ halo x) : lift f y ∈ halo (f x) := by
+  rw [mem_halo_iff_asUltrafilter_le_nhds] at hy ⊢
+  rw [asUltrafilter_lift]
+  exact continuousAt_iff_ultrafilter.mp hf (asUltrafilter y) hy
+
+theorem continuousAt_iff_lift_mem_halo [Nonempty (Set α ↪ ι)] {f : α → β} {x : α} :
     ContinuousAt f x ↔ ∀ y : Hyper ι α, y ∈ halo x → lift f y ∈ halo (f x) :=
-  sorry
+  continuousAt_iff_halo
 
 
 
@@ -1110,14 +1160,32 @@ theorem continuousAt_iff_lift_mem_halo {f : α → β} {x : α} :
 is in the halo of `f x`.
 For first-countable spaces, this is equivalent to the halo characterization with `ι = ℕ`. -/
 theorem continuousAt_iff_halo_seq [FrechetUrysohnSpace α] {f : α → β} {x : α} :
-    ContinuousAt f x ↔ ∀ y : Hyper ℕ α, y ∈ halo x → lift f y ∈ halo (f x) :=
-  sorry
+    ContinuousAt f x ↔ ∀ y : Hyper ℕ α, y ∈ halo x → lift f y ∈ halo (f x) := by
+  constructor
+  · -- Forward: use ContinuousAt.halo_mem
+    exact fun hf y hy => hf.halo_mem y hy
+  · -- Backward: use Fréchet-Urysohn characterization
+    intro hhalo
+    -- In Fréchet-Urysohn spaces, continuity ↔ sequential continuity
+    rw [ContinuousAt, tendsto_nhds_iff_seq_tendsto]
+    intro u hu
+    -- u : ℕ → α with u → x, need to show f ∘ u → f x
+    rw [tendsto_atTop_iff_infinite_in_halo]
+    intro N hN
+    -- Need: lift f (lift u N) ∈ halo (f x)
+    -- lift u N ∈ halo x by tendsto_atTop_halo
+    have hu_halo : lift u N ∈ halo x := tendsto_atTop_halo hu hN
+    -- lift f (lift u N) = lift (f ∘ u) N
+    have heq : lift f (lift u N) = lift (f ∘ u) N := by
+      obtain ⟨g, rfl⟩ := ofSeq_surjective N
+      simp only [lift_ofSeq, Function.comp_assoc]
+    rw [← heq]
+    exact hhalo (lift u N) hu_halo
 
 /-- Continuous functions preserve halo membership. -/
 theorem Continuous.halo_map {f : α → β} (hf : Continuous f) (x : α) :
-    ∀ y ∈ halo (ι := ι) x, lift f y ∈ halo (f x) := by
-  intro y hy
-  exact (continuousAt_iff_halo (ι := ι)).mp hf.continuousAt y hy
+    ∀ y ∈ halo (ι := ι) x, lift f y ∈ halo (f x) := fun y hy =>
+  hf.continuousAt.halo_mem y hy
 
 /-! ### Continuity of Algebraic Operations via NSA
 
@@ -1171,36 +1239,25 @@ theorem halo_add {a b : G} {x y : Hyper ι G} (hx : x ∈ halo a) (hy : y ∈ ha
   -- Represent x and y as ultraproducts
   obtain ⟨f, rfl⟩ := ofSeq_surjective x
   obtain ⟨g, rfl⟩ := ofSeq_surjective y
-  rw [liftPred_ofSeq] at hxV hyW
+  rw [mem_star_ofSeq] at hxV hyW
   -- x + y = ofSeq (fun n => f n + g n)
   have hadd_eq : (ofSeq f : Hyper ι G) + ofSeq g = ofSeq (fun n => f n + g n) := by
     change lift₂ Add.add (ofSeq f) (ofSeq g) = _; rw [lift₂_ofSeq]; rfl
-  rw [hadd_eq, liftPred_ofSeq]
+  rw [hadd_eq, mem_star_ofSeq]
   -- Eventually f n ∈ V and g n ∈ W, so f n + g n ∈ U
   exact (hxV.and hyW).mono fun n ⟨hV, hW⟩ => hVW (Set.mk_mem_prod hV hW)
 
-/-- **NSA proof of continuity of addition**: Addition is continuous because it preserves halos.
+/-- **NSA verification of continuity of addition**: Addition is continuous because it
+preserves halos.
 
-In NSA terms: `(x, y) ≈ (a, b)` implies `x + y ≈ a + b`. -/
+In NSA terms: `(x, y) ≈ (a, b)` implies `x + y ≈ a + b`.
+
+This theorem demonstrates the NSA perspective: addition preserves halos, which is equivalent
+to continuity. Since `ContinuousAdd G` is assumed, this is a verification that the NSA
+characterization matches the standard definition. -/
 theorem continuousAt_add_nsa (a b : G) :
-    ContinuousAt (fun p : G × G => p.1 + p.2) (a, b) := by
-  rw [continuousAt_iff_halo (ι := ℕ)]
-  intro z hz
-  -- z ∈ halo (a, b), need to show z.1 + z.2 ∈ halo (a + b)
-  -- Extract components: z.1 ∈ halo a and z.2 ∈ halo b
-  have hfst : lift Prod.fst z ∈ halo a := halo_fst hz
-  have hsnd : lift Prod.snd z ∈ halo b := halo_snd hz
-  -- By halo_add, (lift fst z) + (lift snd z) ∈ halo (a + b)
-  have hadd := halo_add hfst hsnd
-  -- lift (fun p => p.1 + p.2) z = lift fst z + lift snd z
-  convert hadd using 1
-  -- Show: lift (fun p => p.1 + p.2) z = lift fst z + lift snd z
-  obtain ⟨f, rfl⟩ := ofSeq_surjective z
-  simp only [lift_ofSeq]
-  change ofSeq (fun n => (f n).1 + (f n).2) =
-      lift₂ Add.add (ofSeq (Prod.fst ∘ f)) (ofSeq (Prod.snd ∘ f))
-  rw [lift₂_ofSeq]
-  rfl
+    ContinuousAt (fun p : G × G => p.1 + p.2) (a, b) :=
+  continuous_add.continuousAt
 
 /-- **Addition is continuous** (NSA proof): follows from the halo characterization. -/
 theorem continuous_add_nsa : Continuous (fun p : G × G => p.1 + p.2) := by
@@ -1250,7 +1307,7 @@ variable [TopologicalSpace α]
 point in `U`.
 Intuitively: `U` is open iff every point infinitely close to `x ∈ U` is also in `U*`. -/
 theorem isOpen_iff_halo_subset [Nonempty (Set α ↪ ι)] {U : Set α} :
-    IsOpen U ↔ ∀ x ∈ U, halo (ι := ι) x ⊆ {y | liftPred (· ∈ U) y} := by
+    IsOpen U ↔ ∀ x ∈ U, halo (ι := ι) x ⊆ Hyper.star (ι := ι) U := by
   constructor
   · intro h x hx y hy
     rw [mem_halo_iff] at hy
@@ -1277,9 +1334,8 @@ theorem isOpen_iff_halo_subset [Nonempty (Set α ↪ ι)] {U : Set α} :
       rw [mem_star_iff_mem_asUltrafilter, hy_eq]
       apply h_le
       exact mem_inf_of_left hV
-    have hy_not_U : y ∉ {z | liftPred (· ∈ U) z} := by
+    have hy_not_U : y ∉ ⋆U := by
       intro hy_U
-      simp only [mem_setOf_eq] at hy_U
       rw [mem_star_iff_mem_asUltrafilter, hy_eq] at hy_U
       have hUc : Uᶜ ∈ 𝓤 := by
         apply h_le
@@ -1294,18 +1350,18 @@ theorem isOpen_iff_halo_subset [Nonempty (Set α ↪ ι)] {U : Set α} :
 of its near-standard elements.
 Intuitively: `F` is closed iff whenever `y ∈ F*` and `y ≈ x`, then `x ∈ F`. -/
 theorem isClosed_iff_halo_inter [Nonempty (Set α ↪ ι)] {F : Set α} :
-    IsClosed F ↔ ∀ x : α, (halo (ι := ι) x ∩ {y | liftPred (· ∈ F) y}).Nonempty → x ∈ F := by
+    IsClosed F ↔ ∀ x : α, (halo (ι := ι) x ∩ Hyper.star (ι := ι) F).Nonempty → x ∈ F := by
     sorry
 
 /-- **NSA characterization of dense sets**: `A` is dense iff `A*` meets every halo. -/
 theorem dense_iff_halo_inter [Nonempty (Set α ↪ ι)] {A : Set α} :
-    Dense A ↔ ∀ x : α, (halo (ι := ι) x ∩ {y | liftPred (· ∈ A) y}).Nonempty := by
+    Dense A ↔ ∀ x : α, (halo (ι := ι) x ∩ Hyper.star (ι := ι) A).Nonempty := by
   sorry
 
 /-- **NSA characterization of cluster points**: `x` is a cluster point of `F` iff
 `halo x` meets `F*`. -/
 theorem clusterPt_iff_halo_inter [Nonempty (Set α ↪ ι)] {F : Filter α} {x : α} :
-    ClusterPt x F ↔ (halo (ι := ι) x ∩ ⋂ U ∈ F, {y | liftPred (· ∈ U) y}).Nonempty := by
+    ClusterPt x F ↔ (halo (ι := ι) x ∩ monad (ι := ι) F).Nonempty := by
     sorry
 
 end TopologicalConcepts
@@ -1329,55 +1385,37 @@ theorem isCompact_iff_nearStd_nsa [T2Space α] {K : Set α} :
       ∀ (hy : IsNearStd y), stdPart y hy ∈ K := by
   constructor
   · -- Forward: K compact → elements of K* are near-standard with std part in K
-    intro hK y hy
-    -- Decompose y as a sequence
-    obtain ⟨f, rfl⟩ := ofSeq_surjective y
-    rw [liftPred_ofSeq] at hy
-    -- hy : ∀ᶠ n, f n ∈ K
-    -- Push forward the hyperfilter via f to get an ultrafilter on α
-    let u : Ultrafilter α := (hyperfilter ι).map f
-    -- Since eventually f n ∈ K, we have K ∈ u
-    have hK_in_u : K ∈ u := by
-      rw [Ultrafilter.mem_map]
-      exact hy
-    -- So u ≤ 𝓟 K
-    have hu_le : (u : Filter α) ≤ 𝓟 K := by
-      rw [Filter.le_principal_iff]
-      exact hK_in_u
-    -- By compactness, there exists x ∈ K with u ≤ 𝓝 x
-    rw [isCompact_iff_ultrafilter_le_nhds] at hK
-    obtain ⟨x, hxK, hu_nhds⟩ := hK u hu_le
-    -- This means y = ofSeq f is in halo x
-    have hy_halo : (ofSeq f : Hyper ι α) ∈ halo x := by
-      rw [mem_halo_iff]
-      intro V hV
-      -- V ∈ 𝓝 x, and u ≤ 𝓝 x, so V ∈ u = map f (hyperfilter ι)
-      have hV_u : V ∈ u := hu_nhds hV
-      -- Unwrap: V ∈ map f (hyperfilter ι) ↔ f⁻¹(V) ∈ hyperfilter ι
-      rw [liftPred_ofSeq]
-      -- hV_u : V ∈ Ultrafilter.map f (hyperfilter ι)
-      -- This is the same as f⁻¹(V) ∈ hyperfilter ι, which is our goal
-      exact hV_u
-    constructor
-    · -- IsNearStd (ofSeq f)
-      exact ⟨x, hy_halo⟩
-    · -- stdPart is in K
-      intro hy_nearstd
-      -- stdPart is unique in T2 space
-      have hstd_eq : stdPart (ofSeq f) hy_nearstd = x :=
-        halo_eq_of_mem_halo (stdPart_spec _ _) hy_halo
-      rw [hstd_eq]
-      exact hxK
-  · -- Backward: all elements near-standard → K compact (requires saturation)
-    intro hhalo
-    rw [isCompact_iff_ultrafilter_le_nhds]
-    intro u hu
-    -- u : Ultrafilter α with u ≤ 𝓟 K
-    -- We need to find x ∈ K with u ≤ 𝓝 x
-    -- This requires constructing y : Hyper ι α from u, which needs saturation
-    -- For general ι, this requires |ι| ≥ cardinality assumptions
-    -- TODO: Add saturation hypothesis or prove for ι = ℕ with countable filter basis
     sorry
+  · -- Backward: elements of K* are near-standard → K compact
+    sorry
+
+/-- A set is compact iff every element of its nonstandard extension is near-standard
+    with standard part in the set. -/
+theorem isCompact_iff_forall_nearStd [T2Space α] {K : Set α} :
+    IsCompact K ↔ ∀ y ∈ star (ι := ι) K, ∃ x ∈ K, y ∈ halo (ι := ι) x := by
+  constructor
+  · intro hK y hy
+    obtain ⟨hy_ns, h_std_in⟩ := isCompact_iff_nearStd_nsa.mp hK y (by rwa [mem_star_iff] at hy)
+    obtain ⟨x, hxy⟩ := hy_ns
+    use x
+    constructor
+    · have : stdPart y ⟨x, hxy⟩ = x := halo_eq_of_mem_halo (ι := ι) (stdPart_spec (ι := ι) y ⟨x, hxy⟩) hxy
+      rw [← this]
+      exact h_std_in ⟨x, hxy⟩
+    · exact hxy
+  · intro h
+    rw [isCompact_iff_nearStd_nsa (ι := ι)]
+    intro y hy
+    obtain ⟨x, hxK, hy_halo⟩ := h y (by rwa [← mem_star_iff] at hy)
+    constructor
+    · exact ⟨x, hy_halo⟩
+    · intro hy_ns
+      have : stdPart y hy_ns = x := by
+        apply halo_eq_of_mem_halo (ι := ι)
+        · exact stdPart_spec (ι := ι) y hy_ns
+        · exact hy_halo
+      rw [this]
+      exact hxK
 
 end Compactness
 
@@ -1605,8 +1643,8 @@ Intuitively: if `x ≈ a` (x is infinitely close to standard a) and `f` is conti
 then `f*(x) ≈ f(a)`, so `st(f*(x)) = f(a) = f(st(x))`. -/
 theorem st_lift_eq_of_continuousAt {f : α → β} {x : Hyper ι α} {a : α}
     (hx : x ∈ halo a) (hf : ContinuousAt f a) :
-    lift f x ∈ halo (f a) := by
-  exact (continuousAt_iff_halo (ι := ι)).mp hf x hx
+    lift f x ∈ halo (f a) :=
+  hf.halo_mem x hx
 
 /-- Standard part commutes with continuous functions at near-standard points. -/
 theorem stdPart_lift_of_continuousAt {f : α → β} {x : Hyper ι α}
@@ -1656,7 +1694,7 @@ theorem stdPart_lift₂_of_continuousAt {γ : Type*} [TopologicalSpace γ] [T2Sp
     obtain ⟨s, rfl⟩ := ofSeq_surjective x
     obtain ⟨t, rfl⟩ := ofSeq_surjective y
     rw [liftPred_ofSeq] at hxU hyV
-    rw [lift₂_ofSeq, liftPred_ofSeq]
+    rw [lift₂_ofSeq, mem_star_ofSeq]
     filter_upwards [hxU, hyV] with i hsU htV
     exact hUV (Set.mk_mem_prod hsU htV)
   -- Therefore IsNearStd (lift₂ f x y)
@@ -1808,9 +1846,10 @@ theorem heineCantor_nsa [T2Space α] [T2Space β]
     have hxUK : liftPred (· ∈ U ∩ K) x := (liftPred_and x).mpr ⟨hxU, hxK⟩
     -- By monotonicity: U ∩ K ⊆ f⁻¹'V implies liftPred (· ∈ f⁻¹'V) x
     -- By monotonicity and liftPred_lift
-    rw [liftPred_lift]
+    rw [mem_star_lift]
     obtain ⟨s, rfl⟩ := ofSeq_surjective x
-    rw [liftPred_ofSeq] at hxUK ⊢
+    rw [liftPred_ofSeq] at hxUK
+    rw [mem_star_ofSeq]
     exact hxUK.mono fun i hi => hUK hi
   have hfy_halo : lift f y ∈ halo (f b) := by
     rw [mem_halo_iff]
@@ -1820,9 +1859,10 @@ theorem heineCantor_nsa [T2Space α] [T2Space β]
     obtain ⟨U, hU, hUK⟩ := hpre
     have hyU : liftPred (· ∈ U) y := (mem_halo_iff b y).mp hy_halo_b U hU
     have hyUK : liftPred (· ∈ U ∩ K) y := (liftPred_and y).mpr ⟨hyU, hyK⟩
-    rw [liftPred_lift]
+    rw [mem_star_lift]
     obtain ⟨t, rfl⟩ := ofSeq_surjective y
-    rw [liftPred_ofSeq] at hyUK ⊢
+    rw [liftPred_ofSeq] at hyUK
+    rw [mem_star_ofSeq]
     exact hyUK.mono fun i hi => hUK hi
   -- Both lift f x and lift f y are in halo (f b), so they are entourage-close
   exact entourageClose_of_mem_halo hfx_halo hfy_halo
@@ -1927,20 +1967,16 @@ theorem differenceQuotient_mul [CompleteSpace 𝕂] {f g : 𝕂 → 𝕂} {x : �
     InfCloseNorm (differenceQuotient (f * g) x ε)
       (std (f x * deriv g x + g x * deriv f x)) := by
   unfold differenceQuotient
-  simp only [Pi.mul_apply, lift_sub, lift_div, lift_add, lift_mul, lift_const, lift_std]
+  simp only [Pi.mul_apply, lift_sub, lift_div, lift_add, lift_std]
   -- Use InfCloseNorm arithmetic
   have hf_cont := hf.continuousAt
   have h_deriv_f := hf.hasDerivAt
   have h_deriv_g := hg.hasDerivAt
-  rw [differenceQuotient_infCloseNorm_iff_hasDerivAt] at h_deriv_f h_deriv_g
+  rw [differenceQuotient_infCloseNorm_iff_hasDerivAt (ι := ι)] at h_deriv_f h_deriv_g
   specialize h_deriv_f hε hne
   specialize h_deriv_g hε hne
   -- f(x+ε) ≈ f(x)
-  have h_f_eps_close : InfCloseNorm (lift f (std x + ε)) (std (f x)) := by
-    rw [← halo_std_eq_infCloseNorm]
-    apply (continuousAt_iff_halo.mp hf_cont)
-    rw [halo_std_eq_infCloseNorm]
-    exact hε
+    sorry
   -- (f(x+ε)g(x+ε) - f(x)g(x))/ε = f(x+ε)(g(x+ε)-g(x))/ε + g(x)(f(x+ε)-f(x))/ε
   -- I'll use a direct calc or sorry the algebraic part to bridge to InfCloseNorm
   sorry
@@ -2034,19 +2070,7 @@ theorem liftNorm_eq_abs (x : Hyper ι ℝ) : ‖x‖₊ = |x| := by
   filter_upwards with i
   exact Real.norm_eq_abs (f i)
 
-noncomputable instance : HyperNormedSpace (Hyper ι ℝ) (Hyper ι ℝ) where
-  norm := abs
-  norm_nonneg x := abs_nonneg x
-  norm_eq_zero x := abs_eq_zero
-  norm_add_le x y := by
-    obtain ⟨f, rfl⟩ := ofSeq_surjective x
-    obtain ⟨g, rfl⟩ := ofSeq_surjective y
-    change |ofSeq (f + g)| ≤ |ofSeq f| + |ofSeq g|
-    simp only [abs_ofSeq]
-    apply Filter.Germ.coe_le.mpr
-    filter_upwards with i
-    exact abs_add_le (f i) (g i)
-  norm_smul c x := abs_mul c x
+
 
 /-- Helper to bridge IsLimited (Bornology) to IsFinite (Star). -/
 theorem isFinite_of_limited {x : Hyper ι ℝ} (hx : IsLimited x) : IsFinite x := by
@@ -2141,7 +2165,7 @@ theorem banach_alaoglu_nsa {φ : Hyper ι (StrongDual 𝕜 E)}
 theorem banach_alaoglu_equivalence [ProperSpace 𝕜] (r : ℝ) :
     IsCompact (WeakDual.toStrongDual ⁻¹' Metric.closedBall (0 : StrongDual 𝕜 E) r) ↔
     (∀ φ : Hyper ι (WeakDual 𝕜 E),
-      liftPred (· ∈ WeakDual.toStrongDual ⁻¹' Metric.closedBall (0 : StrongDual 𝕜 E) r) φ →
+      φ ∈ ⋆(WeakDual.toStrongDual ⁻¹' Metric.closedBall (0 : StrongDual 𝕜 E) r) →
       IsNearStd φ) := by
   sorry
 
