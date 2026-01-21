@@ -39,11 +39,24 @@ theorem nonstandardUltrafilter_le_atTop [NonstandardIndex ℕ] :
   (nonstandardUltrafilter_le_cofinite (ι := ℕ)).trans_eq Nat.cofinite_eq_atTop
 
 /-- A regularizing family for an ultrafilter, used to derive saturation. -/
+class RegularizingFamily {ι : Type*} (U : Ultrafilter ι) : Type _ where
+  /-- A family of finite subsets witnessing regularity. -/
+  family : ι → Finset ι
+  /-- The regularizing family generates sets in the ultrafilter. -/
+  family_mem : ∀ a : ι, {i | a ∈ family i} ∈ (U : Filter ι)
+
+/-- Regularity data for the chosen nonstandard ultrafilter. -/
 class RegularIndex (ι : Type*) [NonstandardIndex ι] : Type _ where
   /-- A family of finite subsets witnessing regularity. -/
   family : ι → Finset ι
   /-- The regularizing family generates sets in the ultrafilter. -/
   family_mem : ∀ a : ι, {i | a ∈ family i} ∈ (nonstandardUltrafilter ι : Filter ι)
+
+/-- Build `RegularIndex` from a regularizing family on the chosen ultrafilter. -/
+instance instRegularIndex_of_regularizing (ι : Type*) [NonstandardIndex ι]
+    [RegularizingFamily (nonstandardUltrafilter ι)] : RegularIndex ι :=
+  ⟨RegularizingFamily.family (U := nonstandardUltrafilter ι),
+    RegularizingFamily.family_mem (U := nonstandardUltrafilter ι)⟩
 
 /-- A bijection between `ι` and `Finset ι` for infinite `ι`.
 This exists because `|Finset ι| = |ι|` for infinite `ι`. -/
@@ -182,6 +195,18 @@ This instance is low priority so users can override it locally. -/
 noncomputable instance (priority := 10) instNonstandardIndex (ι : Type*) [Infinite ι] :
     NonstandardIndex ι :=
   ⟨defaultUltrafilter ι, defaultUltrafilter_le_cofinite ι⟩
+
+/-- Regularity data for the default ultrafilter. -/
+noncomputable instance instRegularizingFamily_default (ι : Type*) [Infinite ι] :
+    RegularizingFamily (defaultUltrafilter ι) := by
+  classical
+  refine ⟨regularizingBijection ι, ?_⟩
+  intro a
+  have h_mem : {i | a ∈ regularizingBijection ι i} ∈ regularizingFilter ι :=
+    Filter.mem_generate_of_mem ⟨a, rfl⟩
+  have h_mem' : {i | a ∈ regularizingBijection ι i} ∈ regularizingFilter ι ⊓ cofinite :=
+    Filter.mem_inf_of_left h_mem
+  exact (Ultrafilter.of_le (regularizingFilter ι ⊓ cofinite)) h_mem'
 
 -- Regularity data is additional structure on a chosen nonstandard ultrafilter.
 -- Users should provide instances appropriate to their chosen ultrafilter.

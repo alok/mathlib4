@@ -29,10 +29,10 @@ class Saturated (U : Ultrafilter iota) (kappa : Type*) : Prop :=
 /-- Abbreviation for countable saturation. -/
 abbrev CountablySaturated (U : Ultrafilter iota) : Prop := Saturated U Nat
 
-/-- The hyperfilter gives saturation once `kappa` embeds into the index type. -/
-instance hyperfilter_saturated (iota : Type*) [Infinite iota] (kappa : Type*)
+/-- The chosen nonstandard ultrafilter gives saturation once `kappa` embeds into the index type. -/
+instance nonstandardUltrafilter_saturated (iota : Type*) [RegularIndex iota] (kappa : Type*)
     [Nonempty (Embedding kappa iota)] :
-    Saturated (hyperfilter iota) kappa := by
+    Saturated (nonstandardUltrafilter iota) kappa := by
   classical
   refine Saturated.mk ?_
   intro alpha P hfin
