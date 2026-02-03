@@ -5,8 +5,8 @@ Authors: Alok Singh
 -/
 module
 
-import Mathlib.Order.Filter.Germ.Basic
-import Mathlib.Order.Filter.Ultrafilter.Basic
+public import Mathlib.Order.Filter.Germ.Basic
+public import Mathlib.Order.Filter.Ultrafilter.Basic
 
 /-!
 # Ultrapower (Ultrafilter-Generic)
@@ -15,6 +15,8 @@ This file defines the ultrafilter-generic ultrapower as a specialization of `Fil
 It provides a small, neutral API that can later be used to decouple NSA from a specific
 ultrafilter choice (such as `nonstandardUltrafilter`).
 -/
+
+@[expose] public section
 
 namespace Filter
 
