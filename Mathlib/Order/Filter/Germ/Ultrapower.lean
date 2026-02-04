@@ -92,33 +92,29 @@ noncomputable def ultrafilterOf (x : Ultrapower U alpha) : Ultrafilter alpha :=
 theorem liftPred_ofSeq {P : alpha → Prop} (f : iota → alpha) :
     liftPred (U := U) P (ofSeq (U := U) f) ↔ ∀ᶠ i in (U : Filter iota), P (f i) :=
   by
-    simpa [liftPred, ofSeq] using
-      (Germ.liftPred_coe (l := (U : Filter iota)) (p := P) (f := f))
+    simp [liftPred, ofSeq, Germ.liftPred_coe]
 
 @[simp]
 theorem liftRel_ofSeq {R : alpha → beta → Prop} (f : iota → alpha) (g : iota → beta) :
     liftRel (U := U) R (ofSeq (U := U) f) (ofSeq (U := U) g) ↔
       ∀ᶠ i in (U : Filter iota), R (f i) (g i) :=
   by
-    simpa [liftRel, ofSeq] using
-      (Germ.liftRel_coe (l := (U : Filter iota)) (r := R) (f := f) (g := g))
+    simp [liftRel, ofSeq, Germ.liftRel_coe]
 
 @[simp]
 theorem liftPred_std [NeBot (U : Filter iota)] {P : alpha → Prop} {a : alpha} :
     liftPred (U := U) P (std a : Ultrapower U alpha) ↔ P a := by
-  simpa [std, ultraConst, liftPred] using
-    (Germ.liftPred_const_iff (l := (U : Filter iota)) (p := P) (x := a))
+  simp [std, ultraConst, liftPred, Germ.liftPred_const_iff]
 
 @[simp]
 theorem liftRel_std [NeBot (U : Filter iota)] {R : alpha → beta → Prop} {a : alpha} {b : beta} :
     liftRel (U := U) R (std a : Ultrapower U alpha) (std b) ↔ R a b := by
-  simpa [std, ultraConst, liftRel] using
-    (Germ.liftRel_const_iff (l := (U : Filter iota)) (r := R) (x := a) (y := b))
+  simp [std, ultraConst, liftRel, Germ.liftRel_const_iff]
 
 @[simp]
 theorem lift_std (f : alpha → beta) (a : alpha) :
     lift (U := U) f (std a : Ultrapower U alpha) = (std (f a) : Ultrapower U beta) := by
-  simpa [std, ultraConst, lift, map] using (Germ.map_const (l := (U : Filter iota)) (a := a) (f := f))
+  simp [std, ultraConst, lift, map, Germ.map_const]
 
 theorem forall_ofSeq_iff (P : Ultrapower U alpha → Prop) :
     (∀ x : Ultrapower U alpha, P x) ↔ ∀ f : iota → alpha, P (ofSeq (U := U) f) := by
@@ -160,24 +156,20 @@ theorem liftPred_and (x : Ultrapower U alpha) :
       liftPred (U := U) P x ∧ liftPred (U := U) Q x := by
   rcases ofSeq_surjective x with ⟨f, hf⟩
   have hx : x = ofSeq (U := U) f := hf.symm
-  simpa [hx, liftPred_ofSeq] using
-    (eventually_and (f := (U : Filter iota)) (p := fun i => P (f i))
-      (q := fun i => Q (f i)))
+  simp [hx, liftPred_ofSeq]
 
 theorem liftPred_or (x : Ultrapower U alpha) :
     liftPred (U := U) (fun a => P a ∨ Q a) x ↔
       liftPred (U := U) P x ∨ liftPred (U := U) Q x := by
   rcases ofSeq_surjective x with ⟨f, hf⟩
   have hx : x = ofSeq (U := U) f := hf.symm
-  simpa [hx, liftPred_ofSeq] using
-    (Ultrafilter.eventually_or (f := U) (p := fun i => P (f i)) (q := fun i => Q (f i)))
+  simp [hx, liftPred_ofSeq, Ultrafilter.eventually_or]
 
 theorem liftPred_not (x : Ultrapower U alpha) :
     liftPred (U := U) (fun a => ¬ P a) x ↔ ¬ liftPred (U := U) P x := by
   rcases ofSeq_surjective x with ⟨f, hf⟩
   have hx : x = ofSeq (U := U) f := hf.symm
-  simpa [hx, liftPred_ofSeq] using
-    (Ultrafilter.eventually_not (f := U) (p := fun i => P (f i)))
+  simp [hx, liftPred_ofSeq, Ultrafilter.eventually_not]
 
 theorem liftPred_imp (x : Ultrapower U alpha) :
     liftPred (U := U) (fun a => P a → Q a) x ↔
@@ -199,12 +191,16 @@ theorem liftPred_exists_iff {Q : alpha → beta → Prop} {x : Ultrapower U alph
       obtain ⟨n, hn⟩ := Filter.nonempty_of_mem h
       obtain ⟨b, _⟩ := hn
       exact ⟨b⟩
-    let g (n : iota) : beta := if h : ∃ b, Q (f n) b then Classical.choose h else Classical.choice ‹_›
+    let g (n : iota) : beta :=
+      if h : ∃ b, Q (f n) b then
+        Classical.choose h
+      else
+        Classical.choice ‹_›
     refine ⟨ofSeq g, ?_⟩
     rw [liftRel_ofSeq]
     filter_upwards [h] with n hn
     have h_ex : ∃ b, Q (f n) b := hn
-    simp [g, h_ex, dif_pos]
+    simp only [g, h_ex, dif_pos]
     exact Classical.choose_spec h_ex
   · rintro ⟨y, hy⟩
     rcases ofSeq_surjective y with ⟨g, hg⟩
