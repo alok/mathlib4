@@ -30,15 +30,29 @@ namespace Mathlib.Tactic.Nonstandard
 /--
 Finds the index type `ι` in a `Hyper ι α` type within the given expression.
 -/
-def findIndexType (e : Expr) : Option Expr :=
+def findIndexType (e : Expr) : MetaM (Option Expr) := do
   if let some t := e.find? (·.isAppOfArity ``Hyper 3) then
-    some (t.getAppArgs[0]!)
+    return some (t.getAppArgs[0]!)
+  else if let some t := e.find? (·.isAppOfArity ``Filter.Ultrapower 3) then
+    -- Extract index from the ultrafilter parameter.
+    let U := t.getAppArgs[0]!
+    let Uty ← whnf (← inferType U)
+    if Uty.isAppOfArity ``Ultrafilter 1 then
+      return some (Uty.getAppArgs[0]!)
+    else
+      return none
   else if let some t := e.find? (·.isAppOfArity ``Filter.Germ 2) then
-    some (t.getAppArgs[0]!)
-  else if let some t := e.find? (·.isAppOfArity ``Filter.hyperfilter 2) then
-    some (t.getAppArgs[0]!)
+    -- `Germ l` is indexed by the type of `l : Filter ι`.
+    let l := t.getAppArgs[0]!
+    let lty ← whnf (← inferType l)
+    if lty.isAppOfArity ``Filter 1 then
+      return some (lty.getAppArgs[0]!)
+    else
+      return none
+  else if let some t := e.find? (·.isAppOfArity ``nonstandardUltrafilter 2) then
+    return some (t.getAppArgs[0]!)
   else
-    none
+    return none
 
 /--
 The `transfer` tactic simplifies expressions using the transfer principle.
@@ -58,7 +72,7 @@ syntax "transfer" (ppSpace transferDir)? ("[" Lean.Parser.Tactic.simpLemma,* "]"
 /-- Checks if a domain is a Hyper type. -/
 def isHyperDomain (dom : Expr) : MetaM Bool := do
   let dom ← whnfR dom
-  return dom.isAppOf ``Hyper || dom.isAppOf ``Filter.Germ
+  return dom.isAppOf ``Hyper || dom.isAppOf ``Filter.Ultrapower || dom.isAppOf ``Filter.Germ
 
 elab_rules : tactic
   | `(tactic| transfer $[$dir]? $[ [ $args,* ] ]? $[$loc]?) => do
@@ -68,7 +82,7 @@ elab_rules : tactic
     -- Helper to infer index type from a list of expressions
     let inferFromExprs (exprs : List Expr) : MetaM (Option Expr) := do
       for e in exprs do
-        if let some ι := findIndexType e then
+        if let some ι ← findIndexType e then
           return some ι
       return none
 
