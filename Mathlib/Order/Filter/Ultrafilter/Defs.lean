@@ -10,7 +10,6 @@ public import Mathlib.Order.ZornAtoms
 public import Mathlib.Order.Atoms
 public import Mathlib.Tactic.Basic
 
-@[expose] public section
 /-!
 # Ultrafilters
 
@@ -22,6 +21,8 @@ In this file we define
 * `pure x : Ultrafilter α`: `pure x` as an `Ultrafilter`;
 * `Ultrafilter.map`, `Ultrafilter.bind`, `Ultrafilter.comap` : operations on ultrafilters;
 -/
+
+@[expose] public section
 
 
 assert_not_exists Set.Finite

@@ -13,7 +13,7 @@ import Mathlib.MeasureTheory.SetSemiring
 import Mathlib.MeasureTheory.Measure.AddContent
 import Mathlib.MeasureTheory.Measure.Content
 import Mathlib.Order.Filter.Germ.Basic
-import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+import Mathlib.Order.Filter.Ultrafilter.Nonstandard
 import Mathlib.Data.Nat.Cast.Order.Basic
 import Mathlib.MeasureTheory.OuterMeasure.OfAddContent
 import Mathlib.Data.Set.Pairwise.Basic
@@ -215,12 +215,12 @@ theorem hyperfiniteCard_empty (H : Set (Hyper ι α)) (hH : IsHyperfinite H) (h 
   dsimp [hyperfiniteCard]
   let S := hH.choose
   have hS_mem := hH.choose_spec.2
-  have h_empty_ae : ∀ᶠ i in Filter.hyperfilter ι, S i = ∅ := by
+  have h_empty_ae : ∀ᶠ i in nonstandardUltrafilter ι, S i = ∅ := by
     by_contra h_freq
-    have h_ne_ae : ∀ᶠ i in Filter.hyperfilter ι, S i ≠ ∅ :=
+    have h_ne_ae : ∀ᶠ i in nonstandardUltrafilter ι, S i ≠ ∅ :=
       Ultrafilter.compl_mem_iff_notMem.mpr h_freq
     let f := fun i => if h : (S i).Nonempty then h.some else Classical.choice (by infer_instance)
-    have hf : ∀ᶠ i in Filter.hyperfilter ι, f i ∈ S i := by
+    have hf : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i := by
        filter_upwards [h_ne_ae] with i hi
        have : (S i).Nonempty := Set.nonempty_iff_ne_empty.mpr hi
        simp only [f, dif_pos this]
@@ -287,7 +287,7 @@ theorem preLoebMeasure_empty (H : Set (Hyper ι α)) (hH : IsHyperfinite H) :
     rw [Nat.cast_zero]
     rfl
   have h_frac_zero : (0 : Hyper ι ℝ).map₂ Div.div ((hyperfiniteCard H hH).map (Nat.cast : ℕ → ℝ)) = 0 := by
-    let x : Germ (hyperfilter ι : Filter ι) ℕ := hyperfiniteCard H hH
+    let x : Germ (nonstandardUltrafilter ι : Filter ι) ℕ := hyperfiniteCard H hH
     change (0 : Hyper ι ℝ).map₂ Div.div (x.map Nat.cast) = 0
     induction x using Filter.Germ.inductionOn with
     | h f =>
@@ -334,27 +334,27 @@ theorem hyperfiniteSubsetCard_union {H : Set (Hyper ι α)} (hH : IsHyperfinite 
   -- Transfer extensionality lemma
   have h_internal_ext : ∀ (S T : ι → Set α),
       (∀ x, liftPredSeq (fun i y => y ∈ S i) x ↔ liftPredSeq (fun i y => y ∈ T i) x) →
-      {i | S i = T i} ∈ hyperfilter ι := by
+      {i | S i = T i} ∈ nonstandardUltrafilter ι := by
     intro S T h_eq
     by_contra h_bad
-    have h_freq : {i | S i ≠ T i} ∈ hyperfilter ι := Ultrafilter.compl_mem_iff_notMem.mpr h_bad
+    have h_freq : {i | S i ≠ T i} ∈ nonstandardUltrafilter ι := Ultrafilter.compl_mem_iff_notMem.mpr h_bad
     -- let f := fun i =>
     --   if h : S i ≠ T i
     --   then (Set.nonempty_iff_ne_empty.mpr (mt Set.symmDiff_eq_simp.mp h)).some
     --   else Classical.choice (by infer_instance)
     let f := fun i => Classical.epsilon (fun y => y ∈ symmDiff (S i) (T i))
-    have hf_prop : ∀ᶠ i in hyperfilter ι, f i ∈ symmDiff (S i) (T i) := by
+    have hf_prop : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ symmDiff (S i) (T i) := by
       filter_upwards [h_freq] with i hi
       exact Classical.epsilon_spec (Set.nonempty_iff_ne_empty.mpr (mt Set.symmDiff_eq_empty.mp hi))
     let x := Hyper.ofSeq f
     have h_diff : liftPredSeq (fun i y => y ∈ S i) x ↔ ¬ liftPredSeq (fun i y => y ∈ T i) x := by
       change liftPredSeq (fun i y => y ∈ S i) (Hyper.ofSeq f) ↔ ¬ liftPredSeq (fun i y => y ∈ T i) (Hyper.ofSeq f)
-      have h_rw : liftPredSeq (fun i y => y ∈ S i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ S i :=
+      have h_rw : liftPredSeq (fun i y => y ∈ S i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i :=
         Hyper.liftPredSeq_ofSeq _ _
-      have h_rw2 : liftPredSeq (fun i y => y ∈ T i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ T i :=
+      have h_rw2 : liftPredSeq (fun i y => y ∈ T i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ T i :=
         Hyper.liftPredSeq_ofSeq _ _
       rw [h_rw, h_rw2]
-      have h_iff : ∀ᶠ i in hyperfilter ι, f i ∈ S i ↔ f i ∉ T i := by
+      have h_iff : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i ↔ f i ∉ T i := by
         filter_upwards [hf_prop] with i hi
         simp [Set.mem_symmDiff] at hi
         tauto
@@ -365,7 +365,7 @@ theorem hyperfiniteSubsetCard_union {H : Set (Hyper ι α)} (hH : IsHyperfinite 
     tauto
 
   -- Use h_internal_ext for h_eq_ae
-  have h_eq_ae : {i | SAB i = SA i ∪ SB i} ∈ hyperfilter ι := by
+  have h_eq_ae : {i | SAB i = SA i ∪ SB i} ∈ nonstandardUltrafilter ι := by
     apply h_internal_ext
     intro x
     -- RHS is x \in (A U B) \cap H
@@ -378,20 +378,20 @@ theorem hyperfiniteSubsetCard_union {H : Set (Hyper ι α)} (hH : IsHyperfinite 
     change liftPredSeq (fun i y ↦ y ∈ SA i) (Hyper.ofSeq f) ∨ liftPredSeq (fun i y ↦ y ∈ SB i) (Hyper.ofSeq f) ↔
       liftPredSeq (fun i y ↦ y ∈ SA i ∪ SB i) (Hyper.ofSeq f)
 
-    have h1 : liftPredSeq (fun i y => y ∈ SA i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ SA i := Hyper.liftPredSeq_ofSeq _ _
-    have h2 : liftPredSeq (fun i y => y ∈ SB i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ SB i := Hyper.liftPredSeq_ofSeq _ _
-    have h3 : liftPredSeq (fun i y => y ∈ SA i ∪ SB i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ SA i ∪ SB i := Hyper.liftPredSeq_ofSeq _ _
+    have h1 : liftPredSeq (fun i y => y ∈ SA i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ SA i := Hyper.liftPredSeq_ofSeq _ _
+    have h2 : liftPredSeq (fun i y => y ∈ SB i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ SB i := Hyper.liftPredSeq_ofSeq _ _
+    have h3 : liftPredSeq (fun i y => y ∈ SA i ∪ SB i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ SA i ∪ SB i := Hyper.liftPredSeq_ofSeq _ _
     rw [h1, h2, h3]
 
     -- Use Ultrafilter property
-    change (∀ᶠ i in hyperfilter ι, f i ∈ SA i) ∨ (∀ᶠ i in hyperfilter ι, f i ∈ SB i) ↔
-           {i | f i ∈ SA i ∪ SB i} ∈ hyperfilter ι
+    change (∀ᶠ i in nonstandardUltrafilter ι, f i ∈ SA i) ∨ (∀ᶠ i in nonstandardUltrafilter ι, f i ∈ SB i) ↔
+           {i | f i ∈ SA i ∪ SB i} ∈ nonstandardUltrafilter ι
     have h_set_eq : {i | f i ∈ SA i ∪ SB i} = {i | f i ∈ SA i} ∪ {i | f i ∈ SB i} := by ext; simp
     rw [h_set_eq, Ultrafilter.union_mem_iff]
     rfl
 
-  have h_dis_ae : {i | Disjoint (SA i) (SB i)} ∈ hyperfilter ι := by
-    have h_inter_empty : {i | SA i ∩ SB i = ∅} ∈ hyperfilter ι := by
+  have h_dis_ae : {i | Disjoint (SA i) (SB i)} ∈ nonstandardUltrafilter ι := by
+    have h_inter_empty : {i | SA i ∩ SB i = ∅} ∈ nonstandardUltrafilter ι := by
       apply h_internal_ext
       intro x
       induction x using Filter.Germ.inductionOn with | _ f =>
@@ -419,7 +419,7 @@ theorem hyperfiniteSubsetCard_union {H : Set (Hyper ι α)} (hH : IsHyperfinite 
       · intro h
         simp only [Set.mem_empty_iff_false] at h
         exfalso
-        exact (hyperfilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h)
+        exact (nonstandardUltrafilter ι).neBot.ne (Filter.eventually_false_iff_eq_bot.mp h)
 
     filter_upwards [h_inter_empty] with i hi
     exact Set.disjoint_iff_inter_eq_empty.mpr hi
@@ -459,37 +459,37 @@ theorem hyperfiniteSubsetCard_le {H : Set (Hyper ι α)} (hH : IsHyperfinite H)
   let SAH := hAH.choose
   let SH := hH.choose
   apply Filter.Germ.coe_le.mpr
-  have h_ae_sub : {i | SAH i ⊆ SH i} ∈ hyperfilter ι := by
+  have h_ae_sub : {i | SAH i ⊆ SH i} ∈ nonstandardUltrafilter ι := by
     -- Same extraction logic
     have h_internal_ext_sub : ∀ (S T : ι → Set α),
       (∀ x, liftPredSeq (fun i y => y ∈ S i) x → liftPredSeq (fun i y => y ∈ T i) x) →
-      {i | S i ⊆ T i} ∈ hyperfilter ι := by
+      {i | S i ⊆ T i} ∈ nonstandardUltrafilter ι := by
         intro S T h_imp
         by_contra h_bad
-        have h_freq : {i | ¬ S i ⊆ T i} ∈ hyperfilter ι := Ultrafilter.compl_mem_iff_notMem.mpr h_bad
+        have h_freq : {i | ¬ S i ⊆ T i} ∈ nonstandardUltrafilter ι := Ultrafilter.compl_mem_iff_notMem.mpr h_bad
         -- Simplify to epsilon for robustness
         let f := fun i => Classical.epsilon (fun y => y ∈ S i ∧ y ∉ T i)
         have h_choose : ∀ i, ¬ S i ⊆ T i → f i ∈ S i ∧ f i ∉ T i := fun i hi =>
             Classical.epsilon_spec (Set.not_subset.mp hi)
 
-        have hf_def : ∀ᶠ i in hyperfilter ι, f i ∈ S i ∧ f i ∉ T i := by
+        have hf_def : ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i ∧ f i ∉ T i := by
           filter_upwards [h_freq] with i hi
           exact h_choose i hi
         let x := Hyper.ofSeq f
         have h_in : liftPredSeq (fun i y => y ∈ S i) x := by
            change liftPredSeq (fun i y => y ∈ S i) (Hyper.ofSeq f)
-           have h_rw : liftPredSeq (fun i y => y ∈ S i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ S i :=
+           have h_rw : liftPredSeq (fun i y => y ∈ S i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ S i :=
              Hyper.liftPredSeq_ofSeq _ _
            rw [h_rw]
            apply Filter.mem_of_superset hf_def
            intro i hi; exact hi.1
         have h_notin : ¬ liftPredSeq (fun i y => y ∈ T i) x := by
            change ¬ liftPredSeq (fun i y => y ∈ T i) (Hyper.ofSeq f)
-           have h_rw : liftPredSeq (fun i y => y ∈ T i) (Hyper.ofSeq f) ↔ ∀ᶠ i in hyperfilter ι, f i ∈ T i :=
+           have h_rw : liftPredSeq (fun i y => y ∈ T i) (Hyper.ofSeq f) ↔ ∀ᶠ i in nonstandardUltrafilter ι, f i ∈ T i :=
              Hyper.liftPredSeq_ofSeq _ _
            rw [h_rw]
            intro h_true
-           apply (hyperfilter ι).neBot.ne
+           apply (nonstandardUltrafilter ι).neBot.ne
            apply Filter.empty_mem_iff_bot.mp
            apply Filter.mem_of_superset (Filter.inter_mem hf_def h_true)
            intro i hi
@@ -715,7 +715,7 @@ noncomputable instance {ι : Type*} [Infinite ι] {α : Type*}
       revert h
       intro h_le
       let S := {i | fa i ≤ fb i}
-      have hS : S ∈ Filter.hyperfilter ι := Filter.Germ.coe_le.mp h_le
+      have hS : S ∈ nonstandardUltrafilter ι := Filter.Germ.coe_le.mp h_le
       let c := fun i => if hi : i ∈ S then (exists_add_of_le (a := fa i) (b := fb i) hi).choose else 0
       use Hyper.ofSeq c
       apply Filter.Germ.coe_eq.mpr

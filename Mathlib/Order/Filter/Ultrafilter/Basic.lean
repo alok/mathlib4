@@ -9,17 +9,17 @@ public import Mathlib.Order.Filter.Ultrafilter.Defs
 public import Mathlib.Order.Filter.Cofinite
 public import Mathlib.Order.ZornAtoms
 
-@[expose] public section
-
-
 /-!
 # Ultrafilters
 
 An ultrafilter is a minimal (maximal in the set order) proper filter.
 In this file we define
 
-* `hyperfilter`: the ultrafilter extending the cofinite filter.
+* basic lemmas about finite unions in ultrafilters;
+* `Filter.tendsto_iff_ultrafilter`.
 -/
+
+@[expose] public section
 
 
 universe u v
@@ -92,37 +92,6 @@ theorem tendsto_iff_ultrafilter (f : α → β) (l₁ : Filter α) (l₂ : Filte
     Tendsto f l₁ l₂ ↔ ∀ g : Ultrafilter α, ↑g ≤ l₁ → Tendsto f g l₂ := by
   simpa only [tendsto_iff_comap] using le_iff_ultrafilter
 
-
-variable (α) [Infinite α]
-
-/-- The ultrafilter extending the cofinite filter. -/
-noncomputable def hyperfilter : Ultrafilter α :=
-  Ultrafilter.of cofinite
-
-variable {α}
-
-theorem hyperfilter_le_cofinite : ↑(hyperfilter α) ≤ @cofinite α :=
-  Ultrafilter.of_le cofinite
-
-theorem _root_.Nat.hyperfilter_le_atTop : (hyperfilter ℕ).toFilter ≤ atTop :=
-  hyperfilter_le_cofinite.trans_eq Nat.cofinite_eq_atTop
-
-@[simp]
-theorem bot_ne_hyperfilter : (⊥ : Filter α) ≠ hyperfilter α :=
-  (NeBot.ne inferInstance).symm
-
-theorem notMem_hyperfilter_of_finite {s : Set α} (hf : s.Finite) : s ∉ hyperfilter α := fun hy =>
-  compl_notMem hy <| hyperfilter_le_cofinite hf.compl_mem_cofinite
-
-alias _root_.Set.Finite.notMem_hyperfilter := notMem_hyperfilter_of_finite
-
-theorem compl_mem_hyperfilter_of_finite {s : Set α} (hf : Set.Finite s) : sᶜ ∈ hyperfilter α :=
-  compl_mem_iff_notMem.2 hf.notMem_hyperfilter
-
-alias _root_.Set.Finite.compl_mem_hyperfilter := compl_mem_hyperfilter_of_finite
-
-theorem mem_hyperfilter_of_finite_compl {s : Set α} (hf : Set.Finite sᶜ) : s ∈ hyperfilter α :=
-  compl_compl s ▸ hf.compl_mem_hyperfilter
 
 end Filter
 

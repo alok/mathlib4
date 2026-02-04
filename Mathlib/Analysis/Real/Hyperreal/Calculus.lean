@@ -55,30 +55,30 @@ theorem HasDerivAt.infClose_slope {f : ℝ → ℝ} {f' x : ℝ} (hf : HasDerivA
     exact h
   -- Now prove ofSeq slope_seq ≈ f'
   rw [← isSt_iff_infClose, isSt_ofSeq_iff_tendsto]
-  -- Goal: Tendsto slope_seq (hyperfilter ℕ) (𝓝 f')
+  -- Goal: Tendsto slope_seq (nonstandardUltrafilter ℕ) (𝓝 f')
   -- We have HasDerivAt, which gives: Tendsto (fun t => t⁻¹ • (f (x + t) - f x)) (𝓝[≠] 0) (𝓝 f')
   rw [hasDerivAt_iff_tendsto_slope_zero] at hf
   -- hf : Tendsto (fun t => t⁻¹ • (f (x + t) - f x)) (𝓝[≠] 0) (𝓝 f')
   -- In ℝ, t⁻¹ • v = v / t, so slope_seq n = (fun t => t⁻¹ • (f (x + t) - f x)) (d n)
-  -- Need: Tendsto d (hyperfilter ℕ) (𝓝[≠] 0)
-  have hd_tendsto : Tendsto d (hyperfilter ℕ) (𝓝[≠] 0) := by
+  -- Need: Tendsto d (nonstandardUltrafilter ℕ) (𝓝[≠] 0)
+  have hd_tendsto : Tendsto d (nonstandardUltrafilter ℕ) (𝓝[≠] 0) := by
     rw [tendsto_nhdsWithin_iff]
     constructor
     · -- d → 0: Infinitesimal (ofSeq d) = IsSt (ofSeq d) 0
       exact isSt_ofSeq_iff_tendsto.mp hδ
     · -- d(n) ≠ 0 eventually
-      -- ofSeq d ≠ 0 means ¬(d =ᶠ[hyperfilter ℕ] 0)
+      -- ofSeq d ≠ 0 means ¬(d =ᶠ[nonstandardUltrafilter ℕ] 0)
       -- For ultrafilter: ¬(∀ᶠ n, d n = 0) ↔ ∀ᶠ n, d n ≠ 0
       simp only [Set.mem_compl_iff, Set.mem_singleton_iff]
       -- Goal: ∀ᶠ n, d n ≠ 0
       -- ofSeq d = (d : Germ ...), and (f : Germ l β) = 0 ↔ f =ᶠ[l] 0 ↔ ∀ᶠ n, f n = 0
-      have h : ¬∀ᶠ n in (hyperfilter ℕ : Filter ℕ), d n = 0 := by
+      have h : ¬∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), d n = 0 := by
         intro heq
         apply hδ0
         simp only [ofSeq]
         rw [← Germ.coe_zero]
         exact Germ.coe_eq.mpr (heq.mono fun n hn => hn)
-      exact (hyperfilter ℕ).eventually_not.mpr h
+      exact (nonstandardUltrafilter ℕ).eventually_not.mpr h
   -- Convert smul to div for ℝ
   have hslope_eq : slope_seq = fun n => (d n)⁻¹ • (f (x + d n) - f x) := by
     ext n
@@ -139,29 +139,29 @@ theorem hasDerivAt_of_infClose_slope {f : ℝ → ℝ} {f' x : ℝ}
           _ < (N : ℝ) + 1 := by linarith
   -- Now form ofSeq d, which is infinitesimal and nonzero
   have hδ_inf : Infinitesimal (ofSeq d) :=
-    isSt_ofSeq_iff_tendsto.mpr (hd_tendsto.mono_left Nat.hyperfilter_le_atTop)
+    isSt_ofSeq_iff_tendsto.mpr (hd_tendsto.mono_left nonstandardUltrafilter_le_atTop)
   have hδ_ne : ofSeq d ≠ 0 := by
     simp only [ne_eq, ofSeq]
     rw [← Germ.coe_zero, Germ.coe_eq]
     intro heq
-    -- heq : ∀ᶠ n in hyperfilter, d n = 0
+    -- heq : ∀ᶠ n in nonstandardUltrafilter, d n = 0
     -- But hd_ne says ∀ n, d n ≠ 0
     -- For ultrafilter: ∀ᶠ n, d n ≠ 0 means ¬∀ᶠ n, d n = 0
-    have hall_ne : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), d n ≠ 0 :=
+    have hall_ne : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), d n ≠ 0 :=
       Filter.Eventually.of_forall hd_ne
     exact (hall_ne.and heq).exists.elim fun n ⟨hne, he⟩ => hne he
   -- Apply the hypothesis
   specialize h (ofSeq d) hδ_inf hδ_ne
-  -- h : slope(d) ≈ f', which by tendsto_hyperfilter_iff_infClose means slope → f' along hyperfilter
+  -- h : slope(d) ≈ f', which by tendsto_nonstandardUltrafilter_iff_infClose means slope → f' along nonstandardUltrafilter
   -- But we constructed slope to stay ≥ eps away from f', contradiction
   have hslope_far : ∀ n, eps ≤ |((d n)⁻¹ • (f (x + d n) - f x)) - f'| := fun n => hd_far n
   -- The hypothesis h says (Germ.map f (x + ofSeq d) - f x) / ofSeq d ≈ f'
   -- This is definitionally equal to ofSeq (fun n => (f (x + d n) - f x) / d n) ≈ f'
   -- We need to show this contradicts hslope_far
   -- First, convert ≈ to Tendsto
-  have htend : Tendsto (fun n => (f (x + d n) - f x) / d n) (hyperfilter ℕ) (𝓝 f') :=
-    tendsto_hyperfilter_iff_infClose.mpr h
-  -- htend says (f (x + d n) - f x) / d n → f' along hyperfilter
+  have htend : Tendsto (fun n => (f (x + d n) - f x) / d n) (nonstandardUltrafilter ℕ) (𝓝 f') :=
+    tendsto_nonstandardUltrafilter_iff_infClose.mpr h
+  -- htend says (f (x + d n) - f x) / d n → f' along nonstandardUltrafilter
   -- But hslope_far says |(d n)⁻¹ • (f (x + d n) - f x) - f'| ≥ eps for all n
   -- Note: (d n)⁻¹ • (f (x + d n) - f x) = (f (x + d n) - f x) / d n in ℝ
   have hslope_eq : ∀ n, (d n)⁻¹ • (f (x + d n) - f x) = (f (x + d n) - f x) / d n := fun n => by
@@ -171,8 +171,8 @@ theorem hasDerivAt_of_infClose_slope {f : ℝ → ℝ} {f' x : ℝ}
   -- This contradicts htend because we should be able to find n with |slope n - f'| < eps
   rw [Metric.tendsto_nhds] at htend
   specialize htend eps heps
-  -- htend : ∀ᶠ n in hyperfilter, dist (slope n) f' < eps
-  -- Since hyperfilter is an ultrafilter, eventually → exists
+  -- htend : ∀ᶠ n in nonstandardUltrafilter, dist (slope n) f' < eps
+  -- Since nonstandardUltrafilter is an ultrafilter, eventually → exists
   obtain ⟨n, hn⟩ := htend.exists
   rw [dist_eq_norm, Real.norm_eq_abs] at hn
   linarith [hslope_far' n]
@@ -228,7 +228,7 @@ theorem hasDerivAt_mul_of_nsa {f g : ℝ → ℝ} {f' g' x : ℝ}
   have hg_st : IsSt g_xd (g x) := hxd_st.map hg_cont
   have hf_st : IsSt f_xd (f x) := hxd_st.map hf_cont
   -- The key algebraic identity
-  have key_eq : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ),
+  have key_eq : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ),
       (f (x + d n) * g (x + d n) - f x * g x) / d n =
       (f (x + d n) - f x) / d n * g (x + d n) + f x * ((g (x + d n) - g x) / d n) := by
     apply Filter.Eventually.of_forall

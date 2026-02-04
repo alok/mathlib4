@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.FilterProduct
-import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+import Mathlib.Order.Filter.Ultrafilter.Nonstandard
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Int.Order.Basic
 
@@ -12,7 +12,7 @@ import Mathlib.Data.Int.Order.Basic
 # Hyperinteger numbers
 
 We build the *hyperintegers* `ℤ*` as germs of integer sequences on the
-`hyperfilter ℕ`, mirroring the constructions of `ℝ*` and `ℕ*`.
+`nonstandardUltrafilter ℕ`, mirroring the constructions of `ℝ*` and `ℕ*`.
 -/
 
 open Classical
@@ -20,7 +20,7 @@ open Filter Germ Topology
 
 /-- Hyperintegers on the ultrafilter extending the cofinite filter. -/
 noncomputable def Hyperinteger : Type :=
-  Germ (hyperfilter ℕ : Filter ℕ) ℤ
+  Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℤ
 
 namespace Hyperinteger
 
@@ -57,17 +57,17 @@ theorem coe_ne_coe {a b : ℤ} : (a : ℤ*) ≠ b ↔ a ≠ b := coe_eq_coe.not
 @[simp, norm_cast] theorem coe_lt_coe {a b : ℤ} : (a : ℤ*) < b ↔ a < b := Germ.const_lt_iff
 
 /-- Build a hyperinteger from a sequence. -/
-noncomputable def ofSeq (f : ℕ → ℤ) : ℤ* := (↑f : Germ (hyperfilter ℕ : Filter ℕ) ℤ)
+noncomputable def ofSeq (f : ℕ → ℤ) : ℤ* := (↑f : Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℤ)
 
 theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 
-theorem ofSeq_eq_ofSeq {f g : ℕ → ℤ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n = g n :=
+theorem ofSeq_eq_ofSeq {f g : ℕ → ℤ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n = g n :=
   Germ.coe_eq
 
-theorem ofSeq_le_ofSeq {f g : ℕ → ℤ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n :=
+theorem ofSeq_le_ofSeq {f g : ℕ → ℤ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n :=
   Germ.coe_le
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℤ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℤ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   Germ.coe_lt
 
 /-- Positive infinity predicate. -/
@@ -85,17 +85,17 @@ section Transfer
 
 open Germ Ultrafilter
 
-/-- Lift a predicate on ℤ to ℤ* via the hyperfilter. -/
+/-- Lift a predicate on ℤ to ℤ* via the nonstandardUltrafilter. -/
 def liftPred (P : ℤ → Prop) (x : ℤ*) : Prop :=
   Germ.LiftPred P x
 
-/-- Lift a binary relation on ℤ to ℤ* via the hyperfilter. -/
+/-- Lift a binary relation on ℤ to ℤ* via the nonstandardUltrafilter. -/
 def liftRel (R : ℤ → ℤ → Prop) (x y : ℤ*) : Prop :=
   Germ.LiftRel R x y
 
 @[simp]
 theorem liftPred_ofSeq {P : ℤ → Prop} {f : ℕ → ℤ} :
-    liftPred P (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, P (f n) :=
+    liftPred P (ofSeq f) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, P (f n) :=
   Germ.liftPred_coe
 
 @[simp]
@@ -105,7 +105,7 @@ theorem liftPred_coe {P : ℤ → Prop} {z : ℤ} :
 
 @[simp]
 theorem liftRel_ofSeq {R : ℤ → ℤ → Prop} {f g : ℕ → ℤ} :
-    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ℕ, R (f n) (g n) :=
+    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, R (f n) (g n) :=
   Germ.liftRel_coe
 
 @[simp]

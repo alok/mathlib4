@@ -155,28 +155,28 @@ section OrderTransfer
 
 /-- Test: Less-than transfers via ofSeq. -/
 theorem test_lt_ofSeq {f g : ℕ → ℕ} :
-    ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+    ofSeq f < ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   ofSeq_lt_ofSeq
 
 /-- Test: Less-or-equal transfers via ofSeq. -/
 theorem test_le_ofSeq {f g : ℕ → ℕ} :
-    ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n :=
+    ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n :=
   ofSeq_le_ofSeq
 
 /-- Test: Equality transfers via ofSeq. -/
 theorem test_eq_ofSeq {f g : ℕ → ℕ} :
-    ofSeq f = ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n = g n :=
+    ofSeq f = ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n = g n :=
   ofSeq_eq_ofSeq
 
 /-- Test: Order relations for hyperrationals. -/
 theorem test_lt_ofSeq_rat {f g : ℕ → ℚ} :
     Hyperrational.ofSeq f < Hyperrational.ofSeq g ↔
-    ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+    ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   Hyperrational.ofSeq_lt_ofSeq
 
 theorem test_le_ofSeq_rat {f g : ℕ → ℚ} :
     Hyperrational.ofSeq f ≤ Hyperrational.ofSeq g ↔
-    ∀ᶠ n in hyperfilter ℕ, f n ≤ g n :=
+    ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n :=
   Hyperrational.ofSeq_le_ofSeq
 
 end OrderTransfer

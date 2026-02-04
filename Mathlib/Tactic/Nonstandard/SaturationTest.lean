@@ -29,5 +29,5 @@ example : ∃ ω : Hyper ℕ ℕ, ∀ n : ℕ, (★n : Hyper ℕ ℕ) < ω := by
   -- So I need to adjust the test to match this flow.
 
 /-- Verify transfer handles `ofSeq` -/
-example (f : ℕ → ℕ) : liftPred (fun x => x > 0) (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, f n > 0 := by
+example (f : ℕ → ℕ) : liftPred (fun x => x > 0) (ofSeq f) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n > 0 := by
   transfer

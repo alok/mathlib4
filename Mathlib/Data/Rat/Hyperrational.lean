@@ -19,7 +19,7 @@ open Filter Germ Topology
 
 /-- Hyperrational numbers on the ultrafilter extending the cofinite filter. -/
 noncomputable def Hyperrational : Type :=
-  Germ (hyperfilter ℕ : Filter ℕ) ℚ
+  Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℚ
 
 namespace Hyperrational
 
@@ -36,17 +36,17 @@ instance : IsStrictOrderedRing ℚ* :=
   inferInstanceAs (IsStrictOrderedRing (Germ _ _))
 
 /-- Construct a hyperrational number from a sequence of rationals. -/
-noncomputable def ofSeq (f : ℕ → ℚ) : ℚ* := (↑f : Germ (hyperfilter ℕ : Filter ℕ) ℚ)
+noncomputable def ofSeq (f : ℕ → ℚ) : ℚ* := (↑f : Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℚ)
 
 theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 
-theorem ofSeq_eq_ofSeq {f g : ℕ → ℚ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n = g n :=
+theorem ofSeq_eq_ofSeq {f g : ℕ → ℚ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n = g n :=
   Germ.coe_eq
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℚ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℚ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   Germ.coe_lt
 
-theorem ofSeq_le_ofSeq {f g : ℕ → ℚ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n :=
+theorem ofSeq_le_ofSeq {f g : ℕ → ℚ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n :=
   Germ.coe_le
 
 /-- Standard embedding of rationals as constant sequences. -/
@@ -125,13 +125,13 @@ def galaxy (x : ℚ*) : Set ℚ* := {y | HFinite (x - y)}
 
 theorem omega_pos : 0 < ω := by
   rw [show (0 : ℚ*) = ofSeq (fun _ => (0 : ℚ)) from rfl, omega, ofSeq_lt_ofSeq]
-  exact Nat.hyperfilter_le_atTop <| (eventually_gt_atTop 0).mono fun n hn => by
+  exact nonstandardUltrafilter_le_atTop <| (eventually_gt_atTop 0).mono fun n hn => by
     simp only [Nat.cast_pos]
     exact hn
 
 theorem epsilon_pos : 0 < ε := by
   rw [show (0 : ℚ*) = ofSeq (fun _ => (0 : ℚ)) from rfl, epsilon, ofSeq_lt_ofSeq]
-  exact Nat.hyperfilter_le_atTop <| eventually_atTop.mpr ⟨1, fun n hn => by
+  exact nonstandardUltrafilter_le_atTop <| eventually_atTop.mpr ⟨1, fun n hn => by
     simp only [Nat.cast_pos, Nat.succ_pos, inv_pos]⟩
 
 theorem epsilon_ne_zero : ε ≠ 0 := epsilon_pos.ne'
@@ -141,7 +141,7 @@ theorem infinite_omega : Infinite ω := by
   left
   intro q
   rw [ofRat, omega, ofSeq_lt_ofSeq]
-  exact Nat.hyperfilter_le_atTop <| eventually_atTop.mpr ⟨⌈q⌉₊ + 1, fun n hn => by
+  exact nonstandardUltrafilter_le_atTop <| eventually_atTop.mpr ⟨⌈q⌉₊ + 1, fun n hn => by
     have : (⌈q⌉₊ : ℚ) < n := by exact_mod_cast Nat.lt_of_succ_le hn
     exact lt_of_le_of_lt (Nat.le_ceil q) this⟩
 
@@ -263,12 +263,12 @@ theorem continuousAt_implies_nsContinuousAt {f : ℚ → ℚ} {a : ℚ}
   rw [show ofSeq s - ofRat a = ofSeq (fun n => s n - a) from rfl] at hlo hhi
   rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
   -- Eventually |s_n - a| < delta
-  have h_abs_bound : ∀ᶠ n in hyperfilter ℕ, |s n - a| < delta := by
+  have h_abs_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |s n - a| < delta := by
     filter_upwards [hlo, hhi] with n hlo_n hhi_n
     rw [abs_lt]
     exact ⟨hlo_n, hhi_n⟩
   -- By epsilon-delta continuity, eventually |f(s_n) - f(a)| < eps
-  have h_f_bound : ∀ᶠ n in hyperfilter ℕ, |f (s n) - f a| < eps := by
+  have h_f_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |f (s n) - f a| < eps := by
     filter_upwards [h_abs_bound] with n hn
     exact hdelta (s n) hn
   -- Convert back to hyperrational inequalities
@@ -323,7 +323,7 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
     constructor
     · rw [show (x : ℚ*) - ofRat a = ofSeq (fun n => s n - a) from rfl]
       rw [ofRat, ofSeq_lt_ofSeq]
-      apply Nat.hyperfilter_le_atTop
+      apply nonstandardUltrafilter_le_atTop
       apply eventually_atTop.mpr
       use N
       intro n hn
@@ -337,7 +337,7 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
       linarith
     · rw [show (x : ℚ*) - ofRat a = ofSeq (fun n => s n - a) from rfl]
       rw [ofRat, ofSeq_lt_ofSeq]
-      apply Nat.hyperfilter_le_atTop
+      apply nonstandardUltrafilter_le_atTop
       apply eventually_atTop.mpr
       use N
       intro n hn
@@ -362,7 +362,7 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
   -- But for ALL n, |f(s_n) - f(a)| ≥ eps, contradicting the bounds
   have h_all_bad : ∀ n, eps ≤ |f (s n) - f a| := fun n => (hs n).2
   -- Get the contradiction
-  have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+  have hfalse : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
     filter_upwards [hlo, hhi] with n hlo_n hhi_n
     have hge := h_all_bad n
     -- |f(s n) - f a| ≥ eps means f(s n) - f a ≥ eps or f(s n) - f a ≤ -eps
@@ -451,12 +451,12 @@ theorem Infinitesimal.mul_hFinite {x y : ℚ*} (hx : Infinitesimal x) (hy : HFin
   rcases ofSeq_surjective y with ⟨g, rfl⟩
   -- From hx bounds: eventually |f(n)| < eps/(2*B)
   rw [ofRat, ofSeq_lt_ofSeq] at hx_lo hx_hi
-  have hf_bound : ∀ᶠ n in hyperfilter ℕ, |f n| < eps / (2 * B) := by
+  have hf_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |f n| < eps / (2 * B) := by
     filter_upwards [hx_lo, hx_hi] with n hlo hhi
     rw [abs_lt]; constructor <;> linarith
   -- From hy bounds: eventually |g(n)| ≤ B
   rw [ofRat, ofSeq_le_ofSeq] at hy_lo hy_hi
-  have hg_bound : ∀ᶠ n in hyperfilter ℕ, |g n| ≤ B := by
+  have hg_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |g n| ≤ B := by
     filter_upwards [hy_lo, hy_hi] with n hlo hhi
     rw [abs_le]
     constructor
@@ -631,7 +631,7 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
   have hBy_pos : (0 : ℚ) < By := by linarith [le_max_left |qy_lo| |qy_hi|, abs_nonneg qy_lo]
   have hB_pos : (0 : ℚ) < B := by positivity
   -- Eventually |f(n)| ≤ Bx and |g(n)| ≤ By
-  have hf_bound : ∀ᶠ n in hyperfilter ℕ, |f n| < Bx := by
+  have hf_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |f n| < Bx := by
     filter_upwards [hx_lo, hx_hi] with n hlo hhi
     rw [abs_lt]
     constructor
@@ -641,7 +641,7 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
     · calc f n ≤ qx_hi := hhi
         _ ≤ |qx_hi| := le_abs_self qx_hi
         _ < Bx := by simp only [Bx]; linarith [le_max_right |qx_lo| |qx_hi|]
-  have hg_bound : ∀ᶠ n in hyperfilter ℕ, |g n| < By := by
+  have hg_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |g n| < By := by
     filter_upwards [hy_lo, hy_hi] with n hlo hhi
     rw [abs_lt]
     constructor
@@ -652,7 +652,7 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
         _ ≤ |qy_hi| := le_abs_self qy_hi
         _ < By := by simp only [By]; linarith [le_max_right |qy_lo| |qy_hi|]
   -- Product bound: |f(n) * g(n)| < B
-  have hprod_bound : ∀ᶠ n in hyperfilter ℕ, |f n * g n| < B := by
+  have hprod_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |f n * g n| < B := by
     filter_upwards [hf_bound, hg_bound] with n hf hg
     calc |f n * g n| = |f n| * |g n| := abs_mul _ _
       _ < Bx * By := mul_lt_mul_of_nonneg_of_pos hf (le_of_lt hg) (abs_nonneg _) hBy_pos
@@ -661,7 +661,7 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
   · -- InfinitePos (x * y)
     have hcontra := hpos B
     rw [show ofSeq f * ofSeq g = ofSeq (fun n => f n * g n) from rfl, ofRat, ofSeq_lt_ofSeq] at hcontra
-    have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+    have hfalse : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
       filter_upwards [hcontra, hprod_bound] with n h1 h2
       have : f n * g n ≤ |f n * g n| := le_abs_self _
       linarith
@@ -669,7 +669,7 @@ theorem HFinite.mul {x y : ℚ*} (hx : HFinite x) (hy : HFinite y) : HFinite (x 
   · -- InfiniteNeg (x * y)
     have hcontra := hneg (-B)
     rw [show ofSeq f * ofSeq g = ofSeq (fun n => f n * g n) from rfl, ofRat, ofSeq_lt_ofSeq] at hcontra
-    have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+    have hfalse : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
       filter_upwards [hcontra, hprod_bound] with n h1 h2
       have : -|f n * g n| ≤ f n * g n := neg_abs_le _
       linarith
@@ -799,7 +799,7 @@ theorem omega_mul_epsilon_infClose : InfClose (ω * ε) 1 := by
   · -- ofRat (-q) < ofSeq (fun n => n/(n+1) - 1) = ofSeq (fun n => -1/(n+1))
     -- Need: -q < -1/(n+1) for large n, i.e., 1/(n+1) < q for large n
     rw [ofRat, ofSeq_lt_ofSeq]
-    apply Nat.hyperfilter_le_atTop
+    apply nonstandardUltrafilter_le_atTop
     apply eventually_atTop.mpr
     obtain ⟨N, hN⟩ := exists_nat_gt q⁻¹
     use N
@@ -850,7 +850,7 @@ theorem infinitesimal_epsilon : Infinitesimal ε := by
     -- Need to show: eventually (n+1)⁻¹ < q
     -- This holds for n large enough that (n+1)⁻¹ < q, i.e., n+1 > q⁻¹
     rw [epsilon, ofRat, ofSeq_lt_ofSeq]
-    apply Nat.hyperfilter_le_atTop
+    apply nonstandardUltrafilter_le_atTop
     apply eventually_atTop.mpr
     -- Find N such that (N+1)⁻¹ < q
     obtain ⟨N, hN⟩ := exists_nat_gt q⁻¹
@@ -1021,14 +1021,14 @@ theorem seqConvergesTo_implies_nsSeqConvergesTo {s : ℕ → ℚ} {L : ℚ}
   -- Since N is infinite, N > N₀, so eventually f(n) ≥ N₀
   rcases Hypernatural.ofSeq_surjective N with ⟨f, rfl⟩
   -- Eventually f(n) ≥ N₀ because N is infinite
-  have hf_large : ∀ᶠ n in hyperfilter ℕ, N₀ ≤ f n := by
+  have hf_large : ∀ᶠ n in nonstandardUltrafilter ℕ, N₀ ≤ f n := by
     have := hN N₀
     have hlt := (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => N₀) (g := f)).1
       (by simpa [Hypernatural.ofSeq_const] using this)
     filter_upwards [hlt] with n hn
     omega
   -- So eventually |s(f(n)) - L| < eps
-  have h_bound : ∀ᶠ n in hyperfilter ℕ, |s (f n) - L| < eps := by
+  have h_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |s (f n) - L| < eps := by
     filter_upwards [hf_large] with n hn
     exact hN₀ (f n) hn
   constructor
@@ -1069,7 +1069,7 @@ theorem nsSeqConvergesTo_implies_seqConvergesTo {s : ℕ → ℚ} {L : ℚ}
   have hN_infinite : Hypernatural.Infinite N := by
     intro k
     apply (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => k) (g := f)).2
-    apply Nat.hyperfilter_le_atTop
+    apply nonstandardUltrafilter_le_atTop
     apply eventually_atTop.mpr
     use k + 1
     intro n hn
@@ -1088,7 +1088,7 @@ theorem nsSeqConvergesTo_implies_seqConvergesTo {s : ℕ → ℚ} {L : ℚ}
   rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
   -- Get contradiction: we have |s(f(n)) - L| ≥ eps for all n
   have h_all_bad : ∀ n, eps ≤ |s (f n) - L| := fun n => (hf n).2
-  have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+  have hfalse : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
     filter_upwards [hlo, hhi] with n hlo_n hhi_n
     have hge := h_all_bad n
     have hbound : |s (f n) - L| < eps / 2 := by
@@ -1114,20 +1114,20 @@ theorem isCauchy_implies_nsIsCauchy {s : ℕ → ℚ} (h : IsCauchy s) : NSIsCau
   -- Since M and N are infinite, eventually f(n) ≥ K and g(n) ≥ K
   rcases Hypernatural.ofSeq_surjective M with ⟨f, rfl⟩
   rcases Hypernatural.ofSeq_surjective N with ⟨g, rfl⟩
-  have hf_large : ∀ᶠ n in hyperfilter ℕ, K ≤ f n := by
+  have hf_large : ∀ᶠ n in nonstandardUltrafilter ℕ, K ≤ f n := by
     have := hM K
     have hlt := (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => K) (g := f)).1
       (by simpa [Hypernatural.ofSeq_const] using this)
     filter_upwards [hlt] with n hn
     omega
-  have hg_large : ∀ᶠ n in hyperfilter ℕ, K ≤ g n := by
+  have hg_large : ∀ᶠ n in nonstandardUltrafilter ℕ, K ≤ g n := by
     have := hN K
     have hlt := (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => K) (g := g)).1
       (by simpa [Hypernatural.ofSeq_const] using this)
     filter_upwards [hlt] with n hn
     omega
   -- So eventually |s(f(n)) - s(g(n))| < eps
-  have h_bound : ∀ᶠ n in hyperfilter ℕ, |s (f n) - s (g n)| < eps := by
+  have h_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |s (f n) - s (g n)| < eps := by
     filter_upwards [hf_large, hg_large] with n hfn hgn
     exact hK (f n) (g n) hfn hgn
   constructor
@@ -1168,7 +1168,7 @@ theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCau
   have hM_infinite : Hypernatural.Infinite M := by
     intro k
     apply (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => k) (g := f)).2
-    apply Nat.hyperfilter_le_atTop
+    apply nonstandardUltrafilter_le_atTop
     apply eventually_atTop.mpr
     use k + 1
     intro n hn
@@ -1177,7 +1177,7 @@ theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCau
   have hN_infinite : Hypernatural.Infinite N := by
     intro k
     apply (Hypernatural.ofSeq_lt_ofSeq (f := fun _ => k) (g := g)).2
-    apply Nat.hyperfilter_le_atTop
+    apply nonstandardUltrafilter_le_atTop
     apply eventually_atTop.mpr
     use k + 1
     intro n hn
@@ -1196,7 +1196,7 @@ theorem nsIsCauchy_implies_isCauchy {s : ℕ → ℚ} (h : NSIsCauchy s) : IsCau
   rw [ofRat, ofSeq_lt_ofSeq] at hlo hhi
   -- Get contradiction: we have |s(f(n)) - s(g(n))| ≥ eps for all n
   have h_all_bad : ∀ n, eps ≤ |s (f n) - s (g n)| := fun n => (hfg n).2.2
-  have hfalse : ∀ᶠ n in (hyperfilter ℕ : Filter ℕ), False := by
+  have hfalse : ∀ᶠ n in (nonstandardUltrafilter ℕ : Filter ℕ), False := by
     filter_upwards [hlo, hhi] with n hlo_n hhi_n
     have hge := h_all_bad n
     have hbound : |s (f n) - s (g n)| < eps / 2 := by
@@ -1237,7 +1237,7 @@ intersects the set.
 /-- Star extension of a set `S ⊆ ℚ` to `S* ⊆ ℚ*`.
     Contains all hyperrationals that are "eventually in S". -/
 def starSet (S : Set ℚ) : Set ℚ* :=
-  {x | ∃ f : ℕ → ℚ, x = ofSeq f ∧ ∀ᶠ n in hyperfilter ℕ, f n ∈ S}
+  {x | ∃ f : ℕ → ℚ, x = ofSeq f ∧ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ∈ S}
 
 @[inherit_doc starSet] scoped postfix:max "⁺" => starSet
 
@@ -1488,7 +1488,7 @@ theorem HasStdPart.mul {x y : ℚ*} (hx : HasStdPart x) (hy : HasStdPart y)
 /-! ## Transfer Principle for Hyperrationals
 
 This section provides transfer lemmas that allow lifting predicates and relations
-from ℚ to ℚ* via the hyperfilter. These are analogous to the transfer lemmas
+from ℚ to ℚ* via the nonstandardUltrafilter. These are analogous to the transfer lemmas
 for hypernaturals.
 -/
 
@@ -1496,16 +1496,16 @@ section Transfer
 
 open Germ Ultrafilter
 
-/-- Lift a predicate on ℚ to ℚ* via the hyperfilter. -/
+/-- Lift a predicate on ℚ to ℚ* via the nonstandardUltrafilter. -/
 def liftPred (P : ℚ → Prop) (x : ℚ*) : Prop :=
   Germ.LiftPred P x
 
-/-- Lift a binary relation on ℚ to ℚ* via the hyperfilter. -/
+/-- Lift a binary relation on ℚ to ℚ* via the nonstandardUltrafilter. -/
 def liftRel (R : ℚ → ℚ → Prop) (x y : ℚ*) : Prop :=
   Germ.LiftRel R x y
 
 theorem liftPred_ofSeq {P : ℚ → Prop} {f : ℕ → ℚ} :
-    liftPred P (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, P (f n) :=
+    liftPred P (ofSeq f) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, P (f n) :=
   Germ.liftPred_coe
 
 theorem liftPred_ofRat {P : ℚ → Prop} {q : ℚ} :
@@ -1513,7 +1513,7 @@ theorem liftPred_ofRat {P : ℚ → Prop} {q : ℚ} :
   Germ.liftPred_const_iff
 
 theorem liftRel_ofSeq {R : ℚ → ℚ → Prop} {f g : ℕ → ℚ} :
-    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ℕ, R (f n) (g n) :=
+    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, R (f n) (g n) :=
   Germ.liftRel_coe
 
 theorem liftRel_ofRat {R : ℚ → ℚ → Prop} {a b : ℚ} :

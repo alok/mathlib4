@@ -20,7 +20,7 @@ open ArchimedeanClass Filter Germ Topology
 
 /-- Hyperreal numbers on the ultrafilter extending the cofinite filter -/
 def Hyperreal : Type :=
-  Germ (hyperfilter ℕ : Filter ℕ) ℝ
+  Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℝ
 
 noncomputable section
 
@@ -159,14 +159,15 @@ theorem stdPart_coe (x : ℝ) : stdPart (x : ℝ*) = x :=
 /-! ### Basic constants -/
 
 /-- Construct a hyperreal number from a sequence of real numbers. -/
-def ofSeq (f : ℕ → ℝ) : ℝ* := (↑f : Germ (hyperfilter ℕ : Filter ℕ) ℝ)
+def ofSeq (f : ℕ → ℝ) : ℝ* := (↑f : Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℝ)
 
 theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 
 theorem ofSeq_le_ofSeq {f g : ℕ → ℝ} :
-    ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := Iff.rfl
+    ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n := Iff.rfl
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℝ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℝ} :
+    ofSeq f < ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   Germ.coe_lt
 
 /-! #### ω -/
@@ -178,7 +179,7 @@ def omega : ℝ* := ofSeq Nat.cast
 recommended_spelling "omega" for "ω" in [omega, «termω»]
 
 theorem coe_lt_omega (r : ℝ) : r < ω := by
-  apply ofSeq_lt_ofSeq.2 <| Filter.Eventually.filter_mono Nat.hyperfilter_le_atTop _
+  apply ofSeq_lt_ofSeq.2 <| Filter.Eventually.filter_mono nonstandardUltrafilter_le_atTop _
   obtain ⟨n, hn⟩ := exists_nat_gt r
   rw [eventually_atTop]
   exact ⟨n, fun m hm ↦ hn.trans_le (mod_cast hm)⟩
@@ -249,7 +250,7 @@ alias epsilon_lt_pos := epsilon_lt_of_pos
 
 theorem lt_of_tendsto_zero_of_pos {f : ℕ → ℝ} (hf : Tendsto f atTop (𝓝 0)) :
     ∀ {r : ℝ}, 0 < r → ofSeq f < (r : ℝ*) := fun hr ↦
-  ofSeq_lt_ofSeq.2 <| (hf.eventually <| gt_mem_nhds hr).filter_mono Nat.hyperfilter_le_atTop
+  ofSeq_lt_ofSeq.2 <| (hf.eventually <| gt_mem_nhds hr).filter_mono nonstandardUltrafilter_le_atTop
 
 theorem neg_lt_of_tendsto_zero_of_pos {f : ℕ → ℝ} (hf : Tendsto f atTop (𝓝 0)) :
     ∀ {r : ℝ}, 0 < r → (-r : ℝ*) < ofSeq f := fun hr =>
@@ -295,7 +296,7 @@ def Infinite (x : ℝ*) :=
   InfinitePos x ∨ InfiniteNeg x
 
 theorem isSt_ofSeq_iff_tendsto {f : ℕ → ℝ} {r : ℝ} :
-    IsSt (ofSeq f) r ↔ Tendsto f (hyperfilter ℕ) (𝓝 r) :=
+    IsSt (ofSeq f) r ↔ Tendsto f (nonstandardUltrafilter ℕ) (𝓝 r) :=
   Iff.trans (forall₂_congr fun _ _ ↦ (ofSeq_lt_ofSeq.and ofSeq_lt_ofSeq).trans eventually_and.symm)
     (nhds_basis_Ioo_pos _).tendsto_right_iff.symm
 
@@ -309,7 +310,7 @@ theorem IsSt_iff_isNearStandard (x : ℝ*) (r : ℝ) :
   rw [isSt_iff_tendsto]
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   simp only [ofSeq, Germ.coe_tendsto, Hyper.isNearStandard_def]
-  -- Goal: Tendsto f (hyperfilter ℕ) (𝓝 r) ↔ ∀ U ∈ 𝓝 r, Hyper.liftPred (· ∈ U) ↑f
+  -- Goal: Tendsto f (nonstandardUltrafilter ℕ) (𝓝 r) ↔ ∀ U ∈ 𝓝 r, Hyper.liftPred (· ∈ U) ↑f
   -- Hyper.liftPred = Germ.LiftPred, and liftPred_coe gives us the filter characterization
   constructor
   · intro h U hU
@@ -324,7 +325,7 @@ theorem IsSt_iff_isNearStandard (x : ℝ*) (r : ℝ) :
     exact this
 
 theorem isSt_of_tendsto {f : ℕ → ℝ} {r : ℝ} (hf : Tendsto f atTop (𝓝 r)) : IsSt (ofSeq f) r :=
-  isSt_ofSeq_iff_tendsto.2 <| hf.mono_left Nat.hyperfilter_le_atTop
+  isSt_ofSeq_iff_tendsto.2 <| hf.mono_left nonstandardUltrafilter_le_atTop
 
 protected theorem IsSt.lt {x y : ℝ*} {r s : ℝ} (hxr : IsSt x r) (hys : IsSt y s) (hrs : r < s) :
     x < y := by
@@ -578,7 +579,7 @@ theorem infinitePos_of_tendsto_top {f : ℕ → ℝ} (hf : Tendsto f atTop atTop
     simp only [Set.compl_setOf, not_lt]
     exact fun a har => le_of_lt (hi' a (lt_of_le_of_lt har (lt_add_one _)))
   rw [show (r : ℝ*) = ofSeq (fun _ => r) from rfl, ofSeq_lt_ofSeq]
-  exact mem_hyperfilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
+  exact mem_nonstandardUltrafilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
 
 theorem infiniteNeg_of_tendsto_bot {f : ℕ → ℝ} (hf : Tendsto f atTop atBot) :
     InfiniteNeg (ofSeq f) := fun r => by
@@ -589,7 +590,7 @@ theorem infiniteNeg_of_tendsto_bot {f : ℕ → ℝ} (hf : Tendsto f atTop atBot
     simp only [Set.compl_setOf, not_lt]
     exact fun a har => le_of_lt (hi' a (lt_of_lt_of_le (sub_one_lt _) har))
   rw [show (r : ℝ*) = ofSeq (fun _ => r) from rfl, ofSeq_lt_ofSeq]
-  exact mem_hyperfilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
+  exact mem_nonstandardUltrafilter_of_finite_compl <| (Set.finite_le_nat _).subset hS
 
 theorem not_infinite_neg {x : ℝ*} : ¬Infinite x → ¬Infinite (-x) := mt infinite_neg.mp
 
@@ -1033,9 +1034,9 @@ The fundamental theorem relating sequence convergence to infinitesimals.
 **Key insight**: `ofSeq f` for `f : ℕ → ℝ` represents "the value of f at a generic
 infinite index" - the entire sequence encoded as a single hyperreal.
 
-**Important**: The equivalence is with convergence along `hyperfilter ℕ`, not `atTop`.
+**Important**: The equivalence is with convergence along `nonstandardUltrafilter ℕ`, not `atTop`.
 - `Tendsto f atTop (𝓝 L)` implies `IsSt (ofSeq f) L` (and hence `ofSeq f ≈ L`)
-- The converse requires the stronger filter condition `Tendsto f (hyperfilter ℕ) (𝓝 L)`
+- The converse requires the stronger filter condition `Tendsto f (nonstandardUltrafilter ℕ) (𝓝 L)`
 
 For most applications, the forward direction suffices: if a sequence converges in the
 usual sense, its hyperreal representation is infinitesimally close to the limit. -/
@@ -1046,14 +1047,14 @@ theorem tendsto_atTop_infClose {f : ℕ → ℝ} {L : ℝ} (hf : Tendsto f atTop
     (ofSeq f) ≈ (L : ℝ*) :=
   (isSt_of_tendsto hf).infClose
 
-/-- Convergence along the hyperfilter is equivalent to infinitesimal closeness. -/
-theorem tendsto_hyperfilter_iff_infClose {f : ℕ → ℝ} {L : ℝ} :
-    Tendsto f (hyperfilter ℕ) (𝓝 L) ↔ (ofSeq f) ≈ (L : ℝ*) := by
+/-- Convergence along the nonstandardUltrafilter is equivalent to infinitesimal closeness. -/
+theorem tendsto_nonstandardUltrafilter_iff_infClose {f : ℕ → ℝ} {L : ℝ} :
+    Tendsto f (nonstandardUltrafilter ℕ) (𝓝 L) ↔ (ofSeq f) ≈ (L : ℝ*) := by
   rw [← isSt_ofSeq_iff_tendsto, isSt_iff_infClose]
 
-/-- Convergence along the hyperfilter is equivalent to having standard part `L`. -/
-theorem tendsto_hyperfilter_iff_isSt {f : ℕ → ℝ} {L : ℝ} :
-    Tendsto f (hyperfilter ℕ) (𝓝 L) ↔ IsSt (ofSeq f) L :=
+/-- Convergence along the nonstandardUltrafilter is equivalent to having standard part `L`. -/
+theorem tendsto_nonstandardUltrafilter_iff_isSt {f : ℕ → ℝ} {L : ℝ} :
+    Tendsto f (nonstandardUltrafilter ℕ) (𝓝 L) ↔ IsSt (ofSeq f) L :=
   isSt_ofSeq_iff_tendsto.symm
 
 end Hyperreal

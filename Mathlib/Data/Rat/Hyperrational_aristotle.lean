@@ -34,7 +34,7 @@ open Filter Germ Topology
 
 /-- Hyperrational numbers on the ultrafilter extending the cofinite filter. -/
 noncomputable def Hyperrational : Type :=
-  Germ (hyperfilter ℕ : Filter ℕ) ℚ
+  Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℚ
 
 namespace Hyperrational
 
@@ -51,17 +51,17 @@ instance : IsStrictOrderedRing ℚ* :=
   inferInstanceAs (IsStrictOrderedRing (Germ _ _))
 
 /-- Construct a hyperrational number from a sequence of rationals. -/
-noncomputable def ofSeq (f : ℕ → ℚ) : ℚ* := (↑f : Germ (hyperfilter ℕ : Filter ℕ) ℚ)
+noncomputable def ofSeq (f : ℕ → ℚ) : ℚ* := (↑f : Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℚ)
 
 theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 
-theorem ofSeq_eq_ofSeq {f g : ℕ → ℚ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n = g n :=
+theorem ofSeq_eq_ofSeq {f g : ℕ → ℚ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n = g n :=
   Germ.coe_eq
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℚ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℚ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   Germ.coe_lt
 
-theorem ofSeq_le_ofSeq {f g : ℕ → ℚ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n :=
+theorem ofSeq_le_ofSeq {f g : ℕ → ℚ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n :=
   Germ.coe_le
 
 /-- Standard embedding of rationals as constant sequences. -/
@@ -125,13 +125,13 @@ def galaxy (x : ℚ*) : Set ℚ* := {y | HFinite (x - y)}
 
 theorem omega_pos : 0 < ω := by
   rw [show (0 : ℚ*) = ofSeq (fun _ => (0 : ℚ)) from rfl, omega, ofSeq_lt_ofSeq]
-  exact Nat.hyperfilter_le_atTop <| (eventually_gt_atTop 0).mono fun n hn => by
+  exact nonstandardUltrafilter_le_atTop <| (eventually_gt_atTop 0).mono fun n hn => by
     simp only [Nat.cast_pos]
     exact hn
 
 theorem epsilon_pos : 0 < ε := by
   rw [show (0 : ℚ*) = ofSeq (fun _ => (0 : ℚ)) from rfl, epsilon, ofSeq_lt_ofSeq]
-  exact Nat.hyperfilter_le_atTop <| eventually_atTop.mpr ⟨1, fun n hn => by
+  exact nonstandardUltrafilter_le_atTop <| eventually_atTop.mpr ⟨1, fun n hn => by
     simp only [Nat.cast_pos, Nat.succ_pos, inv_pos]⟩
 
 theorem epsilon_ne_zero : ε ≠ 0 := epsilon_pos.ne'
@@ -142,7 +142,7 @@ theorem infinite_omega : Infinite ω := by
   left
   intro q
   rw [ofRat, omega, ofSeq_lt_ofSeq]
-  exact Nat.hyperfilter_le_atTop <| eventually_atTop.mpr ⟨⌈q⌉₊ + 1, fun n hn => by
+  exact nonstandardUltrafilter_le_atTop <| eventually_atTop.mpr ⟨⌈q⌉₊ + 1, fun n hn => by
     have : (⌈q⌉₊ : ℚ) < n := by exact_mod_cast Nat.lt_of_succ_le hn
     exact lt_of_le_of_lt (Nat.le_ceil q) this⟩
 
@@ -265,13 +265,13 @@ theorem continuousAt_implies_nsContinuousAt {f : ℚ → ℚ} {a : ℚ}
     apply hdelta;
   obtain ⟨y, hy⟩ : ∃ y : ℕ → ℚ, x = ofSeq y := by
     simpa [ eq_comm ] using ofSeq_surjective x;
-  have h_seq : ∀ᶠ n in hyperfilter ℕ, |y n - a| < delta := by
+  have h_seq : ∀ᶠ n in nonstandardUltrafilter ℕ, |y n - a| < delta := by
     aesop;
     have := hx delta hdelta_pos;
     erw [ ofSeq_lt_ofSeq, ofSeq_lt_ofSeq ] at this ; aesop;
     filter_upwards [ left, right ] with n hn₁ hn₂ using abs_lt.mpr ⟨ by linarith, by linarith ⟩;
   aesop;
-  · have h_seq : ∀ᶠ n in hyperfilter ℕ, f (y n) - f a > -eps := by
+  · have h_seq : ∀ᶠ n in nonstandardUltrafilter ℕ, f (y n) - f a > -eps := by
       filter_upwards [ h_seq ] with n hn using by linarith [ abs_lt.mp ( h_ineq ( y n ) hn ) ] ;
     erw [ Hyperrational.ofSeq_lt_ofSeq ] ; aesop;
   · erw [ ofSeq_lt_ofSeq ] ; aesop;
@@ -305,12 +305,12 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
     -- Need to show |x - a| < q, i.e., eventually |s_n - a| < q
     -- This follows because |s_n - a| < 1/(n+1) and 1/(n+1) → 0
     -- Since $|s_n - a| < \frac{1}{n+1}$ and $\frac{1}{n+1} < q$ for sufficiently large $n$, we have $|s_n - a| < q$ for those $n$.
-    have h_bound : ∀ᶠ n in hyperfilter ℕ, |s n - a| < q := by
+    have h_bound : ∀ᶠ n in nonstandardUltrafilter ℕ, |s n - a| < q := by
       -- Since $|s_n - a| < \frac{1}{n+1}$ and $\frac{1}{n+1} < q$ for sufficiently large $n$, we have $|s_n - a| < q$ for those $n$. Therefore, the set $\{n \mid |s_n - a| < q\}$ is cofinite.
       have h_cofinite : ∀ᶠ n in Filter.atTop, |s n - a| < q := by
         exact Filter.eventually_atTop.mpr ⟨ ⌈q⁻¹⌉₊, fun n hn => lt_of_lt_of_le ( hs n |>.1 ) ( inv_le_of_inv_le₀ hq <| by linarith [ Nat.ceil_le.mp hn ] ) ⟩;
       norm_num +zetaDelta at *;
-      exact Filter.mem_of_superset ( Filter.mem_hyperfilter_of_finite_compl ( Set.finite_iff_bddAbove.mpr ⟨ h_cofinite.choose, fun n hn => not_lt.mp fun contra => hn <| h_cofinite.choose_spec n contra.le ⟩ ) ) fun n hn => hn;
+      exact Filter.mem_of_superset ( Filter.mem_nonstandardUltrafilter_of_finite_compl ( Set.finite_iff_bddAbove.mpr ⟨ h_cofinite.choose, fun n hn => not_lt.mp fun contra => hn <| h_cofinite.choose_spec n contra.le ⟩ ) ) fun n hn => hn;
     constructor <;> refine' ofSeq_lt_ofSeq.mpr _;
     · filter_upwards [ h_bound ] with n hn using by linarith [ abs_lt.mp hn ] ;
     · filter_upwards [ h_bound ] with n hn using lt_of_le_of_lt ( le_abs_self _ ) hn
@@ -321,15 +321,15 @@ theorem nsContinuousAt_implies_continuousAt {f : ℚ → ℚ} {a : ℚ}
   have h_half := hfx_close (eps / 2) (by linarith)
   -- The contradiction: f*(x) - f(a) is both < eps/2 and ≥ eps ultrafilter-a.e.
   -- Since each term in the sequence $f(s_n) - f(a)$ is at least $\epsilon$, the hyperrational constructed from this sequence should also be at least $\epsilon$.
-  have h_seq_ge_eps : ∀ᶠ n in hyperfilter ℕ, f (s n) - f a ≥ eps := by
-    have h_seq_ge_eps : ∀ᶠ n in hyperfilter ℕ, f (s n) - f a ≥ eps ∨ f (s n) - f a ≤ -eps := by
+  have h_seq_ge_eps : ∀ᶠ n in nonstandardUltrafilter ℕ, f (s n) - f a ≥ eps := by
+    have h_seq_ge_eps : ∀ᶠ n in nonstandardUltrafilter ℕ, f (s n) - f a ≥ eps ∨ f (s n) - f a ≤ -eps := by
       exact Filter.Eventually.of_forall fun n => abs_cases ( f ( s n ) - f a ) |> Or.imp ( fun h => by linarith [ hs n ] ) fun h => by linarith [ hs n ] ;
     -- Since the hyperrational is greater than -eps/2, the sequence must be eventually greater than -eps/2.
-    have h_seq_ge_eps : ∀ᶠ n in hyperfilter ℕ, f (s n) - f a > -eps / 2 := by
+    have h_seq_ge_eps : ∀ᶠ n in nonstandardUltrafilter ℕ, f (s n) - f a > -eps / 2 := by
       have h_hyperrational : Hyperrational.ofRat (-eps / 2) < Hyperrational.star f x - Hyperrational.ofRat (f a) := by
         simpa only [ neg_div ] using h_half.1
       exact?;
-    filter_upwards [ ‹∀ᶠ n in ( Filter.hyperfilter ℕ : Filter ℕ ), f ( s n ) - f a ≥ eps ∨ f ( s n ) - f a ≤ -eps›, h_seq_ge_eps ] with n hn hn' using Or.resolve_right hn fun h => by linarith;
+    filter_upwards [ ‹∀ᶠ n in ( nonstandardUltrafilter ℕ : Filter ℕ ), f ( s n ) - f a ≥ eps ∨ f ( s n ) - f a ≤ -eps›, h_seq_ge_eps ] with n hn hn' using Or.resolve_right hn fun h => by linarith;
   have h_hyperrational_ge_eps : star f x - ofRat (f a) ≥ ofRat eps := by
     exact h_seq_ge_eps;
   -- Combining the inequalities from h_hyperrational_ge_eps and h_half, we get a contradiction because ε is positive.

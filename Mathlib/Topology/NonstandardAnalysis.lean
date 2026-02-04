@@ -166,7 +166,7 @@ theorem mem_halo_iff (x : α) (y : Hyper ι α) :
 
 /-- Sequence characterization of halo membership. -/
 theorem mem_halo_ofSeq_iff (x : α) (f : ι → α) :
-    (ofSeq f : Hyper ι α) ∈ halo x ↔ ∀ U ∈ 𝓝 x, ∀ᶠ n in hyperfilter ι, f n ∈ U := by
+    (ofSeq f : Hyper ι α) ∈ halo x ↔ ∀ U ∈ 𝓝 x, ∀ᶠ n in nonstandardUltrafilter ι, f n ∈ U := by
   simp only [mem_halo_iff, mem_star_ofSeq]
 
 theorem halo_iInf {ι' : Type*} {f : ι' → Filter α} :
@@ -234,7 +234,7 @@ theorem halo_tendsto_atTop {f : ℕ → α} {x : α}
     intro m
     change std m < ofSeq nseq
     rw [std_lt_ofSeq]
-    apply Filter.mem_hyperfilter_of_finite_compl
+    apply Filter.mem_nonstandardUltrafilter_of_finite_compl
     simp only [Set.compl_setOf, not_lt]
     -- {k : nseq k ≤ m} is finite because nseq k ≥ k
     have hsub : {k : ℕ | nseq k ≤ m} ⊆ Set.Iic m := by
@@ -1916,7 +1916,7 @@ theorem liftNorm_infClose_of_continuous [NormedAddCommGroup E]
     -- Since p is continuous at a, p(s i) is eventually close to p(a)
     have hU : Metric.ball (p a) 1 ∈ 𝓝 (p a) := Metric.ball_mem_nhds _ one_pos
     have hpre : p ⁻¹' Metric.ball (p a) 1 ∈ 𝓝 a := hp_cont.continuousAt.preimage_mem_nhds hU
-    have h1 : ∀ᶠ i in hyperfilter ι, |p (s i) - p a| < 1 := by
+    have h1 : ∀ᶠ i in nonstandardUltrafilter ι, |p (s i) - p a| < 1 := by
       filter_upwards [ha (p ⁻¹' Metric.ball (p a) 1) hpre] with i hi
       exact Metric.mem_ball.mp hi
     -- The bound follows

@@ -105,14 +105,14 @@ theorem IsInternalSimplicialComplex_std {ι : Type*} [Infinite ι] (K : Simplici
     induction S using Germ.inductionOn with | h f =>
     have : ∃ s ∈ K.faces, ofSeq f = std s := by
       erw [mem_liftSet] at hS
-      let U := Ultrafilter.map f (hyperfilter ι)
+      let U := Ultrafilter.map f (nonstandardUltrafilter ι)
       have h_mem : K.faces ∈ U := hS
       have h_fin : K.faces.Finite := hK
       obtain ⟨s, hs, h_eq⟩ := Ultrafilter.eq_pure_of_finite_mem h_fin h_mem
       use s, hs
       change ofSeq f = ofSeq (fun _ => s)
       rw [ofSeq_eq_ofSeq]
-      change f ⁻¹' {s} ∈ hyperfilter ι
+      change f ⁻¹' {s} ∈ nonstandardUltrafilter ι
       rw [← Ultrafilter.mem_map]
       change {s} ∈ U
       rw [h_eq]

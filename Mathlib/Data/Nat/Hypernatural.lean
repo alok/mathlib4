@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.FilterProduct
-import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+import Mathlib.Order.Filter.Ultrafilter.Nonstandard
 import Mathlib.Analysis.SpecificLimits.Basic
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Nat.Prime.Defs
@@ -15,7 +15,7 @@ set_option linter.style.longFile 2100
 # Hypernatural numbers
 
 We build the *hypernatural numbers* `ℕ*` as germs of sequences of naturals on
-the (non‑principal) `hyperfilter ℕ`, mirroring the construction of `ℝ*` in
+the (non‑principal) `nonstandardUltrafilter ℕ`, mirroring the construction of `ℝ*` in
 `Mathlib/Analysis/Real/Hyperreal.lean`.  The API here is intentionally kept
 parallel to the hyperreal API where that makes sense for `ℕ`.
 -/
@@ -24,7 +24,7 @@ open Filter Germ Topology
 
 /-- Hypernatural numbers on the ultrafilter extending the cofinite filter. -/
 noncomputable def Hypernatural : Type :=
-  Germ (hyperfilter ℕ : Filter ℕ) ℕ
+  Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℕ
 
 namespace Hypernatural
 
@@ -58,19 +58,19 @@ theorem coe_ne_coe {a b : ℕ} : (a : ℕ*) ≠ b ↔ a ≠ b := coe_eq_coe.not
 @[simp, norm_cast] theorem coe_lt_coe {a b : ℕ} : (a : ℕ*) < b ↔ a < b := Germ.const_lt_iff
 
 /-- Build a hypernatural from a sequence. -/
-def ofSeq (f : ℕ → ℕ) : ℕ* := (↑f : Germ (hyperfilter ℕ : Filter ℕ) ℕ)
+def ofSeq (f : ℕ → ℕ) : ℕ* := (↑f : Germ (nonstandardUltrafilter ℕ : Filter ℕ) ℕ)
 
 theorem ofSeq_const (r : ℕ) : ofSeq (fun _ => r) = (r : ℕ*) := rfl
 
 theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 
-theorem ofSeq_eq_ofSeq {f g : ℕ → ℕ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n = g n :=
+theorem ofSeq_eq_ofSeq {f g : ℕ → ℕ} : ofSeq f = ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n = g n :=
   Germ.coe_eq
 
-theorem ofSeq_le_ofSeq {f g : ℕ → ℕ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n :=
+theorem ofSeq_le_ofSeq {f g : ℕ → ℕ} : ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n :=
   Germ.coe_le
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℕ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℕ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n :=
   Germ.coe_lt
 
 /-- A canonical infinite hypernatural. -/
@@ -80,7 +80,7 @@ noncomputable def omega : ℕ* := ofSeq Nat.cast
 
 theorem omega_pos : 0 < ω :=
   Germ.coe_pos.2 <|
-    Nat.hyperfilter_le_atTop <|
+    nonstandardUltrafilter_le_atTop <|
       (eventually_gt_atTop 0).mono fun _n => Nat.cast_pos.2
 
 theorem omega_ne_zero : ω ≠ 0 := omega_pos.ne'
@@ -102,7 +102,7 @@ theorem InfinitePos.pos {x : ℕ*} (hx : InfinitePos x) : 0 < x := by simpa usin
 @[simp] theorem infinite_omega : Infinite ω := by
   intro m
   have : (m : ℕ*) < ofSeq Nat.cast :=
-    (ofSeq_lt_ofSeq).2 <| Nat.hyperfilter_le_atTop <| (eventually_gt_atTop m).mono fun n hn => by
+    (ofSeq_lt_ofSeq).2 <| nonstandardUltrafilter_le_atTop <| (eventually_gt_atTop m).mono fun n hn => by
       simpa using hn
   simpa [omega] using this
 
@@ -120,7 +120,7 @@ def IsSt (x : ℕ*) (r : ℕ) : Prop := x = r
 lemma isSt_iff_eq {x : ℕ*} {r : ℕ} : IsSt x r ↔ x = r := Iff.rfl
 
 lemma isSt_ofSeq_iff_eventually_eq {f : ℕ → ℕ} {r : ℕ} :
-    IsSt (ofSeq f) r ↔ ∀ᶠ n in hyperfilter ℕ, f n = r := by
+    IsSt (ofSeq f) r ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, f n = r := by
   constructor
   · intro h
     change ofSeq f = (r : ℕ*) at h
@@ -175,17 +175,17 @@ lemma exists_st_of_not_infinite {x : ℕ*} (hx : ¬ Infinite x) : ∃ r : ℕ, I
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   obtain ⟨m, hm⟩ := not_forall.mp hx
   have hle : ofSeq f ≤ (m : ℕ*) := not_lt.mp hm
-  have hf_le : ∀ᶠ n in hyperfilter ℕ, f n ≤ m :=
+  have hf_le : ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ m :=
     (ofSeq_le_ofSeq (f := f) (g := fun _ => m)).1 (by simpa [ofSeq_const] using hle)
   have hUnion_mem :
-      (⋃ r ∈ Finset.range (m + 1), {n | f n = r}) ∈ (hyperfilter ℕ : Filter ℕ) := by
+      (⋃ r ∈ Finset.range (m + 1), {n | f n = r}) ∈ (nonstandardUltrafilter ℕ : Filter ℕ) := by
     have hsubset :
         {n | f n ≤ m} ⊆ ⋃ r ∈ Finset.range (m + 1), {n | f n = r} := by
       intro n hn
       have hrange : f n ∈ Finset.range (m + 1) := Finset.mem_range.mpr (Nat.lt_succ_of_le hn)
       exact Set.mem_iUnion.mpr ⟨f n, Set.mem_iUnion.mpr ⟨hrange, rfl⟩⟩
-    exact (hyperfilter ℕ : Filter ℕ).mem_of_superset hf_le hsubset
-  let u : Ultrafilter ℕ := hyperfilter ℕ
+    exact (nonstandardUltrafilter ℕ : Filter ℕ).mem_of_superset hf_le hsubset
+  let u : Ultrafilter ℕ := nonstandardUltrafilter ℕ
   have hUnion_mem' : (⋃ r ∈ Finset.range (m + 1), {n | f n = r}) ∈ (u : Filter ℕ) := hUnion_mem
   have aux : ∀ s : Finset ℕ,
       (⋃ r ∈ s, {n | f n = r}) ∈ (u : Filter ℕ) →
@@ -520,9 +520,9 @@ lemma Infinite.mul_pos {x y : ℕ*} (hx : Infinite x) (hy : 0 < y) : Infinite (x
   intro n
   rcases ofSeq_surjective y with ⟨f, rfl⟩
   rcases ofSeq_surjective x with ⟨g, rfl⟩
-  have hy' : ∀ᶠ i in hyperfilter ℕ, 0 < f i :=
+  have hy' : ∀ᶠ i in nonstandardUltrafilter ℕ, 0 < f i :=
     (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).1 (by simpa [ofSeq_const] using hy)
-  have hx' : ∀ᶠ i in hyperfilter ℕ, n < g i :=
+  have hx' : ∀ᶠ i in nonstandardUltrafilter ℕ, n < g i :=
     (ofSeq_lt_ofSeq (f := fun _ => n) (g := g)).1 (by simpa [ofSeq_const] using hx n)
   apply (ofSeq_lt_ofSeq (f := fun _ => n) (g := fun i => g i * f i)).2
   filter_upwards [hx', hy'] with i hni hfi
@@ -588,7 +588,7 @@ lemma hFinite_iff_eq_coe {x : ℕ*} : HFinite x ↔ ∃ n : ℕ, x = n := by
 lemma Infinite.exists_pred {x : ℕ*} (hx : Infinite x) : ∃ y : ℕ*, x = y + 1 := by
   have h0 : 0 < x := hx 0
   rcases ofSeq_surjective x with ⟨f, rfl⟩
-  have hf : ∀ᶠ i in hyperfilter ℕ, 0 < f i := (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).1
+  have hf : ∀ᶠ i in nonstandardUltrafilter ℕ, 0 < f i := (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).1
     (by simpa [ofSeq_const] using h0)
   use ofSeq (fun i => f i - 1)
   apply (ofSeq_eq_ofSeq (f := f) (g := fun i => (f i - 1) + 1)).2
@@ -660,7 +660,7 @@ noncomputable def ofSeqInfinite (f : ℕ → ℕ) (hf : ∀ n, ∃ m, ∀ k ≥ 
   intro n
   obtain ⟨m, hm⟩ := hf n
   apply ofSeq_lt_ofSeq.mpr
-  apply Nat.hyperfilter_le_atTop
+  apply nonstandardUltrafilter_le_atTop
   filter_upwards [Filter.eventually_ge_atTop m] with k hk
   exact hm k hk
 
@@ -787,7 +787,7 @@ lemma st_pow {x : ℕ*} (hx : HFinite x) (n : ℕ) : st (x ^ n) = st x ^ n := by
   intro n
   have : (n : ℕ*) < ofSeq (fun i => 2 * i) := by
     apply (ofSeq_lt_ofSeq (f := fun _ => n) (g := fun i => 2 * i)).2
-    apply Nat.hyperfilter_le_atTop
+    apply nonstandardUltrafilter_le_atTop
     filter_upwards [Filter.eventually_gt_atTop n] with i hi
     omega
   have h2ω : (2 : ℕ*) * ω = ofSeq (fun i => 2 * i) := by
@@ -821,7 +821,7 @@ lemma infinite_coe_mul_omega {n : ℕ} (hn : 0 < n) : Infinite ((n : ℕ*) * ω)
     rfl
   rw [hnω]
   apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun i => n * i)).2
-  apply Nat.hyperfilter_le_atTop
+  apply nonstandardUltrafilter_le_atTop
   filter_upwards [Filter.eventually_gt_atTop m] with i hi
   calc m < i := hi
        _ = 1 * i := (one_mul i).symm
@@ -836,7 +836,7 @@ lemma infinite_omega_mul_coe {n : ℕ} (hn : 0 < n) : Infinite (ω * (n : ℕ*))
     rfl
   rw [hωn]
   apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun i => i * n)).2
-  apply Nat.hyperfilter_le_atTop
+  apply nonstandardUltrafilter_le_atTop
   filter_upwards [Filter.eventually_gt_atTop m] with i hi
   calc m < i := hi
        _ = i * 1 := (Nat.mul_one i).symm
@@ -863,7 +863,7 @@ lemma eq_of_st_eq {x y : ℕ*} (hx : HFinite x) (hy : HFinite y) (h : st x = st 
 /-! ### Strict positivity -/
 
 /-- A hypernatural is positive iff it's eventually positive. -/
-lemma pos_iff_ofSeq_pos {f : ℕ → ℕ} : 0 < ofSeq f ↔ ∀ᶠ n in hyperfilter ℕ, 0 < f n :=
+lemma pos_iff_ofSeq_pos {f : ℕ → ℕ} : 0 < ofSeq f ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < f n :=
   ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)
 
 /-- Every infinite hypernatural is positive. -/
@@ -919,7 +919,7 @@ lemma factorial_pos (x : ℕ*) : 0 < factorial x := by
   intro m
   simp only [omega, factorial]
   apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun n => Nat.factorial n)).2
-  apply Nat.hyperfilter_le_atTop
+  apply nonstandardUltrafilter_le_atTop
   filter_upwards [Filter.eventually_gt_atTop m] with i hi
   calc m < i := hi
        _ ≤ Nat.factorial i := Nat.self_le_factorial i
@@ -930,7 +930,7 @@ lemma Infinite.factorial {x : ℕ*} (hx : Infinite x) : Infinite (factorial x) :
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   change (m : ℕ*) < ofSeq (fun n => Nat.factorial (f n))
   apply (ofSeq_lt_ofSeq (f := fun _ => m) (g := fun n => Nat.factorial (f n))).2
-  have hf : ∀ᶠ n in hyperfilter ℕ, m < f n :=
+  have hf : ∀ᶠ n in nonstandardUltrafilter ℕ, m < f n :=
     (ofSeq_lt_ofSeq (f := fun _ => m) (g := f)).1 (hx m)
   filter_upwards [hf] with n hn
   calc m < f n := hn
@@ -975,7 +975,7 @@ lemma add_lt_add_right {x y z : ℕ*} (h : x < y) : x + z < y + z := by
   rcases ofSeq_surjective z with ⟨k, rfl⟩
   simp only [ofSeq_add]
   apply (ofSeq_lt_ofSeq (f := fun n => f n + k n) (g := fun n => g n + k n)).2
-  have hfg : ∀ᶠ n in hyperfilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp h
+  have hfg : ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp h
   filter_upwards [hfg] with n hn
   exact Nat.add_lt_add_right hn (k n)
 
@@ -986,7 +986,7 @@ lemma add_lt_add_left {x y z : ℕ*} (h : x < y) : z + x < z + y := by
   rcases ofSeq_surjective z with ⟨k, rfl⟩
   simp only [ofSeq_add]
   apply (ofSeq_lt_ofSeq (f := fun n => k n + f n) (g := fun n => k n + g n)).2
-  have hfg : ∀ᶠ n in hyperfilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp h
+  have hfg : ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp h
   filter_upwards [hfg] with n hn
   exact Nat.add_lt_add_left hn (k n)
 
@@ -997,8 +997,8 @@ lemma mul_lt_mul_of_pos_right {x y z : ℕ*} (hxy : x < y) (hz : 0 < z) : x * z 
   rcases ofSeq_surjective z with ⟨k, rfl⟩
   simp only [ofSeq_mul]
   apply (ofSeq_lt_ofSeq (f := fun n => f n * k n) (g := fun n => g n * k n)).2
-  have hfg : ∀ᶠ n in hyperfilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp hxy
-  have hk : ∀ᶠ n in hyperfilter ℕ, 0 < k n := ofSeq_lt_ofSeq.mp hz
+  have hfg : ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n := ofSeq_lt_ofSeq.mp hxy
+  have hk : ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < k n := ofSeq_lt_ofSeq.mp hz
   filter_upwards [hfg, hk] with n hn hkn
   exact Nat.mul_lt_mul_of_pos_right hn hkn
 
@@ -1265,7 +1265,7 @@ lemma hFinite_or_infinite (x : ℕ*) : HFinite x ∨ Infinite x := by
 /-- Comparison with standard: either x < n or n ≤ x. -/
 lemma lt_coe_or_le_coe (x : ℕ*) (n : ℕ) : x < n ∨ n ≤ x := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
-  have hU := Ultrafilter.em (hyperfilter ℕ) {m | f m < n}
+  have hU := Ultrafilter.em (nonstandardUltrafilter ℕ) {m | f m < n}
   cases hU with
   | inl hlt =>
     left
@@ -1273,7 +1273,7 @@ lemma lt_coe_or_le_coe (x : ℕ*) (n : ℕ) : x < n ∨ n ≤ x := by
   | inr hge =>
     right
     apply ofSeq_le_ofSeq.mpr
-    have : ∀ᶠ m in hyperfilter ℕ, n ≤ f m := by
+    have : ∀ᶠ m in nonstandardUltrafilter ℕ, n ≤ f m := by
       convert hge using 1
       ext m
       constructor
@@ -1284,7 +1284,7 @@ lemma lt_coe_or_le_coe (x : ℕ*) (n : ℕ) : x < n ∨ n ≤ x := by
 /-- Every hypernatural is either zero or positive. -/
 lemma eq_zero_or_pos (x : ℕ*) : x = 0 ∨ 0 < x := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
-  have hU := Ultrafilter.em (hyperfilter ℕ) {m | f m = 0}
+  have hU := Ultrafilter.em (nonstandardUltrafilter ℕ) {m | f m = 0}
   cases hU with
   | inl h =>
     left
@@ -1293,7 +1293,7 @@ lemma eq_zero_or_pos (x : ℕ*) : x = 0 ∨ 0 < x := by
   | inr h =>
     right
     apply (ofSeq_lt_ofSeq (f := fun _ => 0) (g := f)).2
-    have : ∀ᶠ m in hyperfilter ℕ, 0 < f m := by
+    have : ∀ᶠ m in nonstandardUltrafilter ℕ, 0 < f m := by
       convert h using 1
       ext m
       constructor
@@ -1344,7 +1344,7 @@ theorem forall_standard_of_forall_nat {P : ℕ* → Prop}
 
 /-- An internal subset of ℕ* is one that can be represented by a sequence of subsets of ℕ. -/
 def InternalSet (S : Set ℕ*) : Prop :=
-  ∃ A : ℕ → Set ℕ, S = {x | ∃ f, x = ofSeq f ∧ ∀ᶠ n in hyperfilter ℕ, f n ∈ A n}
+  ∃ A : ℕ → Set ℕ, S = {x | ∃ f, x = ofSeq f ∧ ∀ᶠ n in nonstandardUltrafilter ℕ, f n ∈ A n}
 
 /-- The set of all hypernaturals is internal. -/
 lemma internal_univ : InternalSet (Set.univ : Set ℕ*) := by
@@ -1363,9 +1363,9 @@ lemma internal_empty : InternalSet (∅ : Set ℕ*) := by
   ext x
   simp only [Set.mem_empty_iff_false, false_iff, Set.mem_setOf_eq, not_exists]
   intro f ⟨_, hf⟩
-  have : ∀ᶠ n in hyperfilter ℕ, f n ∈ (∅ : Set ℕ) := hf
+  have : ∀ᶠ n in nonstandardUltrafilter ℕ, f n ∈ (∅ : Set ℕ) := hf
   simp only [Set.mem_empty_iff_false, Filter.eventually_false_iff_eq_bot] at this
-  exact Filter.NeBot.ne (hyperfilter ℕ).neBot this
+  exact Filter.NeBot.ne (nonstandardUltrafilter ℕ).neBot this
 
 /-- Singleton sets of standard naturals are internal. -/
 lemma internal_singleton (m : ℕ) : InternalSet ({(m : ℕ*)} : Set ℕ*) := by
@@ -1391,14 +1391,14 @@ lemma internal_singleton (m : ℕ) : InternalSet ({(m : ℕ*)} : Set ℕ*) := by
 /-- Simplified overflow: omega satisfies any property that holds for all standard naturals,
     provided the property is suitably internal. -/
 theorem overflow_omega {P : ℕ → Prop} (hP : ∀ n : ℕ, P n) :
-    ∀ᶠ n in hyperfilter ℕ, P n := by
+    ∀ᶠ n in nonstandardUltrafilter ℕ, P n := by
   filter_upwards with n
   exact hP n
 
 /-- For sequence-based properties: if P(f(n)) holds for all n, then P holds
     for the hypernatural represented by f. -/
 theorem ofSeq_satisfies {P : ℕ → Prop} {f : ℕ → ℕ} (hP : ∀ n : ℕ, P (f n)) :
-    ∀ᶠ n in hyperfilter ℕ, P (f n) := by
+    ∀ᶠ n in nonstandardUltrafilter ℕ, P (f n) := by
   filter_upwards with n
   exact hP n
 
@@ -1448,7 +1448,7 @@ lemma tsub_eq_zero_of_le {x y : ℕ*} (h : x ≤ y) : x - y = 0 := by
   rcases ofSeq_surjective y with ⟨g, rfl⟩
   simp only [tsub_ofSeq]
   apply ofSeq_eq_ofSeq.mpr
-  have hle : ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
+  have hle : ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
   filter_upwards [hle] with n hn
   exact Nat.sub_eq_zero_of_le hn
 
@@ -1473,7 +1473,7 @@ lemma tsub_le_tsub_right {x y : ℕ*} (h : x ≤ y) (z : ℕ*) : x - z ≤ y - z
   rcases ofSeq_surjective z with ⟨k, rfl⟩
   simp only [tsub_ofSeq]
   apply ofSeq_le_ofSeq.mpr
-  have hle : ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
+  have hle : ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
   filter_upwards [hle] with n hn
   exact Nat.sub_le_sub_right hn (k n)
 
@@ -1484,7 +1484,7 @@ lemma tsub_le_tsub_left {y z : ℕ*} (h : y ≤ z) (x : ℕ*) : x - z ≤ x - y 
   rcases ofSeq_surjective z with ⟨k, rfl⟩
   simp only [tsub_ofSeq]
   apply ofSeq_le_ofSeq.mpr
-  have hle : ∀ᶠ n in hyperfilter ℕ, g n ≤ k n := ofSeq_le_ofSeq.mp h
+  have hle : ∀ᶠ n in nonstandardUltrafilter ℕ, g n ≤ k n := ofSeq_le_ofSeq.mp h
   filter_upwards [hle] with n hn
   exact Nat.sub_le_sub_left hn (f n)
 
@@ -1503,7 +1503,7 @@ lemma tsub_add_cancel_of_le {x y : ℕ*} (h : y ≤ x) : x - y + y = x := by
   rcases ofSeq_surjective y with ⟨g, rfl⟩
   simp only [tsub_ofSeq, ofSeq_add]
   apply ofSeq_eq_ofSeq.mpr
-  have hle : ∀ᶠ n in hyperfilter ℕ, g n ≤ f n := ofSeq_le_ofSeq.mp h
+  have hle : ∀ᶠ n in nonstandardUltrafilter ℕ, g n ≤ f n := ofSeq_le_ofSeq.mp h
   filter_upwards [hle] with n hn
   exact Nat.sub_add_cancel hn
 
@@ -1563,7 +1563,7 @@ lemma hdiv_self {x : ℕ*} (hx : x ≠ 0) : x / x = 1 := by
   have hpos : 0 < x := pos_iff_ne_zero.mpr hx
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   apply ofSeq_eq_ofSeq.mpr
-  have hne : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hpos
+  have hne : ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hpos
   filter_upwards [hne] with n hn
   exact Nat.div_self hn
 
@@ -1593,7 +1593,7 @@ lemma hmod_self {x : ℕ*} (hx : x ≠ 0) : x % x = 0 := by
   have hpos : 0 < x := pos_iff_ne_zero.mpr hx
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   apply ofSeq_eq_ofSeq.mpr
-  have hne : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hpos
+  have hne : ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hpos
   filter_upwards [hne] with n _
   exact Nat.mod_self (f n)
 
@@ -1621,7 +1621,7 @@ lemma hmod_lt {x y : ℕ*} (hy : 0 < y) : x % y < y := by
   rcases ofSeq_surjective y with ⟨g, rfl⟩
   simp only [hmod_ofSeq]
   apply ofSeq_lt_ofSeq.mpr
-  have hpos : ∀ᶠ n in hyperfilter ℕ, 0 < g n := ofSeq_lt_ofSeq.mp hy
+  have hpos : ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < g n := ofSeq_lt_ofSeq.mp hy
   filter_upwards [hpos] with n hn
   exact Nat.mod_lt (f n) hn
 
@@ -1677,7 +1677,7 @@ lemma le_of_lt_succ {x y : ℕ*} (h : x < succ y) : x ≤ y := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   rcases ofSeq_surjective y with ⟨g, rfl⟩
   apply ofSeq_le_ofSeq.mpr
-  have hlt : ∀ᶠ n in hyperfilter ℕ, f n < g n + 1 := ofSeq_lt_ofSeq.mp h
+  have hlt : ∀ᶠ n in nonstandardUltrafilter ℕ, f n < g n + 1 := ofSeq_lt_ofSeq.mp h
   filter_upwards [hlt] with n hn
   exact Nat.le_of_lt_succ hn
 
@@ -1686,7 +1686,7 @@ lemma lt_succ_of_le {x y : ℕ*} (h : x ≤ y) : x < succ y := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   rcases ofSeq_surjective y with ⟨g, rfl⟩
   apply ofSeq_lt_ofSeq.mpr
-  have hle : ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
+  have hle : ∀ᶠ n in nonstandardUltrafilter ℕ, f n ≤ g n := ofSeq_le_ofSeq.mp h
   filter_upwards [hle] with n hn
   exact Nat.lt_succ_of_le hn
 
@@ -1697,7 +1697,7 @@ lemma le_iff_lt_succ {x y : ℕ*} : x ≤ y ↔ x < succ y :=
 /-- If 0 < x then there exists y with x = y + 1. -/
 lemma exists_eq_succ_of_pos {x : ℕ*} (hx : 0 < x) : ∃ y : ℕ*, x = succ y := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
-  have hpos : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hx
+  have hpos : ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hx
   use ofSeq (fun n => f n - 1)
   rw [succ_ofSeq]
   apply ofSeq_eq_ofSeq.mpr
@@ -1724,7 +1724,7 @@ lemma succ_pred {x : ℕ*} (hx : 0 < x) : succ (pred x) = x := by
   have h1 : (1 : ℕ*) = ofSeq (fun _ => 1) := rfl
   rw [h1, tsub_ofSeq, ofSeq_add]
   apply ofSeq_eq_ofSeq.mpr
-  have hpos : ∀ᶠ n in hyperfilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hx
+  have hpos : ∀ᶠ n in nonstandardUltrafilter ℕ, 0 < f n := ofSeq_lt_ofSeq.mp hx
   filter_upwards [hpos] with n hn
   simp only [Pi.add_apply]
   exact Nat.sub_add_cancel (Nat.one_le_of_lt hn)
@@ -1741,7 +1741,7 @@ lemma Infinite.pred {x : ℕ*} (hx : Infinite x) : Infinite (pred x) := by
   rcases ofSeq_surjective x with ⟨f, rfl⟩
   rw [pred_ofSeq]
   apply ofSeq_lt_ofSeq.mpr
-  have hlt : ∀ᶠ i in hyperfilter ℕ, n + 1 < f i := ofSeq_lt_ofSeq.mp hn1
+  have hlt : ∀ᶠ i in nonstandardUltrafilter ℕ, n + 1 < f i := ofSeq_lt_ofSeq.mp hn1
   filter_upwards [hlt] with i hi
   exact Nat.lt_sub_of_add_lt hi
 
@@ -1905,7 +1905,7 @@ lemma Infinite.tsub_hFinite {x y : ℕ*} (hx : Infinite x) (hy : HFinite y) (_hp
   change (k : ℕ*) < ofSeq f - (m : ℕ*)
   rw [← ofSeq_const m, tsub_ofSeq]
   apply (ofSeq_lt_ofSeq (f := fun _ => k) (g := fun n => f n - m)).2
-  have hf : ∀ᶠ n in hyperfilter ℕ, k + m < f n :=
+  have hf : ∀ᶠ n in nonstandardUltrafilter ℕ, k + m < f n :=
     (ofSeq_lt_ofSeq (f := fun _ => k + m) (g := f)).1 (by simpa [ofSeq_const] using hxkm)
   filter_upwards [hf] with n hn
   omega
@@ -1919,7 +1919,7 @@ lemma exists_seq (x : ℕ*) : ∃ f : ℕ → ℕ, x = ofSeq f := by
 
 /-- Two hypernaturals are equal iff their representing sequences agree almost everywhere. -/
 lemma eq_iff_eventually_eq (x y : ℕ*) : x = y ↔ ∃ f g : ℕ → ℕ, x = ofSeq f ∧ y = ofSeq g ∧
-    ∀ᶠ n in hyperfilter ℕ, f n = g n := by
+    ∀ᶠ n in nonstandardUltrafilter ℕ, f n = g n := by
   constructor
   · intro heq
     rcases ofSeq_surjective x with ⟨f, rfl⟩
@@ -1939,17 +1939,17 @@ section Transfer
 
 open Germ Ultrafilter
 
-/-- Lift a predicate on ℕ to ℕ* via the hyperfilter. -/
+/-- Lift a predicate on ℕ to ℕ* via the nonstandardUltrafilter. -/
 def liftPred (P : ℕ → Prop) (x : ℕ*) : Prop :=
   Germ.LiftPred P x
 
-/-- Lift a binary relation on ℕ to ℕ* via the hyperfilter. -/
+/-- Lift a binary relation on ℕ to ℕ* via the nonstandardUltrafilter. -/
 def liftRel (R : ℕ → ℕ → Prop) (x y : ℕ*) : Prop :=
   Germ.LiftRel R x y
 
 @[simp]
 theorem liftPred_ofSeq {P : ℕ → Prop} {f : ℕ → ℕ} :
-    liftPred P (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, P (f n) :=
+    liftPred P (ofSeq f) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, P (f n) :=
   Germ.liftPred_coe
 
 @[simp]
@@ -1959,7 +1959,7 @@ theorem liftPred_coe {P : ℕ → Prop} {n : ℕ} :
 
 @[simp]
 theorem liftRel_ofSeq {R : ℕ → ℕ → Prop} {f g : ℕ → ℕ} :
-    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in hyperfilter ℕ, R (f n) (g n) :=
+    liftRel R (ofSeq f) (ofSeq g) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, R (f n) (g n) :=
   Germ.liftRel_coe
 
 @[simp]
@@ -2015,9 +2015,9 @@ theorem exists_implies_exists_liftPred {P : ℕ → Prop} :
 
 /-- For ultrafilters, ¬(∀ᶠ ¬P) implies ∃ x with liftPred P. -/
 theorem exists_liftPred_of_not_forall_not {P : ℕ → Prop}
-    (h : ¬∀ᶠ n in hyperfilter ℕ, ¬P n) : ∃ x : ℕ*, liftPred P x := by
+    (h : ¬∀ᶠ n in nonstandardUltrafilter ℕ, ¬P n) : ∃ x : ℕ*, liftPred P x := by
   -- If ¬(∀ᶠ ¬P), then by ultrafilter property, ∀ᶠ P
-  have : ∀ᶠ n in hyperfilter ℕ, P n := by
+  have : ∀ᶠ n in nonstandardUltrafilter ℕ, P n := by
     rw [← Ultrafilter.eventually_not] at h
     push_neg at h
     exact h
@@ -2028,7 +2028,7 @@ theorem exists_liftPred_of_not_forall_not {P : ℕ → Prop}
 def HyperPrime (x : ℕ*) : Prop := liftPred Nat.Prime x
 
 theorem hyperPrime_ofSeq {f : ℕ → ℕ} :
-    HyperPrime (ofSeq f) ↔ ∀ᶠ n in hyperfilter ℕ, Nat.Prime (f n) :=
+    HyperPrime (ofSeq f) ↔ ∀ᶠ n in nonstandardUltrafilter ℕ, Nat.Prime (f n) :=
   liftPred_ofSeq
 
 theorem hyperPrime_coe {n : ℕ} : HyperPrime (n : ℕ*) ↔ Nat.Prime n :=
@@ -2068,13 +2068,13 @@ theorem liftPred_forall_finset {P : ℕ → ℕ → Prop} {x : ℕ*} {s : Finset
     exact h.mono fun n hn => hn m (by assumption)
   · -- Prove by Finset induction that finite ∀ eventually = eventually finite ∀
     intro h
-    have aux : ∀ (t : Finset ℕ), (∀ m ∈ t, ∀ᶠ n in hyperfilter ℕ, P (f n) m) →
-        ∀ᶠ n in hyperfilter ℕ, ∀ m ∈ t, P (f n) m := fun t =>
+    have aux : ∀ (t : Finset ℕ), (∀ m ∈ t, ∀ᶠ n in nonstandardUltrafilter ℕ, P (f n) m) →
+        ∀ᶠ n in nonstandardUltrafilter ℕ, ∀ m ∈ t, P (f n) m := fun t =>
       Finset.induction_on t
         (fun _ => Eventually.of_forall fun _ _ hm => (Finset.notMem_empty _ hm).elim)
         (fun a t' _ha IH h' =>
-          have h1 : ∀ᶠ n in hyperfilter ℕ, P (f n) a := h' a (Finset.mem_insert_self _ _)
-          have h2 : ∀ᶠ n in hyperfilter ℕ, ∀ m ∈ t', P (f n) m :=
+          have h1 : ∀ᶠ n in nonstandardUltrafilter ℕ, P (f n) a := h' a (Finset.mem_insert_self _ _)
+          have h2 : ∀ᶠ n in nonstandardUltrafilter ℕ, ∀ m ∈ t', P (f n) m :=
             IH (fun m hm => h' m (Finset.mem_insert_of_mem hm))
           h1.and h2 |>.mono fun n ⟨hn1, hn2⟩ m hm =>
             (Finset.mem_insert.mp hm).elim (fun h => h ▸ hn1) (hn2 m))

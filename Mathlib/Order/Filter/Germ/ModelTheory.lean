@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.Germ.Product
-import Mathlib.Order.Filter.Ultrafilter.Hyperfilter
+import Mathlib.Order.Filter.Ultrafilter.Nonstandard
 import Mathlib.ModelTheory.Ultraproducts
 
 /-!
@@ -78,7 +78,7 @@ end LosTheorem
 
 /-! ## Applications to Hypernaturals
 
-When specialized to `hyperfilter ℕ` and ordered structures, this gives the
+When specialized to `nonstandardUltrafilter ℕ` and ordered structures, this gives the
 transfer principle for first-order order properties.
 -/
 
@@ -86,11 +86,11 @@ section Hypernatural
 
 variable [Infinite α] {L : Language} [L.Structure β] [Nonempty β]
 
-/-- The hyperfilter ultraproduct of a constant family satisfies the same sentences
+/-- The nonstandardUltrafilter ultraproduct of a constant family satisfies the same sentences
 as the base structure. -/
 theorem hyperproduct_sentence_realize (φ : L.Sentence) :
-    (hyperfilter α : Filter α).Product (fun _ : α => β) ⊨ φ ↔ β ⊨ φ :=
-  sentence_realize_const (hyperfilter α) φ
+    (nonstandardUltrafilter α : Filter α).Product (fun _ : α => β) ⊨ φ ↔ β ⊨ φ :=
+  sentence_realize_const (nonstandardUltrafilter α) φ
 
 end Hypernatural
 

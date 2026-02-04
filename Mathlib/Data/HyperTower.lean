@@ -29,7 +29,7 @@ noncomputable instance : CoeTC ℕ* ℤ* := ⟨castInt⟩
 @[simp, norm_cast]
 theorem castInt_ofNat (n : ℕ) : ((n : ℕ*) : ℤ*) = (n : ℤ) := by
   simpa [castInt, Hypernatural.ofNat, Hyperinteger.ofInt] using
-    (Germ.map_const (l := (hyperfilter ℕ : Filter ℕ)) (a := n)
+    (Germ.map_const (l := (nonstandardUltrafilter ℕ : Filter ℕ)) (a := n)
       (f := fun n : ℕ => (n : ℤ)))
 
 @[simp]
@@ -50,7 +50,7 @@ noncomputable instance : CoeTC ℤ* ℚ* := ⟨castRat⟩
 @[simp, norm_cast]
 theorem castRat_ofInt (z : ℤ) : ((z : ℤ*) : ℚ*) = (z : ℚ) := by
   simpa [castRat, Hyperinteger.ofInt, Hyperrational.ofRat] using
-    (Germ.map_const (l := (hyperfilter ℕ : Filter ℕ)) (a := z)
+    (Germ.map_const (l := (nonstandardUltrafilter ℕ : Filter ℕ)) (a := z)
       (f := fun z : ℤ => (z : ℚ)))
 
 @[simp]
@@ -71,7 +71,7 @@ noncomputable instance : CoeTC ℚ* ℝ* := ⟨castReal⟩
 @[simp, norm_cast]
 theorem castReal_ofRat (q : ℚ) : ((q : ℚ*) : ℝ*) = (q : ℝ) := by
   simpa [castReal, Hyperrational.ofRat, Hyperreal.ofReal] using
-    (Germ.map_const (l := (hyperfilter ℕ : Filter ℕ)) (a := q)
+    (Germ.map_const (l := (nonstandardUltrafilter ℕ : Filter ℕ)) (a := q)
       (f := fun q : ℚ => (q : ℝ)))
 
 @[simp]
