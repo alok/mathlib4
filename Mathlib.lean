@@ -5586,6 +5586,7 @@ public import Mathlib.Order.Filter.FilterProduct
 public import Mathlib.Order.Filter.Finite
 public import Mathlib.Order.Filter.Germ.Basic
 public import Mathlib.Order.Filter.Germ.OrderedMonoid
+public import Mathlib.Order.Filter.Germ.Ultrapower.Assoc
 public import Mathlib.Order.Filter.IndicatorFunction
 public import Mathlib.Order.Filter.Interval
 public import Mathlib.Order.Filter.IsBounded

@@ -91,9 +91,6 @@ abbrev Hyper (ι : Type*) [NonstandardIndex ι] (α : Type*) : Type _ :=
 
 
 
-/-- Hypernatural numbers are the nonstandard extension of ℕ indexed by ℕ. -/
-abbrev Hypernatural := Hyper ℕ ℕ
-
 namespace Hyper
 
 /-! ## Standard Embedding -/
@@ -110,9 +107,6 @@ theorem std_def (a : α) : (std a : Hyper ι α) = Germ.const a := rfl
 
 theorem std_injective : Function.Injective (std : α → Hyper ι α) :=
   fun _ _ h => Germ.const_inj.mp h
-
-/-- The coercion from ℕ to Hypernatural is injective. -/
-theorem coe_nat_inj : Function.Injective (fun n : ℕ => (n : Hypernatural)) := std_injective
 
 /-- Lift a function to the nonstandard extension. -/
 def lift (f : α → β) : Hyper ι α → Hyper ι β := Germ.map f
@@ -1710,16 +1704,6 @@ theorem exists_infinite_nat : ∃ ω : Hyper ℕ ℕ, ∀ n : ℕ, std n < ω :=
 
 /-- An infinite hypernatural - the equivalence class of the identity sequence. -/
 noncomputable def omega : Hyper ℕ ℕ := ofSeq id
-
-theorem coe_nat_eq_std (n : ℕ) : (n : Hypernatural) = std n := rfl
-
-theorem omega_gt_nat (n : ℕ) : (n : Hypernatural) < omega := by
-  rw [lt_def]
-  simp only [omega, coe_nat_eq_std, std_def, Germ.const, ofSeq, Germ.ofFun]
-  apply Filter.mem_nonstandardUltrafilter_of_finite_compl
-  dsimp
-  simp only [Set.compl_setOf, not_lt]
-  exact Set.finite_le_nat n
 
 theorem omega_gt_std (n : ℕ) : std n < omega := by
   rw [omega, std_lt_ofSeq]

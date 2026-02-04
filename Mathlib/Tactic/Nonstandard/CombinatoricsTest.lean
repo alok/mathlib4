@@ -7,7 +7,7 @@ open Hyper
 -- example : OrderedSemiring (Hyper ℕ ℕ) := inferInstance
 
 -- Verify omega properties
-example (n : ℕ) : (n : Hypernatural) < omega := omega_gt_nat _
+example (n : ℕ) : (std n : Hyper ℕ ℕ) < omega := omega_gt_std _
 
 -- Verify factorial
 example : factorial (std 5 : Hyper ℕ ℕ) = std 120 := by

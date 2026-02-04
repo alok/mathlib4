@@ -8,6 +8,7 @@ import Lean.Elab.Term
 import Lean.Util.Trace
 import Mathlib.Order.Filter.Germ.Star
 import Mathlib.Order.Filter.Germ.Ultrapower
+import Mathlib.Order.Filter.Germ.Ultrapower.Assoc
 import Lean.Meta.Tactic.Simp.Main
 
 initialize Lean.registerTraceClass `Tactic.transfer
@@ -200,15 +201,9 @@ elab_rules : tactic
       ``Hyper.sub_eq_lift₂,
       ``Hyper.neg_eq_lift,
       ``Hyper.zero_eq_std,
-      ``Hyper.one_eq_std,
-      ``Hyper.ofSeq_eq_zero,
-      ``Hyper.le_iff_liftRel_le,
-      ``Hyper.lt_iff_liftRel_lt,
       ``Hyper.eq_iff_liftRel_eq,
       ``Hyper.star_subset,
-      ``Hyper.star_disjoint,
       ``Hyper.liftRel_std,
-      ``Hyper.liftRel_std_left,
       ``Hyper.liftRel_std_right,
       ``Hyper.liftRel_lift_left,
       ``Hyper.liftRel_lift_right,
@@ -333,7 +328,7 @@ elab_rules : tactic
           if (← (try isHyperDomain target.bindingDomain! catch _ => pure false)) then
              try
                if let some ι := ι? then
-                let ιStx ← PrettyPrinter.delab ι
+                 let ιStx ← PrettyPrinter.delab ι
                  evalTactic (← `(tactic| rw [Filter.Ultrapower.forall_ofSeq_iff (iota := $ιStx)]))
                else
                  evalTactic (← `(tactic| rw [Filter.Ultrapower.forall_ofSeq_iff]))
@@ -489,5 +484,17 @@ elab_rules : tactic
       evalTactic (← `(tactic| clear this))
     else
       pure ()
+
+/--
+The `nonstandard_assoc` tactic simplifies nested ultrapower predicates by pushing them across
+curried ultrapower equivalences.
+-/
+syntax (name := nonstandard_assoc) "nonstandard_assoc" : tactic
+
+elab "nonstandard_assoc" : tactic => do
+  evalTactic (← `(tactic| simp only [
+    Filter.Ultrapower.liftPred_uncurryEquiv,
+    Filter.Ultrapower.liftRel_uncurryEquiv
+  ]))
 
 end Mathlib.Tactic.Nonstandard

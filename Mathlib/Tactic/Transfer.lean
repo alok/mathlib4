@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alok Singh
 -/
 import Mathlib.Order.Filter.Germ.Star
+import Mathlib.Order.Filter.Germ.Ultrapower.Assoc
 import Mathlib.Data.Nat.Hypernatural
 import Mathlib.Data.Rat.Hyperrational
 import Lean.Elab.Tactic
@@ -167,6 +168,7 @@ elab "transfer_simp" : tactic => do
     Filter.Ultrapower.liftPred_ofSeq, Filter.Ultrapower.liftRel_ofSeq,
     Filter.Ultrapower.liftPred_and, Filter.Ultrapower.liftPred_or,
     Filter.Ultrapower.liftPred_not, Filter.Ultrapower.liftPred_imp,
+    Filter.Ultrapower.liftPred_uncurryEquiv, Filter.Ultrapower.liftRel_uncurryEquiv,
     Filter.Ultrapower.forall_std_iff, Filter.Ultrapower.exists_std_iff,
     -- ℕ* lemmas
     Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
