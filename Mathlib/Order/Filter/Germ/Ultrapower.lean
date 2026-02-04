@@ -14,6 +14,9 @@ public import Mathlib.Order.Filter.Ultrafilter.Basic
 This file defines the ultrafilter-generic ultrapower as a specialization of `Filter.Germ`.
 It provides a small, neutral API that can later be used to decouple NSA from a specific
 ultrafilter choice (such as `nonstandardUltrafilter`).
+
+See `Mathlib/Order/Filter/Germ/Ultrapower/Curry.lean` for the one-level equivalence between
+iterated ultrapowers and germs over the curried filter.
 -/
 
 @[expose] public section
@@ -167,9 +170,9 @@ theorem liftPred_or (x : Ultrapower U alpha) :
 
 theorem liftPred_not (x : Ultrapower U alpha) :
     liftPred (U := U) (fun a => ¬ P a) x ↔ ¬ liftPred (U := U) P x := by
-  rcases ofSeq_surjective x with ⟨f, hf⟩
-  have hx : x = ofSeq (U := U) f := hf.symm
-  simp [hx, liftPred_ofSeq, Ultrafilter.eventually_not]
+  rcases ofSeq_surjective x with ⟨f, rfl⟩
+  rw [liftPred_ofSeq, liftPred_ofSeq]
+  exact (Ultrafilter.eventually_not (f := U) (p := fun i => P (f i)))
 
 theorem liftPred_imp (x : Ultrapower U alpha) :
     liftPred (U := U) (fun a => P a → Q a) x ↔
@@ -221,7 +224,7 @@ theorem exists_std_iff [NeBot (U : Filter iota)] (P : alpha → Prop) :
     (∃ a : alpha, P a) ↔ (∃ x : Ultrapower U alpha, IsStandard x ∧ liftPred P x) := by
   constructor
   · intro ⟨a, ha⟩
-    exact ⟨std a, IsStandard.of_std a, by simpa [ha]⟩
+    exact ⟨std a, IsStandard.of_std a, by simp [ha]⟩
   · rintro ⟨x, hstd, hP⟩
     obtain ⟨a, rfl⟩ := hstd
     exact ⟨a, by simpa using hP⟩
