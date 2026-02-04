@@ -162,6 +162,12 @@ elab "transfer_simp" : tactic => do
     Hyper.std_le, Hyper.std_lt,
     Hyper.liftPred_std, Hyper.liftRel_std,
     Hyper.forall_std_iff,
+    -- Generic Ultrapower lemmas
+    Filter.Ultrapower.liftPred_std, Filter.Ultrapower.liftRel_std, Filter.Ultrapower.lift_std,
+    Filter.Ultrapower.liftPred_ofSeq, Filter.Ultrapower.liftRel_ofSeq,
+    Filter.Ultrapower.liftPred_and, Filter.Ultrapower.liftPred_or,
+    Filter.Ultrapower.liftPred_not, Filter.Ultrapower.liftPred_imp,
+    Filter.Ultrapower.forall_std_iff, Filter.Ultrapower.exists_std_iff,
     -- ℕ* lemmas
     Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
     Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe,

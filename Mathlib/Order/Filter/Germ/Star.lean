@@ -49,6 +49,10 @@ set_option linter.style.longLine false
 This file defines the hyper operation that maps standard objects to their nonstandard
 (hyper)extensions via ultraproducts.
 
+For the ultrafilter-generic core, see `Filter.Ultrapower` and
+`Mathlib/Order/Filter/Germ/Ultrapower.lean`. The `Hyper` type here is the specialization
+to `nonstandardUltrafilter`, and all generic transfer lemmas live in `Ultrapower`.
+
 ## Main definitions
 
 * `Hyper ι α` - The nonstandard extension of `α` over index type `ι`, defined as

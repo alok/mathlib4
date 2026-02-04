@@ -86,6 +86,10 @@ open Hyper Filter Germ Set
 This file provides nonstandard (infinitesimal) characterizations of topological
 concepts like continuity, compactness, and convergence using hyperstructures.
 
+For the ultrafilter-generic core, see `Filter.Ultrapower` and
+`Mathlib/Order/Filter/Germ/Ultrapower.lean`. The `Hyper` type here is the specialization
+to `nonstandardUltrafilter`, and all generic transfer lemmas live in `Ultrapower`.
+
 ## Main Definitions
 
 * `Hyper.halo` - The halo of a point: the set of hyperreals infinitely close to it

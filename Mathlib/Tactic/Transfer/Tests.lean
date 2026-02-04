@@ -37,6 +37,12 @@ theorem test_liftPred_coe_nat {P : ℕ → Prop} {n : ℕ} :
     Hypernatural.liftPred P (n : ℕ*) ↔ P n :=
   Hypernatural.liftPred_coe
 
+/-- Test: Ultrapower liftPred on standard element. -/
+theorem test_ultrapower_liftPred_std {ι α : Type*} (U : Ultrafilter ι) [NeBot (U : Filter ι)]
+    {P : α → Prop} {a : α} :
+    Filter.Ultrapower.liftPred (U := U) P (Filter.Ultrapower.std (U := U) a) ↔ P a := by
+  simpa using (Filter.Ultrapower.liftPred_std (U := U) (P := P) (a := a))
+
 /-- Test: liftRel on standard elements is the relation on those elements. -/
 theorem test_liftRel_coe_nat {R : ℕ → ℕ → Prop} {a b : ℕ} :
     Hypernatural.liftRel R (a : ℕ*) (b : ℕ*) ↔ R a b :=
