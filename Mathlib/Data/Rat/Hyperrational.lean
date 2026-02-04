@@ -531,10 +531,11 @@ theorem infinitesimal_ofRat_iff {q : ℚ} : Infinitesimal (ofRat q) ↔ q = 0 :=
     -- We have -|q| < q < |q|
     -- From hhi: q < |q|. If q ≥ 0, then |q| = q, contradiction.
     -- From hlo: -|q| < q. If q ≤ 0, then |q| = -q, so q < q, contradiction.
-    rcases le_or_lt 0 q with hpos | hneg
+    by_cases hpos : 0 ≤ q
     · rw [abs_of_nonneg hpos] at hhi
       exact lt_irrefl q hhi
-    · rw [abs_of_neg hneg] at hlo
+    · have hneg : q < 0 := lt_of_not_ge hpos
+      rw [abs_of_neg hneg] at hlo
       linarith
   · intro h
     rw [h]
