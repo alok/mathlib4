@@ -166,9 +166,8 @@ theorem ofSeq_surjective : Function.Surjective ofSeq := Quot.exists_rep
 theorem ofSeq_le_ofSeq {f g : ℕ → ℝ} :
     ofSeq f ≤ ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n ≤ g n := Iff.rfl
 
-theorem ofSeq_lt_ofSeq {f g : ℕ → ℝ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n := by
-  change LiftRel (· < ·) (ofSeq f) (ofSeq g) ↔ _
-  rfl
+theorem ofSeq_lt_ofSeq {f g : ℕ → ℝ} : ofSeq f < ofSeq g ↔ ∀ᶠ n in hyperfilter ℕ, f n < g n :=
+  Germ.coe_lt
 
 /-! #### ω -/
 
