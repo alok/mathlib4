@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Order.Filter.Germ.Ultrapower
 public import Mathlib.Order.Filter.Germ.Curry
+public import Mathlib.Order.Filter.Ultrafilter.Curry
 
 /-!
 # Curried ultrapowers
@@ -28,6 +29,11 @@ noncomputable def curryEquiv :
     Germ ((U : Filter ι).curry (V : Filter κ)) α ≃
       Ultrapower U (Ultrapower V α) :=
   Germ.curryEquiv (l := (U : Filter ι)) (m := (V : Filter κ)) α
+
+/-- Ultrapowers over the curried ultrafilter correspond to iterated ultrapowers. -/
+noncomputable def ultrapowerCurryEquiv :
+    Ultrapower (U.curry V) α ≃ Ultrapower U (Ultrapower V α) := by
+  simpa [Ultrafilter.coe_curry] using (curryEquiv (U := U) (V := V) (α := α))
 
 end Ultrapower
 

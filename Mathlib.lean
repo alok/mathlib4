@@ -5603,6 +5603,7 @@ public import Mathlib.Order.Filter.SmallSets
 public import Mathlib.Order.Filter.Subsingleton
 public import Mathlib.Order.Filter.Tendsto
 public import Mathlib.Order.Filter.Ultrafilter.Basic
+public import Mathlib.Order.Filter.Ultrafilter.Curry
 public import Mathlib.Order.Filter.Ultrafilter.Defs
 public import Mathlib.Order.Filter.ZeroAndBoundedAtFilter
 public import Mathlib.Order.Fin.Basic
