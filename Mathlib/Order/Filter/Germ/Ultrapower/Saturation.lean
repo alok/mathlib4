@@ -5,8 +5,10 @@ Authors: Alok Singh
 -/
 module
 
-import Mathlib.Order.Filter.Germ.Ultrapower
-import Mathlib.Order.Filter.Germ.Star
+public import Mathlib.Order.Filter.Germ.Ultrapower
+public import Mathlib.Order.Filter.Ultrafilter.Nonstandard
+public import Mathlib.Data.Finset.Preimage
+public import Mathlib.Logic.Embedding.Basic
 
 /-!
 # Saturation for Ultrapowers
@@ -17,17 +19,19 @@ behind a typeclass. This hides cardinal bookkeeping in user-facing statements.
 
 @[expose] public section
 
+universe u v
+
 namespace Filter
 
-variable {iota : Type*}
+variable {iota : Type u}
 
 /-- `Saturated U kappa` means that the ultrapower over `U` realizes any finitely
 consistent family of predicates indexed by `kappa`. -/
-class Saturated (U : Ultrafilter iota) (kappa : Type*) : Prop where
+class Saturated (U : Ultrafilter iota) (kappa : Type v) : Prop where
   sat :
-    ∀ {alpha : Type*} {P : kappa → alpha → Prop},
+    ∀ {alpha : Type v} {P : kappa → alpha → Prop},
       (∀ F : Finset kappa, ∃ x : Ultrapower U alpha,
-        ∀ k, Membership.mem k F → Ultrapower.liftPred (U := U) (P k) x) →
+        ∀ k ∈ F, Ultrapower.liftPred (U := U) (P k) x) →
       ∃ x : Ultrapower U alpha, ∀ k : kappa, Ultrapower.liftPred (U := U) (P k) x
 
 /-- Abbreviation for countable saturation. -/
@@ -35,10 +39,10 @@ abbrev CountablySaturated (U : Ultrafilter iota) : Prop := Saturated U Nat
 
 namespace Ultrapower
 
-variable {iota : Type*} {U : Ultrafilter iota} {kappa : Type*}
+variable {iota : Type u} {U : Ultrafilter iota} {kappa : Type v}
 
 /-- Saturation for an arbitrary ultrafilter with a regularizing family. -/
-theorem cardinal_saturation (e : kappa ↪ iota) {alpha : Type*} {P : kappa → alpha → Prop}
+theorem cardinal_saturation (e : kappa ↪ iota) {alpha : Type v} {P : kappa → alpha → Prop}
     [RegularizingFamily U]
     (hfin : ∀ F : Finset kappa, ∃ x : Ultrapower U alpha,
       ∀ k ∈ F, Ultrapower.liftPred (U := U) (P k) x) :
@@ -79,13 +83,14 @@ end Ultrapower
 
 /-- Any ultrafilter equipped with a regularizing family is saturated once `kappa` embeds
 into the index type. -/
-instance ultrafilter_saturated (U : Ultrafilter iota) [RegularizingFamily U] (kappa : Type*)
-    [Nonempty (Embedding kappa iota)] :
+instance ultrafilter_saturated (U : Ultrafilter iota) [RegularizingFamily U]
+    (kappa : Type*)
+    [Nonempty (kappa ↪ iota)] :
     Saturated U kappa := by
   classical
   refine Saturated.mk ?_
   intro alpha P hfin
-  cases (inferInstance : Nonempty (Embedding kappa iota)) with
+  cases (inferInstance : Nonempty (kappa ↪ iota)) with
   | intro e =>
     exact Ultrapower.cardinal_saturation (U := U) (kappa := kappa) e hfin
 
