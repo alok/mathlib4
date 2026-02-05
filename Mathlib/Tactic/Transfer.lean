@@ -57,45 +57,58 @@ namespace Mathlib.Tactic.Transfer
 
 /-! ## Core Transfer Tactics -/
 
-/-- `transfer` reduces a goal about hyperextensions to a goal about standard elements.
-Works generically on any `Hyper ι α` type. -/
+/-- `transfer` reduces a goal about ultrapowers to a goal about standard elements.
+Works generically on any `Ultrapower U α` type. -/
 syntax (name := transfer) "transfer" : tactic
 
 /-- Core transfer tactic implementation. -/
 elab "transfer" : tactic => do
   -- Try to decompose all hyper-elements via ofSeq_surjective
   evalTactic (← `(tactic| repeat' intro _))
-  -- Try Hypernatural first (most common case)
-  try
-    evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Hypernatural.ofSeq_surjective ‹_›)))
-    evalTactic (← `(tactic| simp only [
-      Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
-      Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
-      Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
-      Hypernatural.coe_add, Hypernatural.coe_mul,
-      Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
-      Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
-      Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe
-    ]))
-  catch _ =>
-    -- Try Hyperrational
-    try
-      evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Hyperrational.ofSeq_surjective ‹_›)))
-      evalTactic (← `(tactic| simp only [
-        Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
-        Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
-        Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv,
-        Hyperrational.liftPred_ofSeq, Hyperrational.liftPred_ofRat,
-        Hyperrational.liftRel_ofSeq, Hyperrational.liftRel_ofRat
-      ]))
-    catch _ =>
-      -- Try generic Hyper
-      evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Hyper.ofSeq_surjective ‹_›)))
-      evalTactic (← `(tactic| simp only [
-        Hyper.ofSeq_eq_ofSeq,
-        Hyper.lift_ofSeq, Hyper.lift₂_ofSeq,
-        Hyper.liftPred_ofSeq, Hyper.liftRel_ofSeq
-      ]))
+  evalTactic (← `(tactic| repeat' (obtain ⟨_, rfl⟩ := Filter.Ultrapower.ofSeq_surjective ‹_›)))
+  evalTactic (← `(tactic| simp only [
+    -- Generic Hyper lemmas
+    Hyper.std_inj, Hyper.std_add, Hyper.std_mul, Hyper.std_neg, Hyper.std_sub,
+    Hyper.std_inv, Hyper.std_div, Hyper.std_zero, Hyper.std_one,
+    Hyper.std_le, Hyper.std_lt,
+    Hyper.liftPred_std, Hyper.liftRel_std,
+    Hyper.forall_std_iff,
+    Hyper.lift_ofSeq, Hyper.lift₂_ofSeq,
+    Hyper.liftPred_ofSeq, Hyper.liftRel_ofSeq,
+    -- Generic Ultrapower lemmas
+    Filter.Ultrapower.liftPred_std, Filter.Ultrapower.liftRel_std, Filter.Ultrapower.lift_std,
+    Filter.Ultrapower.liftPred_ofSeq, Filter.Ultrapower.liftRel_ofSeq,
+    Filter.Ultrapower.liftPred_and, Filter.Ultrapower.liftPred_or,
+    Filter.Ultrapower.liftPred_not, Filter.Ultrapower.liftPred_imp,
+    Filter.Ultrapower.liftPred_uncurryEquiv, Filter.Ultrapower.liftRel_uncurryEquiv,
+    Filter.Ultrapower.forall_std_iff, Filter.Ultrapower.exists_std_iff,
+    Filter.Ultrapower.ofSeq_eq_ofSeq, Filter.Ultrapower.ofSeq_le_ofSeq,
+    Filter.Ultrapower.ofSeq_lt_ofSeq,
+    Filter.Ultrapower.ofSeq_add, Filter.Ultrapower.ofSeq_mul, Filter.Ultrapower.ofSeq_pow,
+    Filter.Ultrapower.ofSeq_neg, Filter.Ultrapower.ofSeq_sub,
+    Filter.Ultrapower.ofSeq_inv, Filter.Ultrapower.ofSeq_div,
+    Filter.Ultrapower.ofSeq_zero, Filter.Ultrapower.ofSeq_one,
+    -- ℕ* lemmas
+    Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
+    Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe,
+    Hypernatural.liftPred_and, Hypernatural.liftPred_or,
+    Hypernatural.liftPred_not, Hypernatural.liftPred_imp,
+    Hypernatural.forall_iff_forall_liftPred,
+    Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
+    Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
+    Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
+    Hypernatural.coe_add, Hypernatural.coe_mul,
+    Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
+    -- ℚ* lemmas
+    Hyperrational.liftPred_ofRat, Hyperrational.liftPred_ofSeq,
+    Hyperrational.liftRel_ofRat, Hyperrational.liftRel_ofSeq,
+    Hyperrational.liftPred_and, Hyperrational.liftPred_or,
+    Hyperrational.liftPred_not, Hyperrational.liftPred_imp,
+    Hyperrational.forall_iff_forall_liftPred,
+    Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
+    Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
+    Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv
+  ]))
   -- For constant filter conditions, use Eventually.of_forall
   evalTactic (← `(tactic| try apply Filter.Eventually.of_forall))
   evalTactic (← `(tactic| try intro))
@@ -108,40 +121,53 @@ syntax (name := transferUp) "transfer" "+upward" ident : tactic
 elab_rules : tactic
   | `(tactic| transfer +upward $h:ident) => do
     evalTactic (← `(tactic| intro x))
-    -- Try Hypernatural
-    try
-      evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Hypernatural.ofSeq_surjective x))
-      evalTactic (← `(tactic| simp only [
-        Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
-        Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
-        Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
-        Hypernatural.coe_add, Hypernatural.coe_mul,
-        Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
-        Hypernatural.liftPred_ofSeq
-      ]))
-      evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
-      evalTactic (← `(tactic| intro n))
-      evalTactic (← `(tactic| exact $h (f n)))
-    catch _ =>
-      -- Try Hyperrational
-      try
-        evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Hyperrational.ofSeq_surjective x))
-        evalTactic (← `(tactic| simp only [
-          Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
-          Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
-          Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv,
-          Hyperrational.liftPred_ofSeq
-        ]))
-        evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
-        evalTactic (← `(tactic| intro n))
-        evalTactic (← `(tactic| exact $h (f n)))
-      catch _ =>
-        -- Generic Hyper
-        evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Hyper.ofSeq_surjective x))
-        evalTactic (← `(tactic| rw [Hyper.liftPred_ofSeq]))
-        evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
-        evalTactic (← `(tactic| intro n))
-        evalTactic (← `(tactic| exact $h (f n)))
+    evalTactic (← `(tactic| obtain ⟨f, rfl⟩ := Filter.Ultrapower.ofSeq_surjective x))
+    evalTactic (← `(tactic| simp only [
+      -- Generic Hyper lemmas
+      Hyper.std_inj, Hyper.std_add, Hyper.std_mul, Hyper.std_neg, Hyper.std_sub,
+      Hyper.std_inv, Hyper.std_div, Hyper.std_zero, Hyper.std_one,
+      Hyper.std_le, Hyper.std_lt,
+      Hyper.liftPred_std, Hyper.liftRel_std,
+      Hyper.forall_std_iff,
+      Hyper.lift_ofSeq, Hyper.lift₂_ofSeq,
+      Hyper.liftPred_ofSeq, Hyper.liftRel_ofSeq,
+      -- Generic Ultrapower lemmas
+      Filter.Ultrapower.liftPred_std, Filter.Ultrapower.liftRel_std, Filter.Ultrapower.lift_std,
+      Filter.Ultrapower.liftPred_ofSeq, Filter.Ultrapower.liftRel_ofSeq,
+      Filter.Ultrapower.liftPred_and, Filter.Ultrapower.liftPred_or,
+      Filter.Ultrapower.liftPred_not, Filter.Ultrapower.liftPred_imp,
+      Filter.Ultrapower.liftPred_uncurryEquiv, Filter.Ultrapower.liftRel_uncurryEquiv,
+      Filter.Ultrapower.forall_std_iff, Filter.Ultrapower.exists_std_iff,
+      Filter.Ultrapower.ofSeq_eq_ofSeq, Filter.Ultrapower.ofSeq_le_ofSeq,
+      Filter.Ultrapower.ofSeq_lt_ofSeq,
+      Filter.Ultrapower.ofSeq_add, Filter.Ultrapower.ofSeq_mul, Filter.Ultrapower.ofSeq_pow,
+      Filter.Ultrapower.ofSeq_neg, Filter.Ultrapower.ofSeq_sub,
+      Filter.Ultrapower.ofSeq_inv, Filter.Ultrapower.ofSeq_div,
+      Filter.Ultrapower.ofSeq_zero, Filter.Ultrapower.ofSeq_one,
+      -- ℕ* lemmas
+      Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
+      Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe,
+      Hypernatural.liftPred_and, Hypernatural.liftPred_or,
+      Hypernatural.liftPred_not, Hypernatural.liftPred_imp,
+      Hypernatural.forall_iff_forall_liftPred,
+      Hypernatural.ofSeq_add, Hypernatural.ofSeq_mul, Hypernatural.ofSeq_pow,
+      Hypernatural.ofSeq_zero, Hypernatural.ofSeq_one,
+      Hypernatural.ofSeq_eq_ofSeq, Hypernatural.ofSeq_le_ofSeq, Hypernatural.ofSeq_lt_ofSeq,
+      Hypernatural.coe_add, Hypernatural.coe_mul,
+      Hypernatural.coe_le_coe, Hypernatural.coe_lt_coe, Hypernatural.coe_eq_coe,
+      -- ℚ* lemmas
+      Hyperrational.liftPred_ofRat, Hyperrational.liftPred_ofSeq,
+      Hyperrational.liftRel_ofRat, Hyperrational.liftRel_ofSeq,
+      Hyperrational.liftPred_and, Hyperrational.liftPred_or,
+      Hyperrational.liftPred_not, Hyperrational.liftPred_imp,
+      Hyperrational.forall_iff_forall_liftPred,
+      Hyperrational.ofSeq_eq_ofSeq, Hyperrational.ofSeq_le_ofSeq, Hyperrational.ofSeq_lt_ofSeq,
+      Hyperrational.ofRat_eq_ofRat, Hyperrational.ofRat_le_ofRat, Hyperrational.ofRat_lt_ofRat,
+      Hyperrational.ofRat_add, Hyperrational.ofRat_neg, Hyperrational.ofRat_inv
+    ]))
+    evalTactic (← `(tactic| apply Filter.Eventually.of_forall))
+    evalTactic (← `(tactic| intro n))
+    evalTactic (← `(tactic| exact $h (f n)))
 
 /-! ## Specialized Tactics -/
 
@@ -163,6 +189,8 @@ elab "transfer_simp" : tactic => do
     Hyper.std_le, Hyper.std_lt,
     Hyper.liftPred_std, Hyper.liftRel_std,
     Hyper.forall_std_iff,
+    Hyper.lift_ofSeq, Hyper.lift₂_ofSeq,
+    Hyper.liftPred_ofSeq, Hyper.liftRel_ofSeq,
     -- Generic Ultrapower lemmas
     Filter.Ultrapower.liftPred_std, Filter.Ultrapower.liftRel_std, Filter.Ultrapower.lift_std,
     Filter.Ultrapower.liftPred_ofSeq, Filter.Ultrapower.liftRel_ofSeq,
@@ -170,6 +198,12 @@ elab "transfer_simp" : tactic => do
     Filter.Ultrapower.liftPred_not, Filter.Ultrapower.liftPred_imp,
     Filter.Ultrapower.liftPred_uncurryEquiv, Filter.Ultrapower.liftRel_uncurryEquiv,
     Filter.Ultrapower.forall_std_iff, Filter.Ultrapower.exists_std_iff,
+    Filter.Ultrapower.ofSeq_eq_ofSeq, Filter.Ultrapower.ofSeq_le_ofSeq,
+    Filter.Ultrapower.ofSeq_lt_ofSeq,
+    Filter.Ultrapower.ofSeq_add, Filter.Ultrapower.ofSeq_mul, Filter.Ultrapower.ofSeq_pow,
+    Filter.Ultrapower.ofSeq_neg, Filter.Ultrapower.ofSeq_sub,
+    Filter.Ultrapower.ofSeq_inv, Filter.Ultrapower.ofSeq_div,
+    Filter.Ultrapower.ofSeq_zero, Filter.Ultrapower.ofSeq_one,
     -- ℕ* lemmas
     Hypernatural.liftPred_ofSeq, Hypernatural.liftPred_coe,
     Hypernatural.liftRel_ofSeq, Hypernatural.liftRel_coe,

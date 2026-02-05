@@ -7,6 +7,7 @@ module
 
 public import Mathlib.Order.Filter.Germ.Basic
 public import Mathlib.Order.Filter.Ultrafilter.Basic
+import Mathlib.Order.Filter.FilterProduct
 
 /-!
 # Ultrapower (Ultrafilter-Generic)
@@ -50,10 +51,54 @@ theorem ofSeq_surjective : Function.Surjective (fun f : iota → alpha => ofSeq 
   intro x
   exact Quot.exists_rep x
 
+theorem ofSeq_eq_ofSeq {f g : iota → alpha} :
+    ofSeq (U := U) f = ofSeq (U := U) g ↔ ∀ᶠ i in (U : Filter iota), f i = g i := by
+  change (f : Germ (U : Filter iota) alpha) = g ↔ f =ᶠ[(U : Filter iota)] g
+  exact Germ.coe_eq
+
+theorem ofSeq_le_ofSeq [LE alpha] {f g : iota → alpha} :
+    ofSeq (U := U) f ≤ ofSeq (U := U) g ↔ ∀ᶠ i in (U : Filter iota), f i ≤ g i := by
+  change (f : Germ (U : Filter iota) alpha) ≤ g ↔ f ≤ᶠ[(U : Filter iota)] g
+  exact Germ.coe_le
+
+theorem ofSeq_lt_ofSeq [Preorder alpha] {f g : iota → alpha} :
+    ofSeq (U := U) f < ofSeq (U := U) g ↔ ∀ᶠ i in (U : Filter iota), f i < g i := by
+  change (f : Germ (U : Filter iota) alpha) < g ↔ ∀ᶠ i in (U : Filter iota), f i < g i
+  exact Germ.coe_lt (φ := U)
+
 @[elab_as_elim]
 theorem inductionOn {P : Ultrapower U alpha → Prop} (x : Ultrapower U alpha)
     (h : ∀ f : iota → alpha, P (ofSeq f)) : P x :=
   Germ.inductionOn x h
+
+section OfSeqOps
+
+theorem ofSeq_add [Add alpha] (f g : iota → alpha) :
+    ofSeq (U := U) f + ofSeq (U := U) g = ofSeq (U := U) (fun i => f i + g i) := rfl
+
+theorem ofSeq_mul [Mul alpha] (f g : iota → alpha) :
+    ofSeq (U := U) f * ofSeq (U := U) g = ofSeq (U := U) (fun i => f i * g i) := rfl
+
+theorem ofSeq_pow [Pow alpha ℕ] (f : iota → alpha) (n : ℕ) :
+    ofSeq (U := U) f ^ n = ofSeq (U := U) (fun i => f i ^ n) := rfl
+
+theorem ofSeq_neg [Neg alpha] (f : iota → alpha) :
+    -ofSeq (U := U) f = ofSeq (U := U) (fun i => -f i) := rfl
+
+theorem ofSeq_sub [Sub alpha] (f g : iota → alpha) :
+    ofSeq (U := U) f - ofSeq (U := U) g = ofSeq (U := U) (fun i => f i - g i) := rfl
+
+theorem ofSeq_inv [Inv alpha] (f : iota → alpha) :
+    (ofSeq (U := U) f)⁻¹ = ofSeq (U := U) (fun i => (f i)⁻¹) := rfl
+
+theorem ofSeq_div [Div alpha] (f g : iota → alpha) :
+    ofSeq (U := U) f / ofSeq (U := U) g = ofSeq (U := U) (fun i => f i / g i) := rfl
+
+@[simp] theorem ofSeq_zero [Zero alpha] : ofSeq (U := U) (fun _ => (0 : alpha)) = 0 := rfl
+
+@[simp] theorem ofSeq_one [One alpha] : ofSeq (U := U) (fun _ => (1 : alpha)) = 1 := rfl
+
+end OfSeqOps
 
 /-- Map a function to the ultrapower. -/
 def map (f : alpha -> beta) : Ultrapower U alpha -> Ultrapower U beta :=
