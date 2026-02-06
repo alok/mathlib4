@@ -6,6 +6,8 @@ Authors: Alok Singh
 import Mathlib.Tactic.Transfer
 import Mathlib.Data.Rat.Hyperrational
 import Mathlib.Order.Filter.Germ.Product
+import Mathlib.Order.Filter.Germ.Ultrapower.Bridge
+import Mathlib.Order.Filter.Germ.Ultrapower.Levels
 
 /-!
 # Transfer Tactic Test Suite
@@ -41,7 +43,7 @@ theorem test_liftPred_coe_nat {P : ℕ → Prop} {n : ℕ} :
 theorem test_ultrapower_liftPred_std {ι α : Type*} (U : Ultrafilter ι) [NeBot (U : Filter ι)]
     {P : α → Prop} {a : α} :
     Filter.Ultrapower.liftPred (U := U) P (Filter.Ultrapower.std (U := U) a) ↔ P a := by
-  simpa using (Filter.Ultrapower.liftPred_std (U := U) (P := P) (a := a))
+  exact Filter.Ultrapower.liftPred_std (U := U) (P := P) (a := a)
 
 /-- Test: liftRel on standard elements is the relation on those elements. -/
 theorem test_liftRel_coe_nat {R : ℕ → ℕ → Prop} {a b : ℕ} :
@@ -54,6 +56,42 @@ theorem test_liftPred_ofRat {P : ℚ → Prop} {q : ℚ} :
   Hyperrational.liftPred_ofRat
 
 end BasicTransfer
+
+/-! ## 1b. Ultrapower-Generic Bridge and Levels -/
+
+section GenericUltrapower
+
+/-- Test: generic bridge for universal quantification over ultrapowers. -/
+theorem test_ultrapower_forall_bridge {ι α : Type*} (U : Ultrafilter ι) (P : α → Prop) :
+    (∀ x : Filter.Ultrapower U α, Filter.Ultrapower.liftPred (U := U) P x) ↔
+      ∀ f : ι → α, ∀ᶠ i in (U : Filter ι), P (f i) :=
+  Filter.Ultrapower.forall_liftPred_iff_forall_eventually (U := U) P
+
+/-- Test: generic bridge for existential quantification over ultrapowers. -/
+theorem test_ultrapower_exists_bridge {ι α : Type*} (U : Ultrafilter ι) (P : α → Prop) :
+    (∃ x : Filter.Ultrapower U α, Filter.Ultrapower.liftPred (U := U) P x) ↔
+      ∃ f : ι → α, ∀ᶠ i in (U : Filter ι), P (f i) :=
+  Filter.Ultrapower.exists_liftPred_iff_exists_eventually (U := U) P
+
+/-- Test: level-2 normalization from nested ultrapower to curried ultrapower. -/
+theorem test_level2_to_curried_ofSeq {ι κ α : Type*}
+    (U : Ultrafilter ι) (V : Ultrafilter κ) (f : ι × κ → α) :
+    Filter.Ultrapower.level2ToCurried (U := U) (V := V) (α := α)
+      (Filter.Ultrapower.ofSeq (U := U)
+        (fun i => Filter.Ultrapower.ofSeq (U := V) (fun j => f (i, j)))) =
+        Filter.Ultrapower.ofSeq (U := U.curry V) f :=
+  Filter.Ultrapower.level2ToCurried_ofSeq (U := U) (V := V) (α := α) f
+
+/-- Test: upward transfer works for arbitrary ultrapowers (not only `ℕ*`/`ℚ*`). -/
+theorem test_transfer_upward_generic {ι α : Type*} (U : Ultrafilter ι)
+    (P : α → Prop) (h : ∀ a : α, P a) :
+    ∀ x : Filter.Ultrapower U α, Filter.Ultrapower.liftPred (U := U) P x := by
+  intro x
+  rcases Filter.Ultrapower.ofSeq_surjective (U := U) x with ⟨f, rfl⟩
+  exact (Filter.Ultrapower.liftPred_ofSeq (U := U) (P := P) f).2
+    (Filter.Eventually.of_forall (fun i => h (f i)))
+
+end GenericUltrapower
 
 /-! ## 2. Logical Connective Transfer -/
 
@@ -319,7 +357,7 @@ theorem test_standardPart_liftPred (P : ℕ → Prop) :
 
 /-- Test: IsInfinite for omega. -/
 theorem test_omega_isInfinite : Hyper.IsInfinite Hyper.omega :=
-  Hyper.omega_isInfinite
+  Hyper.IsInfinitePos.isInfinite Hyper.omega_isInfinitePos
 
 /-- Test: Generic omega for any infinite linearly ordered type. -/
 theorem test_omega'_gt_std (n : ℕ) : Hyper.std n < (Hyper.omega' : Hyper ℕ ℕ) :=

@@ -147,13 +147,23 @@ theorem monadic_iInf {ι' : Type*} {f : ι' → Filter α} :
       simpa [h_univ] using hx_univ
     simpa using h_star_inter
 
-section Topology
-
-variable [TopologicalSpace α]
-
 /-- The monad of a filter `F`: points in the star of every set of `F`. -/
 def monad (F : Filter α) : Set (Ultrapower U α) :=
   {x | ∀ S ∈ F, liftPred (U := U) (· ∈ S) x}
+
+theorem monad_eq_monadic (F : Filter α) : monad (U := U) F = monadic (U := U) F := by
+  ext x
+  constructor
+  · intro hx
+    refine (mem_monadic_iff (U := U) (l := F) (x := x)).2 ?_
+    intro S hS
+    exact hx S hS
+  · intro hx S hS
+    exact (mem_monadic_iff (U := U) (l := F) (x := x)).1 hx S hS
+
+section Topology
+
+variable [TopologicalSpace α]
 
 /-- A point is near standard to `y` if it lies in the monad of `𝓝 y`. -/
 def IsNearStandard (x : Ultrapower U α) (y : α) : Prop :=
@@ -162,6 +172,14 @@ def IsNearStandard (x : Ultrapower U α) (y : α) : Prop :=
 theorem isNearStandard_def (x : Ultrapower U α) (y : α) :
     IsNearStandard (U := U) x y ↔ ∀ S ∈ nhds y, x ∈ star (U := U) S := by
   simp [IsNearStandard, monad, star]
+
+theorem isNearStandard_iff_mem_monadic_nhds (x : Ultrapower U α) (y : α) :
+    IsNearStandard (U := U) x y ↔ x ∈ monadic (U := U) (nhds y) := by
+  rw [IsNearStandard, monad_eq_monadic]
+
+theorem IsNearStandard.mem_star {x : Ultrapower U α} {y : α} {S : Set α}
+    (hxy : IsNearStandard (U := U) x y) (hS : S ∈ nhds y) : x ∈ star (U := U) S :=
+  (isNearStandard_def (U := U) (x := x) (y := y)).1 hxy S hS
 
 theorem IsNearStandard.unique [T2Space α] {x : Ultrapower U α} {r s : α}
     (hr : IsNearStandard (U := U) x r) (hs : IsNearStandard (U := U) x s) : r = s := by

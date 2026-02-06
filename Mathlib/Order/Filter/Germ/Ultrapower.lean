@@ -132,6 +132,13 @@ abbrev mapPred (P : alpha → Prop) : Ultrapower U alpha → Prop := liftPred P
 abbrev mapRel (R : alpha → beta → Prop) :
     Ultrapower U alpha → Ultrapower U beta → Prop := liftRel R
 
+/-- Alias for transfer-oriented APIs. -/
+abbrev transferPred (P : alpha → Prop) : Ultrapower U alpha → Prop := liftPred P
+
+/-- Alias for transfer-oriented APIs. -/
+abbrev transferRel (R : alpha → beta → Prop) :
+    Ultrapower U alpha → Ultrapower U beta → Prop := liftRel R
+
 /-- The ultrafilter on the base type represented by a point of the ultrapower. -/
 noncomputable def ultrafilterOf (x : Ultrapower U alpha) : Ultrafilter alpha :=
   Ultrafilter.map (Classical.choose (Quot.exists_rep x)) U
@@ -142,12 +149,47 @@ theorem liftPred_ofSeq {P : alpha → Prop} (f : iota → alpha) :
   by
     simp [liftPred, ofSeq, Germ.liftPred_coe]
 
+theorem liftPred_of_eventually {P : alpha → Prop} {f : iota → alpha}
+    (h : ∀ᶠ i in (U : Filter iota), P (f i)) :
+    liftPred (U := U) P (ofSeq (U := U) f) := by
+  exact (liftPred_ofSeq (U := U) (P := P) f).2 h
+
+theorem eventually_of_liftPred {P : alpha → Prop} {f : iota → alpha}
+    (h : liftPred (U := U) P (ofSeq (U := U) f)) :
+    ∀ᶠ i in (U : Filter iota), P (f i) := by
+  exact (liftPred_ofSeq (U := U) (P := P) f).1 h
+
+theorem liftPred_iff_eventually_of_eq {P : alpha → Prop} {x : Ultrapower U alpha} {f : iota → alpha}
+    (hx : x = ofSeq (U := U) f) :
+    liftPred (U := U) P x ↔ ∀ᶠ i in (U : Filter iota), P (f i) := by
+  subst hx
+  exact liftPred_ofSeq (U := U) (P := P) f
+
 @[simp]
 theorem liftRel_ofSeq {R : alpha → beta → Prop} (f : iota → alpha) (g : iota → beta) :
     liftRel (U := U) R (ofSeq (U := U) f) (ofSeq (U := U) g) ↔
       ∀ᶠ i in (U : Filter iota), R (f i) (g i) :=
   by
     simp [liftRel, ofSeq, Germ.liftRel_coe]
+
+theorem liftRel_of_eventually {R : alpha → beta → Prop} {f : iota → alpha} {g : iota → beta}
+    (h : ∀ᶠ i in (U : Filter iota), R (f i) (g i)) :
+    liftRel (U := U) R (ofSeq (U := U) f) (ofSeq (U := U) g) := by
+  exact (liftRel_ofSeq (U := U) (R := R) f g).2 h
+
+theorem eventually_of_liftRel {R : alpha → beta → Prop} {f : iota → alpha} {g : iota → beta}
+    (h : liftRel (U := U) R (ofSeq (U := U) f) (ofSeq (U := U) g)) :
+    ∀ᶠ i in (U : Filter iota), R (f i) (g i) := by
+  exact (liftRel_ofSeq (U := U) (R := R) f g).1 h
+
+theorem liftRel_iff_eventually_of_eq {R : alpha → beta → Prop}
+    {x : Ultrapower U alpha} {y : Ultrapower U beta}
+    {f : iota → alpha} {g : iota → beta}
+    (hx : x = ofSeq (U := U) f) (hy : y = ofSeq (U := U) g) :
+    liftRel (U := U) R x y ↔ ∀ᶠ i in (U : Filter iota), R (f i) (g i) := by
+  subst hx
+  subst hy
+  exact liftRel_ofSeq (U := U) (R := R) f g
 
 @[simp]
 theorem liftPred_std [NeBot (U : Filter iota)] {P : alpha → Prop} {a : alpha} :
